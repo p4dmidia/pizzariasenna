@@ -1,0 +1,72 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Outfit", sans-serif;
+
+  /* Cores extraídas da Logo */
+  --color-primary: #00E5FF; /* Ciano vibrante */
+  --color-primary-glow: rgba(0, 229, 255, 0.5);
+  
+  --color-secondary: #FFB800; /* Dourado/Âmbar */
+  --color-secondary-glow: rgba(255, 184, 0, 0.5);
+
+  --color-background: #050B18; /* Azul Profundo */
+  --color-surface: #0A1120; /* Azul Navy / Card background */
+  --color-surface-hover: #121B2E;
+  --color-surface-border: rgba(255, 255, 255, 0.08);
+
+  --color-text-main: #FFFFFF;
+  --color-text-muted: #94A3B8;
+
+  --radius-lg: 1rem;
+  --radius-xl: 1.5rem;
+  --radius-2xl: 2rem;
+}
+
+@layer base {
+  body {
+    @apply bg-background text-text-main font-sans antialiased;
+  }
+}
+
+@layer components {
+  .glass {
+    @apply bg-surface/60 backdrop-blur-xl border border-surface-border;
+  }
+  
+  .glass-card {
+    @apply bg-surface/40 backdrop-blur-lg border border-surface-border rounded-2xl transition-all duration-300 hover:bg-surface/60 hover:border-primary/20;
+  }
+
+  .glow-primary {
+    box-shadow: 0 0 20px var(--color-primary-glow);
+  }
+
+  .glow-secondary {
+    box-shadow: 0 0 20px var(--color-secondary-glow);
+  }
+
+  .text-glow {
+    text-shadow: 0 0 10px var(--color-primary-glow);
+  }
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Custom Gradients */
+.bg-gradient-main {
+  background: linear-gradient(135deg, #050B18 0%, #0A1120 100%);
+}
+
+.bg-gradient-primary {
+  background: linear-gradient(135deg, #00E5FF 0%, #0099FF 100%);
+}
+
