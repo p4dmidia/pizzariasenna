@@ -9,6 +9,29 @@ export default function PWAInstallPrompt() {
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
+    // Check if it's already installed/running in standalone mode
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone || document.referrer.includes('android-app://');
+    
+    if (isStandalone) {
+      console.log('PWA: Already in standalone mode');
+      setIsVisible(false);
+      return;
+    }
+
+    // Check if dismissed recently (within last 7 days)
+    const lastDismissed = localStorage.getItem('pwa-prompt-dismissed');
+    if (lastDismissed) {
+      const dismissedDate = new Date(lastDismissed);
+      const now = new Date();
+      const diffDays = Math.ceil(Math.abs(now.getTime() - dismissedDate.getTime()) / (1000 * 60 * 60 * 24));
+      
+      if (diffDays < 7) {
+        console.log('PWA: Prompt dismissed recently');
+        setIsVisible(false);
+        return;
+      }
+    }
+
     // Check if it's mobile or tablet
     const checkMobile = () => {
       const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera;
@@ -17,33 +40,44 @@ export default function PWAInstallPrompt() {
       return isMobileUA || isSmallScreen;
     };
     
-    setIsMobile(checkMobile());
-
-    // Show banner after 3s even if prompt is not ready (for testing)
-    const timer = setTimeout(() => {
-      console.log('PWA: Showing banner (timed)');
-      setIsVisible(true);
-    }, 5000);
+    const mobile = checkMobile();
+    setIsMobile(mobile);
 
     const handler = (e: any) => {
       console.log('PWA: beforeinstallprompt fired');
       e.preventDefault();
       setDeferredPrompt(e);
+      setIsVisible(true);
     };
 
     window.addEventListener('beforeinstallprompt', handler);
 
+    // For iOS and browsers that don't fire beforeinstallprompt, 
+    // we can show the banner after some interaction or time, but only if not standalone
+    if (!('onbeforeinstallprompt' in window) && mobile) {
+      const timer = setTimeout(() => {
+        console.log('PWA: Showing manual install banner for iOS/Other');
+        setIsVisible(true);
+      }, 8000);
+      return () => clearTimeout(timer);
+    }
+
     // Also check if already installed
     window.addEventListener('appinstalled', () => {
+      console.log('PWA: App installed');
       setIsVisible(false);
       setDeferredPrompt(null);
     });
 
     return () => {
       window.removeEventListener('beforeinstallprompt', handler);
-      clearTimeout(timer);
     };
   }, []);
+
+  const handleDismiss = () => {
+    setIsVisible(false);
+    localStorage.setItem('pwa-prompt-dismissed', new Date().toISOString());
+  };
 
   const handleInstall = async () => {
     if (!deferredPrompt) return;
@@ -54,7 +88,12 @@ export default function PWAInstallPrompt() {
     const { outcome } = await deferredPrompt.userChoice;
     console.log(`User response to the install prompt: ${outcome}`);
     
-    setDeferredPrompt(null);
+    if (outcome === 'accepted') {
+      setDeferredPrompt(null);
+    } else {
+      // If they dismissed the browser prompt, we also treat it as a dismissal
+      handleDismiss();
+    }
   };
 
   if (!isVisible) return null;
@@ -72,7 +111,7 @@ export default function PWAInstallPrompt() {
           <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 blur-3xl rounded-full -mr-16 -mt-16 group-hover:bg-primary/20 transition-all" />
           
           <button 
-            onClick={() => setIsVisible(false)}
+            onClick={handleDismiss}
             className="absolute top-4 right-4 p-2 text-text-muted hover:text-white transition-all"
           >
             <X size={20} />
@@ -104,7 +143,7 @@ export default function PWAInstallPrompt() {
                 <Download size={16} /> {deferredPrompt ? 'BAIXAR AGORA' : 'COMO INSTALAR'}
              </button>
              <button 
-               onClick={() => setIsVisible(false)}
+               onClick={handleDismiss}
                className="px-6 bg-surface/50 border border-surface-border text-text-muted py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:text-white transition-all"
              >
                 DEPOIS
