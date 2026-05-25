@@ -16,12 +16,18 @@ import {
   CheckCircle2,
   ArrowLeft,
   Clock,
-  AlertCircle
+  AlertCircle,
+  LayoutDashboard,
+  Users,
+  Wallet,
+  PieChart,
+  Settings
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import CartDrawer from '../components/CartDrawer';
 import { useCart } from '../context/CartContext';
+import { useAuth } from '../context/AuthContext';
 
 
 
@@ -65,8 +71,10 @@ const COUPONS = [
 ];
 
 import logoImg from '../assets/logo-casarao.jpeg';
+import NotificationBell from '../components/NotificationBell';
 
 export default function Coupons() {
+  const { user, profile, signOut } = useAuth();
   const [activeTab, setActiveTab] = useState('ativo');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
@@ -81,6 +89,13 @@ export default function Coupons() {
     setCopiedCode(code);
     setTimeout(() => setCopiedCode(null), 2000);
   };
+
+  const nameInitials = (profile?.full_name || 'Visitante')
+    .split(' ')
+    .map(n => n[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
 
   return (
     <div className="min-h-screen bg-background flex flex-col text-text-main">
@@ -110,9 +125,7 @@ export default function Coupons() {
           <Link to="/clube" className="hidden lg:flex items-center gap-2 px-4 py-2 rounded-full bg-secondary/10 border border-secondary/20 text-secondary text-xs font-black uppercase hover:bg-secondary/20 transition-all">
              <TrendingUp size={14} /> Clube 7
           </Link>
-          <button className="p-2.5 text-text-muted hover:text-primary hover:bg-primary/10 rounded-full transition-all relative">
-            <Bell size={22} />
-          </button>
+          <NotificationBell />
           <button 
             onClick={() => setIsCartOpen(true)}
             className="p-2.5 text-text-muted hover:text-primary hover:bg-primary/10 rounded-full transition-all relative"
@@ -143,29 +156,49 @@ export default function Coupons() {
           </div>
 
           <div className="p-6">
-            <div className="flex items-center gap-4 mb-8 p-4 rounded-2xl bg-surface border border-surface-border">
-              <div className="w-12 h-12 rounded-full bg-gradient-primary flex items-center justify-center text-background">
-                <User size={24} />
+            <div className="flex items-center gap-4 mb-8 p-4 rounded-2xl bg-primary/10 border border-primary/20 shadow-[0_0_15px_rgba(0,229,255,0.1)]">
+              <div className="w-12 h-12 rounded-full bg-gradient-primary flex items-center justify-center text-background overflow-hidden">
+                {profile?.avatar_url ? (
+                  <img src={profile.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+                ) : (
+                  <span className="font-bold text-sm">{nameInitials}</span>
+                )}
               </div>
               <div>
-                <p className="font-bold text-sm">Miguel Oliveira</p>
-                <p className="text-[10px] text-text-muted uppercase font-black tracking-widest">Visionário</p>
+                <p className="font-bold text-sm line-clamp-1">{profile?.full_name || 'Visitante'}</p>
+                <p className="text-[10px] text-text-muted uppercase font-black tracking-widest">{profile?.plan || 'Cliente'}</p>
               </div>
             </div>
 
             <nav className="space-y-1">
-              <SidebarLink icon={User} label="Minha Conta" isLink to="/profile" />
-              <SidebarLink icon={History} label="Meus Pedidos" isLink to="/" />
-              <SidebarLink icon={Heart} label="Favoritos" isLink to="/favorites" />
-              <SidebarLink icon={Ticket} label="Cupons" active />
-              <SidebarLink icon={TrendingUp} label="Clube 7" isLink to="/clube" />
-              <SidebarLink icon={HelpCircle} label="Suporte" isLink to="/support" />
-
+              {profile?.plan === 'empreendedor' || profile?.plan === 'visionario' ? (
+                <>
+                  <SidebarLink icon={LayoutDashboard} label="Dashboard" isLink to="/dashboard" />
+                  <SidebarLink icon={Users} label="Minha Rede" isLink to="/dashboard/network" />
+                  <SidebarLink icon={Wallet} label="Financeiro" isLink to="/dashboard/financial" />
+                  <SidebarLink icon={ShoppingCart} label="Delivery" isLink to="/" />
+                  <SidebarLink icon={Ticket} label="Cupons" active />
+                  <SidebarLink icon={PieChart} label="Relatórios" isLink to="/dashboard/reports" />
+                  <SidebarLink icon={Settings} label="Configurações" isLink to="/dashboard/settings" />
+                </>
+              ) : (
+                <>
+                  <SidebarLink icon={User} label="Minha Conta" isLink to="/profile" />
+                  <SidebarLink icon={History} label="Meus Pedidos" isLink to="/" />
+                  <SidebarLink icon={Heart} label="Favoritos" isLink to="/favorites" />
+                  <SidebarLink icon={Ticket} label="Cupons" active />
+                  <SidebarLink icon={TrendingUp} label="Clube 7" isLink to="/clube" />
+                  <SidebarLink icon={HelpCircle} label="Suporte" isLink to="/support" />
+                </>
+              )}
             </nav>
 
-            <Link to="/login" className="block w-full mt-8 bg-surface border border-surface-border text-text-muted font-black py-4 rounded-2xl text-xs uppercase tracking-widest hover:text-red-400 transition-all text-center">
+            <button 
+              onClick={signOut}
+              className="block w-full mt-8 bg-surface border border-surface-border text-text-muted font-black py-4 rounded-2xl text-xs uppercase tracking-widest hover:text-red-400 transition-all text-center"
+            >
               SAIR DA CONTA
-            </Link>
+            </button>
           </div>
         </aside>
 

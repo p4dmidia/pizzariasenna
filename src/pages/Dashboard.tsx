@@ -1,4 +1,6 @@
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
+import BenefitsModal from '../components/BenefitsModal';
+import CareerModal from '../components/CareerModal';
 import { 
   TrendingUp, 
   Users, 
@@ -15,27 +17,108 @@ import {
   ChevronRight,
   Target,
   Clock,
-  PieChart
+  PieChart,
+  Loader2,
+  Zap,
+  Ticket
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
-
+import { Link, Navigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { supabase } from '../lib/supabase';
 import logoImg from '../assets/logo-casarao.jpeg';
-
-const STATS = [
-  { label: 'Saldo Disponível', value: 'R$ 1.250,00', icon: Wallet, color: 'primary', trend: '+12%' },
-  { label: 'Ganhos Totais', value: 'R$ 14.820,00', icon: TrendingUp, color: 'secondary', trend: '+5.4%' },
-  { label: 'Minha Rede', value: '142', icon: Users, color: 'primary', trend: '+8' },
-  { label: 'Pontuação Mensal', value: '2.500 pts', icon: Award, color: 'secondary', trend: '+150' },
-];
-
-const RECENT_ACTIVITY = [
-  { id: 1, type: 'comissao', user: 'Marcos Silva', level: 'Nível 1', amount: 'R$ 15,00', date: 'Hoje, 14:20', status: 'confirmado' },
-  { id: 2, type: 'cashback', user: 'Seu Pedido #4820', level: 'Pessoal', amount: 'R$ 8,40', date: 'Hoje, 12:10', status: 'pendente' },
-  { id: 3, type: 'comissao', user: 'Ana Paula', level: 'Nível 2', amount: 'R$ 10,00', date: 'Ontem, 20:45', status: 'confirmado' },
-  { id: 4, type: 'ativacao', user: 'Ricardo Santos', level: 'Nível 1', amount: 'R$ 25,00', date: 'Ontem, 18:30', status: 'confirmado' },
-];
+import NotificationBell from '../components/NotificationBell';
 
 export default function Dashboard() {
+  const { user, profile, loading: authLoading, signOut } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [activities, setActivities] = useState<any[]>([]);
+  const [stats, setStats] = useState({
+    totalEarnings: 0,
+    networkCount: 0
+  });
+  const [isBenefitsOpen, setIsBenefitsOpen] = useState(false);
+  const [isCareerOpen, setIsCareerOpen] = useState(false);
+
+  useEffect(() => {
+    if (profile) {
+      fetchDashboardData();
+    }
+  }, [profile]);
+
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true);
+      
+      // 1. Ganhos Totais
+      const { data: commissions } = await supabase
+        .from('commissions')
+        .select('amount')
+        .eq('user_id', profile?.id);
+      
+      const totalEarnings = commissions?.reduce((acc, curr) => acc + Number(curr.amount), 0) || 0;
+
+      // 2. Tamanho da Rede (Diretos por enquanto)
+      const { count } = await supabase
+        .from('user_profiles')
+        .select('*', { count: 'exact', head: true })
+        .eq('sponsor_id', profile?.id);
+
+      setStats({
+        totalEarnings,
+        networkCount: count || 0
+      });
+
+      // 3. Atividades Recentes (Comissões e Pedidos)
+      const { data: recentCommissions } = await supabase
+        .from('commissions')
+        .select(`
+          id,
+          amount,
+          created_at,
+          from_user_id,
+          level,
+          from_user:user_profiles!commissions_from_user_id_fkey(full_name)
+        `)
+        .eq('user_id', profile?.id)
+        .order('created_at', { ascending: false })
+        .limit(4);
+
+      setActivities(recentCommissions?.map(c => ({
+        id: c.id,
+        type: 'comissao',
+        user: (c as any).from_user?.full_name || 'Afiliado',
+        level: `Nível ${c.level}`,
+        amount: `R$ ${Number(c.amount).toFixed(2)}`,
+        date: new Date(c.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }),
+        status: 'confirmado'
+      })) || []);
+
+    } catch (error) {
+      console.error('Erro no dashboard:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4">
+        <Loader2 className="w-12 h-12 text-primary animate-spin" />
+        <p className="text-text-muted font-black uppercase tracking-widest text-xs">Acessando Terminal...</p>
+      </div>
+    );
+  }
+
+  if (!user) return <Navigate to="/login" replace />;
+
+  const STATS_CARDS = [
+    { label: 'Saldo Disponível', value: `R$ ${profile?.balance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, icon: Wallet, color: 'primary', trend: '+0%' },
+    { label: 'Ganhos Totais', value: `R$ ${stats.totalEarnings.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, icon: TrendingUp, color: 'secondary', trend: '+0%' },
+    { label: 'Minha Rede', value: stats.networkCount.toString(), icon: Users, color: 'primary', trend: `+${stats.networkCount}` },
+    { label: 'Pontuação Mensal', value: `${profile?.points} pts`, icon: Award, color: 'secondary', trend: '+0' },
+  ];
+
   return (
     <div className="min-h-screen bg-background text-text-main font-sans flex">
       {/* Sidebar Desktop */}
@@ -49,14 +132,11 @@ export default function Dashboard() {
         <nav className="flex-1 px-4 space-y-2 mt-4">
           <SidebarLink icon={LayoutDashboard} label="Dashboard" active />
           <SidebarLink icon={Users} label="Minha Rede" to="/dashboard/network" />
-
           <SidebarLink icon={Wallet} label="Financeiro" to="/dashboard/financial" />
-
           <SidebarLink icon={ShoppingCart} label="Delivery" to="/" />
+          <SidebarLink icon={Ticket} label="Cupons" to="/coupons" />
           <SidebarLink icon={PieChart} label="Relatórios" to="/dashboard/reports" />
-
           <SidebarLink icon={Settings} label="Configurações" to="/dashboard/settings" />
-
         </nav>
 
         <div className="p-6">
@@ -65,21 +145,25 @@ export default function Dashboard() {
                <Zap size={40} className="text-primary" />
             </div>
             <p className="text-[10px] font-black uppercase tracking-widest text-primary mb-1">Seu Plano</p>
-            <p className="text-lg font-black mb-4">Visionário</p>
-            <button className="w-full py-2.5 bg-primary text-background rounded-xl font-black text-[10px] uppercase tracking-widest hover:scale-105 transition-all">
+            <p className="text-lg font-black mb-4 capitalize">{profile?.plan || 'Cliente'}</p>
+            <button 
+              onClick={() => setIsBenefitsOpen(true)}
+              className="w-full py-2.5 bg-primary text-background rounded-xl font-black text-[10px] uppercase tracking-widest hover:scale-105 transition-all"
+            >
               Ver Benefícios
             </button>
           </div>
-          <Link to="/login" className="flex items-center gap-3 w-full p-4 mt-6 text-text-muted hover:text-red-400 transition-colors font-black text-xs uppercase tracking-widest">
+          <button 
+            onClick={signOut}
+            className="flex items-center gap-3 w-full p-4 mt-6 text-text-muted hover:text-red-400 transition-colors font-black text-xs uppercase tracking-widest"
+          >
             <LogOut size={18} /> Sair da Conta
-          </Link>
-
+          </button>
         </div>
       </aside>
 
       {/* Main Content */}
       <main className="flex-1 lg:ml-72 min-h-screen">
-        {/* Header */}
         <header className="h-20 glass-card mx-6 mt-6 flex items-center justify-between px-8 border border-white/5">
           <div className="flex items-center gap-4 flex-1">
              <div className="relative max-w-md w-full hidden md:block">
@@ -93,43 +177,37 @@ export default function Dashboard() {
           </div>
 
           <div className="flex items-center gap-6">
-            <button className="relative p-2 text-text-muted hover:text-primary transition-colors">
-              <Bell size={22} />
-              <span className="absolute top-2 right-2 w-2 h-2 bg-primary rounded-full" />
-            </button>
+            <NotificationBell />
             <div className="flex items-center gap-3 pl-6 border-l border-surface-border">
               <div className="text-right hidden sm:block">
-                <p className="text-xs font-black uppercase">Miguel Oliveira</p>
-                <p className="text-[10px] text-primary font-bold">ID: CASARAO007</p>
+                <p className="text-xs font-black uppercase">{profile?.full_name}</p>
+                <p className="text-[10px] text-primary font-bold">ID: {profile?.referral_code}</p>
               </div>
               <div className="w-10 h-10 rounded-xl bg-surface border border-surface-border flex items-center justify-center overflow-hidden">
-                <img src="https://ui-avatars.com/api/?name=Miguel+Oliveira&background=00E5FF&color=0B0E14&bold=true" alt="Avatar" />
+                <img src={profile?.avatar_url || `https://ui-avatars.com/api/?name=${profile?.full_name}&background=00E5FF&color=0B0E14&bold=true`} alt="Avatar" />
               </div>
             </div>
           </div>
         </header>
 
-        {/* Dashboard Grid */}
         <div className="p-6 space-y-6">
-          {/* Welcome Section */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
              <div>
-                <h1 className="text-3xl font-black mb-1">Olá, Miguel! 👋</h1>
-                <p className="text-text-muted text-sm">Seu negócio cresceu <span className="text-primary font-bold">12%</span> esta semana.</p>
+                <h1 className="text-3xl font-black mb-1">Olá, {profile?.full_name.split(' ')[0]}! 👋</h1>
+                <p className="text-text-muted text-sm">Seu negócio cresceu <span className="text-primary font-bold">{stats.networkCount > 0 ? '+12%' : '0%'}</span> esta semana.</p>
              </div>
              <div className="flex gap-3">
-                <button className="bg-primary text-background px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg glow-primary flex items-center gap-2">
+                <Link to="/dashboard/financial" className="bg-primary text-background px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg glow-primary flex items-center gap-2 hover:scale-105 transition-all">
                    <ArrowUpRight size={16} /> Solicitar Saque
-                </button>
-                <button className="glass px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-surface-hover flex items-center gap-2">
+                </Link>
+                <Link to="/dashboard/network" className="glass px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-surface-hover flex items-center gap-2 hover:scale-105 transition-all">
                    <Users size={16} /> Convidar Amigo
-                </button>
+                </Link>
              </div>
           </div>
 
-          {/* Stats Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {STATS.map((stat, index) => (
+            {STATS_CARDS.map((stat, index) => (
               <motion.div 
                 key={index}
                 initial={{ opacity: 0, y: 20 }}
@@ -152,14 +230,13 @@ export default function Dashboard() {
           </div>
 
           <div className="grid lg:grid-cols-3 gap-6">
-            {/* Recent Activity Table */}
             <div className="lg:col-span-2 glass-card p-8 border-white/5">
               <div className="flex items-center justify-between mb-8">
                  <h3 className="text-xl font-black">Atividades Recentes</h3>
-                 <button className="text-xs font-black text-primary uppercase tracking-widest hover:underline">Ver Tudo</button>
+                 <Link to="/dashboard/reports" className="text-xs font-black text-primary uppercase tracking-widest hover:underline">Ver Tudo</Link>
               </div>
               <div className="space-y-6">
-                {RECENT_ACTIVITY.map((item) => (
+                {activities.length > 0 ? activities.map((item) => (
                   <div key={item.id} className="flex items-center justify-between group">
                     <div className="flex items-center gap-4">
                       <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
@@ -182,11 +259,12 @@ export default function Dashboard() {
                        </p>
                     </div>
                   </div>
-                ))}
+                )) : (
+                  <div className="text-center py-10 opacity-50">Nenhuma atividade recente.</div>
+                )}
               </div>
             </div>
 
-            {/* Network Progress */}
             <div className="glass-card p-8 border-white/5 space-y-8">
                <h3 className="text-xl font-black">Progresso de Carreira</h3>
                
@@ -195,14 +273,14 @@ export default function Dashboard() {
                     <div className="flex justify-between items-end mb-3">
                        <div>
                           <p className="text-xs font-black uppercase text-text-muted">Nível Atual</p>
-                          <p className="text-lg font-black text-primary">Diamante Pro</p>
+                          <p className="text-lg font-black text-primary">Iniciante</p>
                        </div>
-                       <p className="text-xs font-black">85%</p>
+                       <p className="text-xs font-black">0%</p>
                     </div>
                     <div className="h-2 w-full bg-surface rounded-full overflow-hidden">
                        <motion.div 
                         initial={{ width: 0 }}
-                        animate={{ width: '85%' }}
+                        animate={{ width: '0%' }}
                         className="h-full bg-gradient-primary glow-primary" 
                        />
                     </div>
@@ -215,13 +293,16 @@ export default function Dashboard() {
                         </div>
                         <p className="text-xs font-black uppercase tracking-widest">Próxima Meta</p>
                      </div>
-                     <p className="text-sm text-text-muted mb-4">Indique mais <span className="text-white font-black">12 pessoas</span> para atingir o nível <span className="text-secondary font-black">Embaixador</span>.</p>
+                     <p className="text-sm text-text-muted mb-4">Indique seus primeiros amigos para começar a ganhar bônus de rede!</p>
                      <div className="flex items-center gap-2 text-[10px] font-black text-secondary">
                         <Clock size={12} /> Faltam 12 dias para o fechamento
                      </div>
                   </div>
 
-                  <button className="w-full py-4 glass border border-primary/20 text-primary rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-primary hover:text-background transition-all shadow-lg">
+                  <button 
+                    onClick={() => setIsCareerOpen(true)}
+                    className="w-full py-4 glass border border-primary/20 text-primary rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-primary hover:text-background transition-all shadow-lg"
+                  >
                     Ver Plano de Carreira
                   </button>
                </div>
@@ -234,16 +315,26 @@ export default function Dashboard() {
       <nav className="lg:hidden fixed bottom-0 left-0 w-full glass z-50 flex items-center justify-around py-3 px-4">
         <MobileNavLink icon={LayoutDashboard} label="Home" active />
         <MobileNavLink icon={Users} label="Rede" to="/dashboard/network" />
-
         <MobileNavLink icon={Wallet} label="Saldo" to="/dashboard/financial" />
-
-        <MobileNavLink icon={Settings} label="Perfil" />
+        <MobileNavLink icon={Settings} label="Perfil" to="/dashboard/settings" />
       </nav>
+
+      {/* Modais de Benefícios e Carreira */}
+      <BenefitsModal 
+        isOpen={isBenefitsOpen} 
+        onClose={() => setIsBenefitsOpen(false)} 
+        currentPlan={profile?.plan}
+      />
+      <CareerModal 
+        isOpen={isCareerOpen} 
+        onClose={() => setIsCareerOpen(false)} 
+        currentPoints={profile?.points}
+      />
     </div>
   );
 }
 
-function SidebarLink({ icon: Icon, label, active, to = '#' }: any) {
+function SidebarLink({ icon: Icon, label, active = false, to = '#' }: any) {
   return (
     <Link 
       to={to}
@@ -254,22 +345,16 @@ function SidebarLink({ icon: Icon, label, active, to = '#' }: any) {
       }`}
     >
       <Icon size={20} className={active ? '' : 'group-hover:text-primary transition-colors'} />
-      <span className="text-sm font-black uppercase tracking-widest">{label}</span>
+      <span className="text-sm font-black">{label}</span>
     </Link>
   );
 }
 
-function MobileNavLink({ icon: Icon, label, active }: any) {
+function MobileNavLink({ icon: Icon, label, active = false, to = "" }: any) {
   return (
-    <button className={`flex flex-col items-center gap-1 p-2 ${active ? 'text-primary' : 'text-text-muted'}`}>
+    <Link to={to} className={`flex flex-col items-center gap-1 p-2 ${active ? 'text-primary' : 'text-text-muted'}`}>
       <Icon size={20} />
       <span className="text-[10px] font-black uppercase tracking-tighter">{label}</span>
-    </button>
+    </Link>
   );
 }
-
-const Zap = ({ size, className }: any) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
-  </svg>
-);

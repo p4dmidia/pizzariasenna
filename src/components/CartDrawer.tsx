@@ -8,6 +8,7 @@ import {
   ArrowRight,
   Ticket
 } from 'lucide-react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 
@@ -17,10 +18,20 @@ interface CartDrawerProps {
 }
 
 export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
-  const { cartItems, updateQuantity, removeFromCart, cartTotal } = useCart();
+  const [couponCode, setCouponCode] = useState('');
+  const { 
+    cartItems, 
+    updateQuantity, 
+    removeFromCart, 
+    cartTotal,
+    appliedCoupon,
+    discountAmount,
+    applyCoupon,
+    removeCoupon
+  } = useCart();
   const navigate = useNavigate();
   const deliveryFee = cartItems.length > 0 ? 5.00 : 0;
-  const total = cartTotal + deliveryFee;
+  const total = Math.max(0, cartTotal + deliveryFee - discountAmount);
 
   const handleCheckout = () => {
     onClose();
@@ -126,13 +137,35 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
                      <input 
                        type="text" 
                        placeholder="CUPOM"
-                       className="w-full bg-background border border-surface-border rounded-xl py-3 px-10 text-[10px] font-black tracking-widest outline-none focus:border-primary/50"
+                       value={couponCode}
+                       onChange={(e) => setCouponCode(e.target.value)}
+                       disabled={!!appliedCoupon}
+                       className="w-full bg-background border border-surface-border rounded-xl py-3 px-10 text-[10px] font-black tracking-widest outline-none focus:border-primary/50 disabled:opacity-70 uppercase"
                      />
                      <Ticket className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" size={16} />
                   </div>
-                  <button className="px-6 bg-surface border border-surface-border rounded-xl text-[10px] font-black uppercase tracking-widest hover:border-primary/50 transition-all">
-                     Aplicar
-                  </button>
+                  {appliedCoupon ? (
+                    <button 
+                      onClick={() => {
+                        removeCoupon();
+                        setCouponCode('');
+                      }}
+                      className="px-6 bg-red-500/10 border border-red-500/30 rounded-xl text-[10px] font-black uppercase tracking-widest text-red-400 hover:bg-red-500/20 transition-all cursor-pointer"
+                    >
+                      Remover
+                    </button>
+                  ) : (
+                    <button 
+                      onClick={() => {
+                        if (couponCode.trim()) {
+                          applyCoupon(couponCode);
+                        }
+                      }}
+                      className="px-6 bg-surface border border-surface-border rounded-xl text-[10px] font-black uppercase tracking-widest hover:border-primary/50 transition-all cursor-pointer"
+                    >
+                      Aplicar
+                    </button>
+                  )}
                </div>
 
                <div className="space-y-2 pt-4">
@@ -140,6 +173,12 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
                      <span>Subtotal</span>
                      <span>R$ {cartTotal.toFixed(2)}</span>
                   </div>
+                  {discountAmount > 0 && (
+                     <div className="flex justify-between text-xs font-bold text-emerald-400 uppercase tracking-widest">
+                        <span>Desconto {appliedCoupon ? `(${appliedCoupon.code})` : ''}</span>
+                        <span>- R$ {discountAmount.toFixed(2)}</span>
+                      </div>
+                  )}
                   <div className="flex justify-between text-xs font-bold text-text-muted uppercase tracking-widest">
                      <span>Taxa de Entrega</span>
                      <span>R$ {deliveryFee.toFixed(2)}</span>

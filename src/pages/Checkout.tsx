@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   ArrowLeft, 
@@ -13,85 +13,691 @@ import {
   ShieldCheck,
   Plus,
   Wallet,
-  Truck
+  Truck,
+  Loader2,
+  X
 } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
+import { useAuth } from '../context/AuthContext';
+import { supabase } from '../lib/supabase';
+import { toast } from 'react-hot-toast';
 
 import logoImg from '../assets/logo-casarao.jpeg';
 
 export default function Checkout() {
   const navigate = useNavigate();
-  const { cartItems, cartTotal, clearCart } = useCart();
+  const { cartItems, cartTotal, discountAmount, appliedCoupon, clearCart } = useCart();
+  const { profile: authProfile } = useAuth();
+  const isAdminDemo = localStorage.getItem('admin_auth') === 'true';
+
+  const [showGuestModal, setShowGuestModal] = useState(false);
+  const [guestName, setGuestName] = useState('');
+  const [guestPhone, setGuestPhone] = useState('');
+  const [guestAddress, setGuestAddress] = useState('');
+  const [guestNumber, setGuestNumber] = useState('');
+  const [guestComplement, setGuestComplement] = useState('');
+  const [guestNeighborhood, setGuestNeighborhood] = useState('');
+  const [guestCity, setGuestCity] = useState('');
+  const [guestZipcode, setGuestZipcode] = useState('');
+  const [guestProfile, setGuestProfile] = useState<any | null>(null);
+
+  const profile = isAdminDemo ? {
+    id: 0,
+    mocha_user_id: 'admin',
+    email: 'admin@casarao.com',
+    full_name: 'Admin Casarão',
+    role: 'admin',
+    plan: 'master',
+    referral_code: 'ADMIN',
+    balance: 1000.00,
+    address: 'Rua do Admin',
+    number: '123',
+    complement: 'Apt 1',
+    neighborhood: 'Centro',
+    city: 'Casarão',
+    points: 100
+  } : (authProfile || guestProfile);
+
   const [step, setStep] = useState(1);
   const [paymentMethod, setPaymentMethod] = useState('');
+  const [observations, setObservations] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [isAddressSelected, setIsAddressSelected] = useState(false);
 
-  const deliveryFee = cartItems.length > 0 ? 5.00 : 0;
-  const total = cartTotal + deliveryFee;
-
-  const handleFinish = () => {
-    setIsProcessing(true);
-    // Simulate API call
-    setTimeout(() => {
-      setIsProcessing(false);
-      setIsSuccess(true);
-      clearCart();
-    }, 2000);
+  const handleOpenGuestModal = () => {
+    if (guestProfile) {
+      setGuestName(guestProfile.full_name || '');
+      setGuestPhone(guestProfile.phone || '');
+      setGuestAddress(guestProfile.address || '');
+      setGuestNumber(guestProfile.number || '');
+      setGuestComplement(guestProfile.complement || '');
+      setGuestNeighborhood(guestProfile.neighborhood || '');
+      setGuestCity(guestProfile.city || '');
+      setGuestZipcode(guestProfile.zipcode || '');
+    }
+    setShowGuestModal(true);
   };
 
-  if (isSuccess) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-6">
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="glass-card max-w-md w-full p-12 text-center"
-        >
-          <div className="w-24 h-24 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-8 relative">
-            <motion.div
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              transition={{ delay: 0.2, type: 'spring' }}
-            >
-              <CheckCircle2 size={64} className="text-primary" />
-            </motion.div>
-            <motion.div 
-              animate={{ scale: [1, 1.2, 1] }}
-              transition={{ repeat: Infinity, duration: 2 }}
-              className="absolute inset-0 rounded-full bg-primary/10 -z-10"
-            />
-          </div>
-          
-          <h2 className="text-3xl font-black italic uppercase tracking-tighter mb-4 text-glow">Pedido Confirmado!</h2>
-          <p className="text-text-muted text-sm mb-8">
-            Sua pizza já está sendo preparada com muito carinho e chegará em breve.
-          </p>
-          
-          <div className="bg-surface/50 border border-surface-border rounded-2xl p-6 mb-8 text-left space-y-4">
-             <div className="flex items-center gap-3">
-                <Clock className="text-primary" size={20} />
-                <div>
-                   <p className="text-[10px] text-text-muted font-black uppercase tracking-widest">Tempo Estimado</p>
-                   <p className="text-sm font-bold">30 - 45 minutos</p>
-                </div>
-             </div>
-             <div className="flex items-center gap-3">
-                <MapPin className="text-primary" size={20} />
-                <div>
-                   <p className="text-[10px] text-text-muted font-black uppercase tracking-widest">Endereço de Entrega</p>
-                   <p className="text-sm font-bold truncate max-w-[200px]">Rua das Pizzas, 123 - Centro</p>
-                </div>
-             </div>
-          </div>
+  const handleSaveGuestAddress = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!guestName.trim() || !guestPhone.trim() || !guestAddress.trim() || !guestNumber.trim() || !guestNeighborhood.trim()) {
+      toast.error('Preencha os campos obrigatórios (Nome, WhatsApp, Endereço, Número e Bairro).');
+      return;
+    }
+    
+    const newGuestProfile = {
+      id: 9999,
+      full_name: guestName,
+      phone: guestPhone,
+      address: guestAddress,
+      number: guestNumber,
+      complement: guestComplement,
+      neighborhood: guestNeighborhood,
+      city: guestCity || 'Casarão',
+      zipcode: guestZipcode,
+      email: 'guest@casarao.com',
+      balance: 0
+    };
+    
+    setGuestProfile(newGuestProfile);
+    setIsAddressSelected(true);
+    setShowGuestModal(false);
+    toast.success('Endereço de entrega registrado!');
+  };
 
+  const [order, setOrder] = useState<any | null>(null);
+  const [orderItems, setOrderItems] = useState<any[]>([]);
+  const [supportWhatsapp, setSupportWhatsapp] = useState('');
+  const [loadingOrder, setLoadingOrder] = useState(false);
+
+  const deliveryFee = cartItems.length > 0 ? 5.00 : 0;
+  const total = Math.max(0, cartTotal + deliveryFee - discountAmount);
+
+  useEffect(() => {
+    if (profile?.address) {
+      setIsAddressSelected(true);
+    } else {
+      setIsAddressSelected(false);
+    }
+  }, [profile?.address]);
+
+  useEffect(() => {
+    const status = searchParams.get('status') || searchParams.get('collection_status');
+    const orderIdStr = searchParams.get('order_id') || searchParams.get('external_reference');
+
+    if (status && orderIdStr) {
+      const orderId = parseInt(orderIdStr, 10);
+      
+      const processPaymentResponse = async () => {
+        // Se for o retorno inicial do pagamento (Mercado Pago), atualizar status no banco
+        if (status === 'approved' || status === 'success' && !searchParams.get('processed')) {
+          const isReturningFromPayment = status === 'approved' || status === 'success' && searchParams.get('collection_status');
+          
+          if (isReturningFromPayment) {
+            try {
+              const { error } = await supabase
+                .from('orders')
+                .update({ status: 'preparando', updated_at: new Date().toISOString() })
+                .eq('id', orderId);
+
+              if (error) throw error;
+              toast.success('Pagamento aprovado com sucesso!');
+            } catch (err: any) {
+              console.error('Erro ao atualizar status do pedido:', err);
+              toast.error('Erro ao registrar confirmação de pagamento.');
+            }
+          }
+        }
+        
+        // Carregar os dados do pedido para rastreamento
+        setLoadingOrder(true);
+        try {
+          const [orderRes, settingsRes] = await Promise.all([
+            supabase.from('orders').select('*').eq('id', orderId).single(),
+            supabase.from('system_settings').select('value').eq('key', 'support_whatsapp').maybeSingle()
+          ]);
+
+          if (orderRes.data) {
+            setOrder(orderRes.data);
+            
+            // Carregar itens do localStorage
+            const savedItems = localStorage.getItem(`order_items_${orderId}`);
+            if (savedItems) {
+              setOrderItems(JSON.parse(savedItems));
+            }
+            
+            setIsSuccess(true);
+          }
+          
+          if (settingsRes.data?.value) {
+            setSupportWhatsapp(settingsRes.data.value);
+          }
+        } catch (err) {
+          console.error(err);
+        } finally {
+          setLoadingOrder(false);
+        }
+
+        // Limpar parâmetros extras do Mercado Pago e manter apenas status=success e order_id
+        if (searchParams.get('collection_status') || searchParams.get('status') === 'approved') {
+          setSearchParams({ status: 'success', order_id: orderIdStr }, { replace: true });
+        }
+      };
+
+      processPaymentResponse();
+
+      // Assinar atualizações em tempo real do status do pedido
+      const channel = supabase
+        .channel(`order-tracking:${orderId}`)
+        .on('postgres_changes', { 
+          event: 'UPDATE', 
+          schema: 'public', 
+          table: 'orders',
+          filter: `id=eq.${orderId}`
+        }, (payload) => {
+          const updatedOrder = payload.new;
+          setOrder(updatedOrder);
+
+          const statusLabels: Record<string, string> = {
+            'pendente': 'Aguardando aceite do estabelecimento',
+            'preparando': 'Em produção (preparando sua pizza)',
+            'entrega': 'Saiu para entrega',
+            'concluido': 'Entregue',
+            'cancelado': 'Cancelado'
+          };
+          
+          const newLabel = statusLabels[updatedOrder.status] || updatedOrder.status;
+          toast.success(`Pedido #${orderId}: ${newLabel}`, {
+            icon: '🍕',
+            duration: 6000
+          });
+        })
+        .subscribe((status) => {
+          console.log("Supabase Realtime Status (Checkout):", status);
+          if (status === 'CHANNEL_ERROR') {
+            console.error("Erro na inscrição do Realtime do Checkout. Verifique se a replicação Realtime está ativada no Supabase.");
+          }
+        });
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }
+  }, [searchParams, setSearchParams, clearCart]);
+
+  const handleAddTestBalance = async () => {
+    try {
+      const currentBalance = profile?.balance || 0;
+      const newBalance = currentBalance + 100;
+      
+      if (profile) {
+        profile.balance = newBalance;
+        
+        // Atualizar no localStorage (mock-profiles)
+        const mockProfiles = JSON.parse(localStorage.getItem('supabase.mock-profiles') || '[]');
+        const localProfileIndex = mockProfiles.findIndex((p: any) => p.mocha_user_id === profile.mocha_user_id);
+        if (localProfileIndex !== -1) {
+          mockProfiles[localProfileIndex].balance = newBalance;
+          localStorage.setItem('supabase.mock-profiles', JSON.stringify(mockProfiles));
+        }
+
+        // Atualizar no banco de dados se for um usuário persistido
+        const { data: dbProfileCheck } = await supabase
+          .from('user_profiles')
+          .select('id')
+          .eq('id', profile.id)
+          .maybeSingle();
+
+        if (dbProfileCheck) {
+          await supabase
+            .from('user_profiles')
+            .update({ balance: newBalance })
+            .eq('id', profile.id);
+        }
+        
+        toast.success('R$ 100,00 de saldo de teste adicionados!');
+        // Forçar re-render
+        setSearchParams(searchParams, { replace: true });
+      }
+    } catch (err: any) {
+      console.error(err);
+      toast.error('Erro ao adicionar saldo de teste.');
+    }
+  };
+
+  const handleFinish = async () => {
+    if (!profile) {
+      toast.error('Faça login para finalizar o pedido.');
+      return;
+    }
+
+    setIsProcessing(true);
+
+    try {
+      const isGuest = !authProfile && !isAdminDemo;
+      const addressSummary = (isGuest ? `Nome: ${profile.full_name} | Tel: ${profile.phone} | ` : '') + (profile.address 
+        ? `${profile.address}, ${profile.number}${profile.complement ? ` - ${profile.complement}` : ''} - ${profile.neighborhood}`
+        : 'Não cadastrado') + (observations.trim() ? ` (Obs: ${observations.trim()})` : '');
+
+      // 1. Criar pedido com status pendente no Supabase
+      let userId = profile.id;
+      
+      // Validar se o ID do perfil realmente existe no banco para evitar violação de FK (comum em perfis locais/mockados)
+      const { data: profileCheck } = await supabase
+        .from('user_profiles')
+        .select('id')
+        .eq('id', userId)
+        .maybeSingle();
+
+      if (!profileCheck) {
+        // Tenta achar pelo email do perfil atual
+        const { data: dbProfile } = await supabase
+          .from('user_profiles')
+          .select('id')
+          .eq('email', profile.email)
+          .maybeSingle();
+
+        if (dbProfile) {
+          userId = dbProfile.id;
+        } else {
+          // Se ainda não achar, tenta o perfil do admin
+          const { data: adminProfile } = await supabase
+            .from('user_profiles')
+            .select('id')
+            .eq('email', 'admin@casarao.com')
+            .maybeSingle();
+
+          if (adminProfile) {
+            userId = adminProfile.id;
+          } else {
+            // Se não houver nenhum perfil correspondente no banco, pega o primeiro cadastrado para não falhar a FK
+            const { data: fallbackProfile } = await supabase
+              .from('user_profiles')
+              .select('id')
+              .limit(1)
+              .maybeSingle();
+            if (fallbackProfile) {
+              userId = fallbackProfile.id;
+            }
+          }
+        }
+      }
+
+      const { data: orderData, error: orderError } = await supabase
+        .from('orders')
+        .insert({
+          user_id: userId,
+          status: 'pendente',
+          total_amount: total,
+          delivery_fee: deliveryFee,
+          address_summary: addressSummary,
+          payment_method: paymentMethod
+        })
+        .select()
+        .single();
+
+      if (orderError) throw orderError;
+
+      // 2. Tratar caminhos de acordo com a forma de pagamento
+      if (paymentMethod === 'pix' || paymentMethod === 'card') {
+        const mpAccessToken = import.meta.env.VITE_MERCADO_PAGO_ACCESS_TOKEN || 'APP_USR-6467752906550058-052012-042d90ecf23d61bad3d0e5664d588b8b-3404437692';
+        
+        try {
+          const mpResponse = await fetch('https://api.mercadopago.com/checkout/preferences', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${mpAccessToken}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              items: (() => {
+                const discountFactor = cartTotal > 0 ? (cartTotal - discountAmount) / cartTotal : 1;
+                return cartItems.map(item => ({
+                  title: item.name,
+                  quantity: item.quantity,
+                  unit_price: parseFloat((item.price * discountFactor).toFixed(2)),
+                  currency_id: 'BRL'
+                }));
+              })(),
+              payer: {
+                email: profile.email || 'cliente@casaraopizzaria.com',
+                name: profile.full_name || 'Cliente Casarão'
+              },
+              back_urls: {
+                success: `${window.location.origin}/checkout?status=success&order_id=${orderData.id}`,
+                failure: `${window.location.origin}/checkout?status=failure&order_id=${orderData.id}`,
+                pending: `${window.location.origin}/checkout?status=pending&order_id=${orderData.id}`
+              },
+              ...(window.location.protocol === 'https:' ? { auto_return: 'approved' } : {}),
+              external_reference: orderData.id.toString(),
+              payment_methods: {
+                excluded_payment_methods: [],
+                excluded_payment_types: paymentMethod === 'pix' ? [
+                  { id: 'credit_card' },
+                  { id: 'debit_card' },
+                  { id: 'ticket' },
+                  { id: 'atm' }
+                ] : [
+                  { id: 'ticket' },
+                  { id: 'atm' },
+                  { id: 'bank_transfer' }
+                ],
+                installments: 12
+              }
+            })
+          });
+
+          if (!mpResponse.ok) {
+            const errData = await mpResponse.json();
+            throw new Error(errData.message || 'Erro ao criar preferência de pagamento no Mercado Pago.');
+          }
+
+          // Salvar itens do pedido no localStorage antes do redirecionamento
+          localStorage.setItem(`order_items_${orderData.id}`, JSON.stringify(cartItems));
+
+          const preference = await mpResponse.json();
+          if (preference.init_point) {
+            window.location.href = preference.init_point;
+          } else {
+            throw new Error('Link de pagamento inválido retornado.');
+          }
+        } catch (mpError: any) {
+          // Deletar o pedido criado em caso de falha na criação do pagamento
+          await supabase.from('orders').delete().eq('id', orderData.id);
+          throw mpError;
+        }
+
+      } else if (paymentMethod === 'wallet') {
+        const userBalance = profile.balance || 0;
+        if (userBalance < total) {
+          await supabase.from('orders').delete().eq('id', orderData.id);
+          throw new Error('Saldo insuficiente na carteira para realizar a compra.');
+        }
+
+        // Somente desconta o saldo no banco de dados se for um usuário real persistido no banco
+        const { data: dbProfileCheck } = await supabase
+          .from('user_profiles')
+          .select('id')
+          .eq('id', profile.id)
+          .maybeSingle();
+
+        if (dbProfileCheck && !isAdminDemo) {
+          const { error: profileError } = await supabase
+            .from('user_profiles')
+            .update({ balance: userBalance - total })
+            .eq('id', profile.id);
+
+          if (profileError) throw profileError;
+        }
+
+        const { error: updateOrderError } = await supabase
+          .from('orders')
+          .update({ status: 'preparando', updated_at: new Date().toISOString() })
+          .eq('id', orderData.id);
+
+        if (updateOrderError) throw updateOrderError;
+
+        // Salvar itens do pedido no localStorage antes de limpar o carrinho
+        localStorage.setItem(`order_items_${orderData.id}`, JSON.stringify(cartItems));
+
+        toast.success('Pedido pago com saldo da carteira!');
+        clearCart();
+        setSearchParams({ status: 'success', order_id: orderData.id.toString() }, { replace: true });
+
+      } else {
+        // Salvar itens do pedido no localStorage antes de limpar o carrinho
+        localStorage.setItem(`order_items_${orderData.id}`, JSON.stringify(cartItems));
+        toast.success('Pedido realizado com sucesso!');
+        clearCart();
+        setSearchParams({ status: 'success', order_id: orderData.id.toString() }, { replace: true });
+      }
+    } catch (error: any) {
+      console.error('Erro ao finalizar pedido:', error);
+      toast.error(error.message || 'Erro ao processar pedido.');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  if (loadingOrder) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4">
+        <Loader2 className="w-12 h-12 text-primary animate-spin" />
+        <p className="text-text-muted font-black uppercase tracking-widest text-xs">Carregando Rastreamento...</p>
+      </div>
+    );
+  }
+
+  if (isSuccess && order) {
+    const isCanceled = order.status === 'cancelado';
+    
+    const getStatusIndex = (status: string) => {
+      switch (status) {
+        case 'pendente': return 0;
+        case 'preparando': return 1;
+        case 'entrega': return 2;
+        case 'concluido': return 3;
+        default: return 0;
+      }
+    };
+    
+    const activeIndex = getStatusIndex(order.status);
+    
+    const timelineSteps = [
+      { label: 'Confirmado', desc: 'Aguardando aceite do estabelecimento', statusKey: 'pendente' },
+      { label: 'Na Cozinha', desc: 'Seu pedido está sendo preparado', statusKey: 'preparando' },
+      { label: 'A Caminho', desc: 'Saiu para entrega', statusKey: 'entrega' },
+      { label: 'Entregue', desc: 'Pedido entregue com sucesso', statusKey: 'concluido' }
+    ];
+
+    const getPaymentLabel = (method: string) => {
+      switch (method) {
+        case 'pix': return 'PIX (Mercado Pago)';
+        case 'card': return 'Cartão (Mercado Pago)';
+        case 'wallet': return 'Carteira (Saldo de Bônus)';
+        case 'cash': return 'Dinheiro (na entrega)';
+        case 'delivery': return 'Cartão (na entrega)';
+        default: return method;
+      }
+    };
+
+    const handleSendWhatsApp = () => {
+      const itemsText = orderItems.length > 0
+        ? orderItems.map(item => `- ${item.quantity}x ${item.name} (R$ ${(item.price * item.quantity).toFixed(2)})`).join('\n')
+        : 'Itens do pedido (verifique com a loja)';
+      
+      const paymentText = getPaymentLabel(order.payment_method);
+      
+      let cleanAddress = order.address_summary;
+      if (cleanAddress && cleanAddress.startsWith("Nome: ")) {
+        cleanAddress = cleanAddress.replace("Nome: ", "*Nome:* ").replace(" | Tel: ", "\n*Tel:* ").replace(" | ", "\n*Endereço:* ");
+      }
+      
+      const message = `Olá! Gostaria de confirmar meu pedido *#${order.id}* na Pizzaria Casarão.\n\n` +
+                      `*Itens do Pedido:*\n${itemsText}\n\n` +
+                      `*Taxa de Entrega:* R$ ${Number(order.delivery_fee).toFixed(2)}\n` +
+                      `*Total:* R$ ${Number(order.total_amount).toFixed(2)}\n\n` +
+                      `*Forma de Pagamento:* ${paymentText}\n` +
+                      `*Endereço de Entrega:* ${cleanAddress}\n\n` +
+                      `Status Atual: *${order.status.toUpperCase()}*\n\n` +
+                      `Agradeço desde já!`;
+                      
+      const encodedMessage = encodeURIComponent(message);
+      const whatsappNumber = supportWhatsapp || '5511999999999';
+      window.open(`https://api.whatsapp.com/send?phone=${whatsappNumber}&text=${encodedMessage}`, '_blank');
+    };
+
+    return (
+      <div className="min-h-screen bg-background text-text-main py-12 px-6 flex flex-col items-center">
+        {/* Header */}
+        <header className="w-full max-w-2xl mb-12 flex justify-between items-center">
+          <img src={logoImg} alt="Casarão Clube 7" className="h-10 w-auto object-contain" />
           <Link 
             to="/" 
-            className="block w-full bg-primary text-background py-4 rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl glow-primary hover:scale-[1.02] transition-all"
+            className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-text-muted hover:text-primary transition-colors"
           >
-            VOLTAR PARA O MENU
+            Voltar para o Menu
           </Link>
+        </header>
+
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="w-full max-w-2xl space-y-8"
+        >
+          {/* Radar Status Tracker Card */}
+          <div className="glass-card p-8 border-white/5 relative overflow-hidden flex flex-col items-center text-center">
+            {/* Radar effect */}
+            {!isCanceled && order.status !== 'concluido' && (
+              <div className="absolute top-4 right-4 flex items-center gap-2 bg-primary/10 border border-primary/20 px-3 py-1 rounded-full text-primary">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+                </span>
+                <span className="text-[8px] font-black uppercase tracking-widest animate-pulse">Buscando atualizações...</span>
+              </div>
+            )}
+
+            <h2 className="text-3xl font-black italic uppercase tracking-tighter mb-2 text-glow">
+              {isCanceled ? 'Pedido Cancelado' : order.status === 'concluido' ? 'Pedido Entregue!' : 'Acompanhe seu Pedido'}
+            </h2>
+            <p className="text-text-muted text-sm mb-8">
+              {isCanceled ? 'Infelizmente seu pedido foi cancelado pelo estabelecimento.' : 
+               order.status === 'concluido' ? 'Seu pedido foi entregue. Bom apetite!' :
+               'Seu pedido está sendo processado em tempo real pelo restaurante.'}
+            </p>
+
+            {/* Canceled Notice */}
+            {isCanceled ? (
+              <div className="w-full p-4 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-bold uppercase tracking-wider mb-6">
+                Este pedido foi cancelado. Entre em contato com o suporte para maiores informações.
+              </div>
+            ) : (
+              /* Timeline */
+              <div className="w-full space-y-6 relative mb-8">
+                {/* Connecting Line */}
+                <div className="absolute left-[21px] top-6 bottom-6 w-0.5 bg-surface-border z-0" />
+                
+                {/* Filled Connecting Line */}
+                <div 
+                  className="absolute left-[21px] top-6 w-0.5 bg-primary z-0 transition-all duration-1000"
+                  style={{ 
+                    height: `${(activeIndex / 3) * 85}%`,
+                    maxHeight: '85%'
+                  }}
+                />
+
+                {timelineSteps.map((stepInfo, index) => {
+                  const isDone = index < activeIndex;
+                  const isActive = index === activeIndex;
+                  const isPending = index > activeIndex;
+                  
+                  return (
+                    <div key={index} className="flex items-start gap-6 relative z-10 text-left group">
+                      {/* Checkpoint Dot */}
+                      <div 
+                        className={`w-11 h-11 rounded-2xl flex items-center justify-center transition-all duration-500 border ${
+                          isActive 
+                            ? 'bg-primary text-background border-primary shadow-[0_0_15px_rgba(0,229,255,0.6)] scale-110' 
+                            : isDone 
+                            ? 'bg-primary/20 text-primary border-primary/40' 
+                            : 'bg-surface text-text-muted border-surface-border'
+                        }`}
+                      >
+                        {index === 0 && <CheckCircle2 size={20} />}
+                        {index === 1 && <Clock size={20} className={isActive ? 'animate-spin' : ''} style={{ animationDuration: isActive ? '3s' : '1s' }} />}
+                        {index === 2 && <Truck size={20} className={isActive ? 'animate-bounce' : ''} />}
+                        {index === 3 && <CheckCircle2 size={20} />}
+                      </div>
+                      
+                      {/* Step Text */}
+                      <div className="flex-1 py-1">
+                        <h4 className={`text-sm font-black uppercase tracking-wider transition-colors ${
+                          isActive ? 'text-primary' : isDone ? 'text-white' : 'text-text-muted'
+                        }`}>
+                          {stepInfo.label}
+                        </h4>
+                        <p className={`text-[10px] uppercase font-bold tracking-widest ${
+                          isActive ? 'text-text-main animate-pulse' : 'text-text-muted'
+                        }`}>
+                          {stepInfo.desc}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Quick Actions */}
+            <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
+              <button 
+                onClick={handleSendWhatsApp}
+                className="w-full bg-emerald-500 text-background py-4 rounded-2xl font-black uppercase tracking-widest text-xs shadow-lg hover:scale-[1.02] transition-all flex items-center justify-center gap-2 cursor-pointer hover:bg-emerald-400"
+              >
+                Enviar via WhatsApp
+              </button>
+              <Link 
+                to="/" 
+                className="w-full glass py-4 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-2 hover:bg-surface-hover hover:scale-[1.02] transition-all"
+              >
+                Ir para o Menu
+              </Link>
+            </div>
+          </div>
+
+          {/* Order Details Card */}
+          <div className="glass-card p-8 border-white/5 space-y-6">
+             <h3 className="text-xl font-black italic uppercase tracking-tighter border-b border-surface-border pb-4">
+                Detalhes do Pedido #<span className="text-primary">{order.id}</span>
+             </h3>
+             
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
+                <div>
+                   <p className="text-[10px] text-text-muted font-black uppercase tracking-widest">Endereço de Entrega</p>
+                   <p className="font-bold text-white mt-1">
+                      {order.address_summary && order.address_summary.startsWith("Nome: ") 
+                        ? order.address_summary.split(" | ").slice(2).join(" | ")
+                        : order.address_summary}
+                   </p>
+                </div>
+                <div>
+                   <p className="text-[10px] text-text-muted font-black uppercase tracking-widest">Forma de Pagamento</p>
+                   <p className="font-bold text-white mt-1">{getPaymentLabel(order.payment_method)}</p>
+                </div>
+                <div>
+                   <p className="text-[10px] text-text-muted font-black uppercase tracking-widest">Taxa de Entrega</p>
+                   <p className="font-bold text-white mt-1">R$ {Number(order.delivery_fee).toFixed(2)}</p>
+                </div>
+                <div>
+                   <p className="text-[10px] text-text-muted font-black uppercase tracking-widest">Total Geral</p>
+                   <p className="font-bold text-secondary mt-1 text-lg">R$ {Number(order.total_amount).toFixed(2)}</p>
+                </div>
+             </div>
+             
+             {/* Order Items List */}
+             {orderItems.length > 0 && (
+                <div className="mt-8 pt-6 border-t border-surface-border">
+                   <p className="text-[10px] text-text-muted font-black uppercase tracking-widest mb-4">Itens Selecionados</p>
+                   <div className="space-y-4">
+                      {orderItems.map((item, idx) => (
+                         <div key={idx} className="flex justify-between items-center">
+                            <p className="text-xs font-bold text-white">
+                               <span className="text-primary font-black mr-2">{item.quantity}x</span> 
+                               {item.name}
+                            </p>
+                            <span className="text-xs font-black text-text-muted">
+                               R$ {(item.price * item.quantity).toFixed(2)}
+                            </span>
+                         </div>
+                      ))}
+                   </div>
+                </div>
+             )}
+          </div>
         </motion.div>
       </div>
     );
@@ -126,29 +732,61 @@ export default function Checkout() {
                 </div>
                 <h3 className="text-lg font-black italic uppercase tracking-tighter">Endereço de Entrega</h3>
               </div>
-              <button className="text-[10px] font-black uppercase tracking-widest text-primary hover:underline">
-                Alterar
-              </button>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-               <div className="p-4 rounded-2xl bg-primary/5 border border-primary/20 flex items-center gap-4 relative overflow-hidden group">
-                  <div className="absolute top-0 right-0 w-16 h-16 bg-primary/5 rounded-bl-full -mr-4 -mt-4 transition-all group-hover:scale-150" />
-                  <div className="w-10 h-10 rounded-full bg-primary text-background flex items-center justify-center flex-shrink-0">
-                     <MapPin size={20} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                     <p className="font-bold text-sm">Principal</p>
-                     <p className="text-[10px] text-text-muted truncate uppercase tracking-widest">Rua das Pizzas, 123 - Centro</p>
-                  </div>
-                  <CheckCircle2 className="text-primary" size={20} />
-               </div>
+                {profile?.address ? (
+                   <button 
+                      type="button"
+                      onClick={() => setIsAddressSelected(!isAddressSelected)}
+                      className={`w-full text-left p-4 rounded-2xl border transition-all flex items-center gap-4 relative overflow-hidden group ${
+                         isAddressSelected 
+                           ? 'bg-primary/10 border-primary shadow-lg' 
+                           : 'bg-surface border-surface-border hover:border-white/20'
+                      }`}
+                   >
+                      <div className="absolute top-0 right-0 w-16 h-16 bg-primary/5 rounded-bl-full -mr-4 -mt-4 transition-all group-hover:scale-150" />
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+                         isAddressSelected ? 'bg-primary text-background' : 'bg-background text-text-muted'
+                      }`}>
+                         <MapPin size={20} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                         <p className={`font-bold text-sm ${isAddressSelected ? 'text-primary' : 'text-white'}`}>Principal</p>
+                         <p className="text-[10px] text-text-muted truncate uppercase tracking-widest mt-1">
+                            {profile.address}, {profile.number}{profile.complement ? ` - ${profile.complement}` : ''} - {profile.neighborhood}
+                         </p>
+                      </div>
+                      {isAddressSelected ? (
+                         <CheckCircle2 className="text-primary flex-shrink-0" size={20} />
+                      ) : (
+                         <div className="w-5 h-5 rounded-full border border-surface-border flex items-center justify-center flex-shrink-0" />
+                      )}
+                   </button>
+                ) : (
+                   <div className="p-4 rounded-2xl border border-surface-border border-dashed flex flex-col items-center justify-center gap-2 text-text-muted text-center">
+                      <MapPin size={20} />
+                      <span className="text-[10px] font-black uppercase tracking-widest text-text-muted">Nenhum Endereço</span>
+                      <span className="text-[8px] opacity-75">Cadastre clicando no botão ao lado.</span>
+                   </div>
+                )}
 
-               <button className="p-4 rounded-2xl border border-surface-border border-dashed flex items-center justify-center gap-3 text-text-muted hover:text-primary hover:border-primary transition-all">
-                  <Plus size={20} />
-                  <span className="text-[10px] font-black uppercase tracking-widest">Novo Endereço</span>
-               </button>
-            </div>
+                {!authProfile ? (
+                  <button 
+                    type="button"
+                    onClick={handleOpenGuestModal}
+                    className="p-4 rounded-2xl border border-surface-border border-dashed flex items-center justify-center gap-3 text-text-muted hover:text-primary hover:border-primary transition-all"
+                  >
+                     <Plus size={20} />
+                     <span className="text-[10px] font-black uppercase tracking-widest">Alterar / Novo</span>
+                  </button>
+                ) : (
+                  <Link to="/profile" className="p-4 rounded-2xl border border-surface-border border-dashed flex items-center justify-center gap-3 text-text-muted hover:text-primary hover:border-primary transition-all">
+                     <Plus size={20} />
+                     <span className="text-[10px] font-black uppercase tracking-widest">Alterar / Novo</span>
+                  </Link>
+                )}
+             </div>
           </section>
 
           {/* Step 2: Payment Method */}
@@ -196,25 +834,37 @@ export default function Checkout() {
             </div>
 
             {paymentMethod === 'wallet' && (
-               <motion.div 
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="mt-8 p-6 rounded-2xl bg-primary/5 border border-primary/20 flex items-center justify-between"
-               >
-                  <div className="flex items-center gap-4">
-                     <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
-                        <Wallet size={24} />
-                     </div>
-                     <div>
-                        <p className="text-[10px] text-text-muted font-black uppercase tracking-widest">Saldo Disponível</p>
-                        <p className="text-xl font-black text-primary">R$ 1.240,50</p>
-                     </div>
-                  </div>
-                  <div className="text-right">
-                     <p className="text-[10px] text-text-muted font-black uppercase tracking-widest">Valor do Pedido</p>
-                     <p className="text-lg font-black text-white">R$ {total.toFixed(2)}</p>
-                  </div>
-               </motion.div>
+               <div className="space-y-4">
+                 <motion.div 
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mt-8 p-6 rounded-2xl bg-primary/5 border border-primary/20 flex items-center justify-between"
+                 >
+                    <div className="flex items-center gap-4">
+                       <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                          <Wallet size={24} />
+                       </div>
+                       <div>
+                          <p className="text-[10px] text-text-muted font-black uppercase tracking-widest">Saldo Disponível</p>
+                          <p className="text-xl font-black text-primary">R$ {profile?.balance?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) || '0,00'}</p>
+                       </div>
+                    </div>
+                    <div className="text-right">
+                       <p className="text-[10px] text-text-muted font-black uppercase tracking-widest">Valor do Pedido</p>
+                       <p className="text-lg font-black text-white">R$ {total.toFixed(2)}</p>
+                    </div>
+                 </motion.div>
+                 
+                 <div className="flex justify-end mt-2">
+                   <button
+                     type="button"
+                     onClick={handleAddTestBalance}
+                     className="bg-primary text-background font-black uppercase tracking-widest text-[9px] px-4 py-2.5 rounded-xl hover:scale-105 transition-all shadow-md"
+                   >
+                     + Adicionar Saldo de Teste (R$ 100)
+                   </button>
+                 </div>
+               </div>
             )}
 
             {paymentMethod === 'delivery' && (
@@ -232,23 +882,47 @@ export default function Checkout() {
                </motion.div>
             )}
 
-            {paymentMethod === 'card' && (
+            {paymentMethod === 'cash' && (
                <motion.div 
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                className="mt-8 space-y-4 overflow-hidden"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mt-8 p-6 rounded-2xl bg-amber-500/5 border border-amber-500/20"
                >
-                  <input 
-                    type="text" 
-                    placeholder="NÚMERO DO CARTÃO" 
-                    className="w-full bg-background border border-surface-border rounded-xl py-4 px-6 text-xs font-black tracking-widest outline-none focus:border-primary/50" 
-                  />
-                  <div className="grid grid-cols-2 gap-4">
-                     <input type="text" placeholder="MM/AA" className="w-full bg-background border border-surface-border rounded-xl py-4 px-6 text-xs font-black tracking-widest outline-none focus:border-primary/50" />
-                     <input type="text" placeholder="CVV" className="w-full bg-background border border-surface-border rounded-xl py-4 px-6 text-xs font-black tracking-widest outline-none focus:border-primary/50" />
-                  </div>
+                  <p className="text-sm font-bold text-amber-500 mb-2 flex items-center gap-2">
+                     <Banknote size={18} /> Pagamento em Dinheiro na Entrega
+                  </p>
+                  <p className="text-[10px] text-text-muted uppercase font-black tracking-widest leading-relaxed">
+                     O pagamento será feito em dinheiro diretamente ao entregador no ato da entrega do pedido.
+                  </p>
                </motion.div>
             )}
+
+            {paymentMethod === 'card' && (
+               <motion.div 
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mt-8 p-6 rounded-2xl bg-primary/5 border border-primary/20"
+               >
+                  <p className="text-sm font-bold text-primary mb-2 flex items-center gap-2">
+                     <CreditCard size={18} /> Pagamento via Cartão (Mercado Pago)
+                  </p>
+                  <p className="text-[10px] text-text-muted uppercase font-black tracking-widest leading-relaxed">
+                     Você será redirecionado com segurança para o Mercado Pago para realizar o pagamento com seu cartão de crédito ou débito.
+                  </p>
+               </motion.div>
+            )}
+
+            {/* Campo de Observações */}
+            <div className="mt-8 space-y-2">
+              <label className="text-[10px] font-black uppercase tracking-widest text-text-muted ml-1">Observações do Pedido</label>
+              <textarea
+                value={observations}
+                onChange={(e) => setObservations(e.target.value)}
+                placeholder="Ex: Sem cebola, troco para R$ 100, ponto da massa, etc."
+                rows={3}
+                className="w-full bg-background border border-surface-border rounded-2xl py-4 px-6 outline-none focus:ring-2 focus:ring-primary/50 transition-all text-xs resize-none"
+              />
+            </div>
           </section>
         </div>
 
@@ -284,6 +958,12 @@ export default function Checkout() {
                   <span>Subtotal</span>
                   <span>R$ {cartTotal.toFixed(2)}</span>
                 </div>
+                {discountAmount > 0 && (
+                  <div className="flex justify-between text-xs font-bold text-emerald-400 uppercase tracking-widest">
+                    <span>Desconto {appliedCoupon ? `(${appliedCoupon.code})` : ''}</span>
+                    <span>- R$ {discountAmount.toFixed(2)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-xs font-bold text-text-muted uppercase tracking-widest">
                   <span>Taxa de Entrega</span>
                   <span>R$ {deliveryFee.toFixed(2)}</span>
@@ -295,13 +975,40 @@ export default function Checkout() {
               </div>
 
               <div className="mt-8 space-y-4">
-                 <div className="flex items-center gap-2 p-3 bg-emerald-500/5 border border-emerald-500/20 rounded-xl text-emerald-500">
-                    <ShieldCheck size={16} />
-                    <span className="text-[10px] font-black uppercase tracking-widest">Pagamento Seguro</span>
-                 </div>
+                 {!profile ? (
+                    <div className="flex items-center gap-2 p-3 bg-red-500/5 border border-red-500/20 rounded-xl text-red-500">
+                       <ShieldCheck size={16} />
+                       <span className="text-[10px] font-black uppercase tracking-widest">Faça Login ou adicione um endereço para Finalizar</span>
+                    </div>
+                 ) : !profile.address ? (
+                   <div className="flex items-center gap-2 p-3 bg-red-500/5 border border-red-500/20 rounded-xl text-red-500">
+                      <MapPin size={16} />
+                      <span className="text-[10px] font-black uppercase tracking-widest">Cadastre um Endereço para Finalizar</span>
+                   </div>
+                 ) : !isAddressSelected ? (
+                   <div className="flex items-center gap-2 p-3 bg-red-500/5 border border-red-500/20 rounded-xl text-red-500">
+                      <MapPin size={16} />
+                      <span className="text-[10px] font-black uppercase tracking-widest">Selecione o Endereço de Entrega acima</span>
+                   </div>
+                 ) : !paymentMethod ? (
+                   <div className="flex items-center gap-2 p-3 bg-amber-500/5 border border-amber-500/20 rounded-xl text-amber-500">
+                      <CreditCard size={16} />
+                      <span className="text-[10px] font-black uppercase tracking-widest">Selecione uma Forma de Pagamento</span>
+                   </div>
+                 ) : cartItems.length === 0 ? (
+                   <div className="flex items-center gap-2 p-3 bg-red-500/5 border border-red-500/20 rounded-xl text-red-500">
+                      <ShoppingCart size={16} />
+                      <span className="text-[10px] font-black uppercase tracking-widest">Seu Carrinho está Vazio</span>
+                   </div>
+                 ) : (
+                   <div className="flex items-center gap-2 p-3 bg-emerald-500/5 border border-emerald-500/20 rounded-xl text-emerald-500">
+                      <ShieldCheck size={16} />
+                      <span className="text-[10px] font-black uppercase tracking-widest">Pagamento Seguro</span>
+                   </div>
+                 )}
 
                  <button 
-                  disabled={!paymentMethod || isProcessing || cartItems.length === 0}
+                  disabled={!profile || !profile.address || !isAddressSelected || !paymentMethod || isProcessing || cartItems.length === 0}
                   onClick={handleFinish}
                   className="w-full bg-primary disabled:opacity-50 disabled:cursor-not-allowed text-background py-5 rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl glow-primary hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3"
                  >
@@ -315,9 +1022,153 @@ export default function Checkout() {
            </div>
         </div>
       </main>
-    </div>
-  );
-}
+
+       {/* Modal de Endereço de Visitante */}
+       <AnimatePresence>
+         {showGuestModal && (
+           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
+             <motion.div
+               initial={{ scale: 0.9, opacity: 0 }}
+               animate={{ scale: 1, opacity: 1 }}
+               exit={{ scale: 0.9, opacity: 0 }}
+               transition={{ type: 'spring', duration: 0.5 }}
+               className="w-full max-w-lg bg-surface border border-surface-border rounded-3xl p-8 shadow-2xl relative overflow-y-auto max-h-[90vh] text-left"
+             >
+               <button 
+                 type="button"
+                 onClick={() => setShowGuestModal(false)}
+                 className="absolute top-6 right-6 p-2 text-text-muted hover:text-white transition-all bg-white/5 rounded-full"
+               >
+                 <X size={16} />
+               </button>
+
+               <div className="mb-6">
+                 <span className="text-[10px] font-black uppercase tracking-widest text-primary">Identificação e Entrega</span>
+                 <h2 className="text-2xl font-black text-white mt-1">Dados de Entrega</h2>
+                 <p className="text-[10px] text-text-muted font-bold mt-1">
+                   Preencha os campos abaixo para podermos entregar seu pedido.
+                 </p>
+               </div>
+
+               <form onSubmit={handleSaveGuestAddress} className="space-y-4">
+                 <div className="space-y-2">
+                   <label className="text-[10px] font-black uppercase text-text-muted ml-1">Nome Completo *</label>
+                   <input 
+                     type="text" 
+                     required
+                     value={guestName} 
+                     onChange={(e) => setGuestName(e.target.value)} 
+                     placeholder="Seu nome completo"
+                     className="w-full bg-background border border-surface-border rounded-2xl py-3 px-5 outline-none focus:border-primary/50 transition-all text-xs font-bold text-white" 
+                   />
+                 </div>
+
+                 <div className="space-y-2">
+                   <label className="text-[10px] font-black uppercase text-text-muted ml-1">WhatsApp (Celular) *</label>
+                   <input 
+                     type="text" 
+                     required
+                     value={guestPhone} 
+                     onChange={(e) => setGuestPhone(e.target.value)} 
+                     placeholder="DDD + Celular (Ex: 11999999999)"
+                     className="w-full bg-background border border-surface-border rounded-2xl py-3 px-5 outline-none focus:border-primary/50 transition-all text-xs font-bold text-white" 
+                   />
+                 </div>
+
+                 <div className="grid grid-cols-3 gap-4">
+                   <div className="col-span-2 space-y-2">
+                     <label className="text-[10px] font-black uppercase text-text-muted ml-1">CEP</label>
+                     <input 
+                       type="text" 
+                       value={guestZipcode} 
+                       onChange={(e) => setGuestZipcode(e.target.value)} 
+                       placeholder="Ex: 01000-000"
+                       className="w-full bg-background border border-surface-border rounded-2xl py-3 px-5 outline-none focus:border-primary/50 transition-all text-xs font-bold text-white" 
+                     />
+                   </div>
+                   <div className="space-y-2">
+                     <label className="text-[10px] font-black uppercase text-text-muted ml-1">Número *</label>
+                     <input 
+                       type="text" 
+                       required
+                       value={guestNumber} 
+                       onChange={(e) => setGuestNumber(e.target.value)} 
+                       placeholder="Ex: 123"
+                       className="w-full bg-background border border-surface-border rounded-2xl py-3 px-5 outline-none focus:border-primary/50 transition-all text-xs font-bold text-white" 
+                     />
+                   </div>
+                 </div>
+
+                 <div className="space-y-2">
+                   <label className="text-[10px] font-black uppercase text-text-muted ml-1">Endereço (Rua, Avenida) *</label>
+                   <input 
+                     type="text" 
+                     required
+                     value={guestAddress} 
+                     onChange={(e) => setGuestAddress(e.target.value)} 
+                     placeholder="Ex: Rua das Flores"
+                     className="w-full bg-background border border-surface-border rounded-2xl py-3 px-5 outline-none focus:border-primary/50 transition-all text-xs font-bold text-white" 
+                   />
+                 </div>
+
+                 <div className="grid grid-cols-2 gap-4">
+                   <div className="space-y-2">
+                     <label className="text-[10px] font-black uppercase text-text-muted ml-1">Bairro *</label>
+                     <input 
+                       type="text" 
+                       required
+                       value={guestNeighborhood} 
+                       onChange={(e) => setGuestNeighborhood(e.target.value)} 
+                       placeholder="Ex: Centro"
+                       className="w-full bg-background border border-surface-border rounded-2xl py-3 px-5 outline-none focus:border-primary/50 transition-all text-xs font-bold text-white" 
+                     />
+                   </div>
+                   <div className="space-y-2">
+                     <label className="text-[10px] font-black uppercase text-text-muted ml-1">Complemento</label>
+                     <input 
+                       type="text" 
+                       value={guestComplement} 
+                       onChange={(e) => setGuestComplement(e.target.value)} 
+                       placeholder="Ex: Apto 45"
+                       className="w-full bg-background border border-surface-border rounded-2xl py-3 px-5 outline-none focus:border-primary/50 transition-all text-xs font-bold text-white" 
+                     />
+                   </div>
+                 </div>
+
+                 <div className="space-y-2">
+                   <label className="text-[10px] font-black uppercase text-text-muted ml-1">Cidade</label>
+                   <input 
+                     type="text" 
+                     value={guestCity} 
+                     onChange={(e) => setGuestCity(e.target.value)} 
+                     placeholder="Ex: Sete Lagoas"
+                     className="w-full bg-background border border-surface-border rounded-2xl py-3 px-5 outline-none focus:border-primary/50 transition-all text-xs font-bold text-white" 
+                   />
+                 </div>
+
+                 <div className="pt-4 flex gap-4">
+                   <button
+                     type="button"
+                     onClick={() => setShowGuestModal(false)}
+                     className="flex-1 py-3 bg-white/5 hover:bg-white/10 text-white rounded-2xl text-xs font-black uppercase tracking-widest transition-all"
+                   >
+                     Cancelar
+                   </button>
+                   <button
+                     type="submit"
+                     className="flex-1 py-3 bg-primary text-background hover:bg-primary/90 rounded-2xl text-xs font-black uppercase tracking-widest transition-all shadow-lg shadow-primary/20"
+                   >
+                     Confirmar
+                   </button>
+                 </div>
+               </form>
+             </motion.div>
+           </div>
+         )}
+       </AnimatePresence>
+     </div>
+   );
+ }
 
 function PaymentOption({ icon: Icon, label, selected, onClick, highlight = false, badge = "" }: any) {
   return (

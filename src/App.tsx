@@ -24,10 +24,11 @@ import {
   Package,
   PlusCircle,
   Menu,
-  X
+  X,
+  Loader2
 } from 'lucide-react';
 import { motion } from 'motion/react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import CartDrawer from './components/CartDrawer';
 
 import { CartProvider, useCart } from './context/CartContext';
@@ -46,9 +47,20 @@ import Coupons from './pages/Coupons';
 import Support from './pages/Support';
 import Checkout from './pages/Checkout';
 import { FavoritesProvider, useFavorites } from './context/FavoritesContext';
-import { MAIS_PEDIDAS, CLASSICAS } from './data/products';
+import { MAIS_PEDIDAS, CLASSICAS, BEBIDAS, COMBOS, SOBREMESAS, ALL_PRODUCTS } from './data/products';
 import logoImg from './assets/logo-casarao.jpeg';
+import { supabase } from './lib/supabase';
 import PWAInstallPrompt from './components/PWAInstallPrompt';
+import { Toaster } from 'react-hot-toast';
+import NotificationBell from './components/NotificationBell';
+
+import AdminDashboard from './pages/admin/AdminDashboard';
+import AdminOrders from './pages/admin/AdminOrders';
+import AdminPayouts from './pages/admin/AdminPayouts';
+import AdminUsers from './pages/admin/AdminUsers';
+import AdminMenu from './pages/admin/AdminMenu';
+import AdminSettings from './pages/admin/AdminSettings';
+import AdminLogin from './pages/admin/AdminLogin';
 
 
 
@@ -66,11 +78,105 @@ const CATEGORIES = [
   { id: 'sobremesas', name: 'Sobremesas', icon: IceCream },
 ];
 
+const ICON_MAP: Record<string, any> = {
+  'pizzas': PizzaIcon,
+  'bebidas': Wine,
+  'combos': Sparkles,
+  'sobremesas': IceCream,
+};
+
+const getIconComponent = (iconName: string) => {
+  switch (iconName) {
+    case 'Pizza':
+    case 'PizzaIcon':
+      return PizzaIcon;
+    case 'Wine':
+      return Wine;
+    case 'Sparkles':
+      return Sparkles;
+    case 'IceCream':
+      return IceCream;
+    case 'Package':
+      return Package;
+    default:
+      return null;
+  }
+};
+
 function DeliveryApp() {
+  const { user, profile, signOut } = useAuth();
   const [activeCategory, setActiveCategory] = useState('pizzas');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const { addToCart, cartCount } = useCart();
+
+  const [categories, setCategories] = useState<any[]>([]);
+  const [products, setProducts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadData() {
+      try {
+        setLoading(true);
+        const [categoriesRes, productsRes] = await Promise.all([
+          supabase.from('product_categories').select('*').order('id'),
+          supabase.from('products').select('*').eq('is_active', true).order('name')
+        ]);
+
+        if (categoriesRes.error) throw categoriesRes.error;
+        if (productsRes.error) throw productsRes.error;
+
+        if (categoriesRes.data && categoriesRes.data.length > 0) {
+          setCategories(categoriesRes.data);
+        } else {
+          setCategories([]);
+        }
+
+        if (productsRes.data && productsRes.data.length > 0) {
+          setProducts(productsRes.data);
+        } else {
+          setProducts([]);
+        }
+      } catch (err) {
+        console.error("Error loading data from Supabase, using mock fallback:", err);
+        setCategories([]);
+        setProducts([]);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadData();
+  }, []);
+
+  const displayedCategories = categories.length > 0 ? categories.map(cat => ({
+    id: cat.slug,
+    name: cat.name,
+    icon: ICON_MAP[cat.slug] || getIconComponent(cat.icon) || PizzaIcon,
+    dbId: cat.id
+  })) : CATEGORIES;
+
+  const getProductsByCategory = (categorySlug: string) => {
+    if (categories.length > 0 && products.length > 0) {
+      const cat = categories.find(c => c.slug === categorySlug);
+      if (!cat) return [];
+      return products.filter(p => p.category_id === cat.id);
+    }
+    if (categorySlug === 'pizzas') {
+      return [...MAIS_PEDIDAS, ...CLASSICAS];
+    } else if (categorySlug === 'bebidas') {
+      return BEBIDAS;
+    } else if (categorySlug === 'combos') {
+      return COMBOS;
+    } else if (categorySlug === 'sobremesas') {
+      return SOBREMESAS;
+    }
+    return [];
+  };
+
+  const activeCategoryProducts = getProductsByCategory(activeCategory);
+  const maisPedidas = activeCategory === 'pizzas' ? activeCategoryProducts.slice(0, 3) : [];
+  const classicas = activeCategory === 'pizzas' ? activeCategoryProducts.slice(3) : [];
 
 
 
@@ -102,9 +208,14 @@ function DeliveryApp() {
           <Link to="/clube" className="hidden lg:flex items-center gap-2 px-4 py-2 rounded-full bg-secondary/10 border border-secondary/20 text-secondary text-xs font-black uppercase hover:bg-secondary/20 transition-all">
              <TrendingUp size={14} /> Clube 7
           </Link>
-          <Link to="/login" className="p-2.5 text-text-muted hover:text-primary hover:bg-primary/10 rounded-full transition-all">
-            <User size={22} />
+          <Link to={user ? "/profile" : "/login"} className="p-2.5 text-text-muted hover:text-primary hover:bg-primary/10 rounded-full transition-all flex items-center justify-center overflow-hidden w-10 h-10 rounded-full border border-surface-border">
+            {profile?.avatar_url ? (
+              <img src={profile.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+            ) : (
+              <User size={22} />
+            )}
           </Link>
+          <NotificationBell />
           <button 
             onClick={() => setIsCartOpen(true)}
             className="p-2.5 text-text-muted hover:text-primary hover:bg-primary/10 rounded-full transition-all relative"
@@ -136,12 +247,20 @@ function DeliveryApp() {
 
           <div className="p-6">
             <div className="flex items-center gap-4 mb-8 p-4 rounded-2xl bg-primary/5 border border-primary/10">
-              <div className="w-12 h-12 rounded-full bg-gradient-primary flex items-center justify-center text-background">
-                <User size={24} />
-              </div>
+              {profile?.avatar_url ? (
+                <div className="w-12 h-12 rounded-full border border-primary/20 overflow-hidden flex-shrink-0">
+                  <img src={profile.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+                </div>
+              ) : (
+                <div className="w-12 h-12 rounded-full bg-gradient-primary flex items-center justify-center text-background flex-shrink-0">
+                  <User size={24} />
+                </div>
+              )}
               <div>
-                <p className="font-bold text-sm">Olá, Visitante</p>
-                <p className="text-[10px] text-text-muted uppercase font-black tracking-widest">Seja Bem-vindo</p>
+                <p className="font-bold text-sm leading-tight line-clamp-1">Olá, {profile ? profile.full_name : 'Visitante'}</p>
+                <p className="text-[10px] text-text-muted uppercase font-black tracking-widest leading-none mt-1">
+                  {profile ? `ID: ${profile.referral_code || 'Cliente'}` : 'Seja Bem-vindo'}
+                </p>
               </div>
             </div>
 
@@ -158,9 +277,18 @@ function DeliveryApp() {
 
             </nav>
 
-            <Link to="/login" className="block w-full mt-8 bg-gradient-primary text-background font-black py-4 rounded-2xl text-xs uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-lg glow-primary text-center">
-              ENTRAR OU CADASTRAR
-            </Link>
+            {user ? (
+              <button 
+                onClick={signOut}
+                className="block w-full mt-8 bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 font-black py-4 rounded-2xl text-xs uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-lg text-center"
+              >
+                SAIR DA CONTA
+              </button>
+            ) : (
+              <Link to="/login" className="block w-full mt-8 bg-gradient-primary text-background font-black py-4 rounded-2xl text-xs uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-lg glow-primary text-center">
+                ENTRAR OU CADASTRAR
+              </Link>
+            )}
           </div>
         </aside>
 
@@ -193,6 +321,10 @@ function DeliveryApp() {
               <motion.button 
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
+                onClick={() => {
+                  setActiveCategory('pizzas');
+                  document.getElementById('cardapio-section')?.scrollIntoView({ behavior: 'smooth' });
+                }}
                 className="bg-primary text-background px-8 py-3.5 rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl glow-primary"
               >
                 PEÇA SUA PIZZA AGORA
@@ -201,9 +333,9 @@ function DeliveryApp() {
           </section>
 
           {/* Category Bar */}
-          <section className="sticky top-20 z-40 glass py-4 px-4 md:px-8 overflow-x-auto hide-scrollbar">
+          <section id="cardapio-section" className="sticky top-20 z-40 glass py-4 px-4 md:px-8 overflow-x-auto hide-scrollbar scroll-mt-24">
             <div className="flex gap-4">
-              {CATEGORIES.map((category) => (
+              {displayedCategories.map((category) => (
                 <button
                   key={category.id}
                   onClick={() => setActiveCategory(category.id)}
@@ -221,33 +353,60 @@ function DeliveryApp() {
           </section>
 
           <div className="max-w-7xl mx-auto px-4 md:px-8 py-12 space-y-20">
-            {/* Mais Pedidas */}
-            <section>
-              <div className="flex justify-between items-end mb-8">
-                <h3 className="font-display text-3xl font-black flex items-center gap-3">
-                  <span className="text-primary text-glow">🔥</span> Mais Pedidas
-                </h3>
+            {loading ? (
+              <div className="flex justify-center items-center py-20">
+                <Loader2 className="w-10 h-10 text-primary animate-spin" />
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {MAIS_PEDIDAS.map((pizza) => (
-                  <ProductCard key={pizza.id} pizza={pizza} onAdd={() => addToCart(pizza)} />
-                ))}
-              </div>
+            ) : (
+              <>
+                {activeCategory === 'pizzas' ? (
+                  <>
+                    {/* Mais Pedidas */}
+                    {maisPedidas.length > 0 && (
+                      <section>
+                        <div className="flex justify-between items-end mb-8">
+                          <h3 className="font-display text-3xl font-black flex items-center gap-3">
+                            <span className="text-primary text-glow">🔥</span> Mais Pedidas
+                          </h3>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                          {maisPedidas.map((pizza) => (
+                            <ProductCard key={pizza.id} pizza={pizza} onAdd={() => addToCart(pizza)} />
+                          ))}
+                        </div>
+                      </section>
+                    )}
 
-            </section>
-
-            {/* Cardápio Completo */}
-            <section>
-              <h3 className="font-display text-2xl font-black mb-8 border-b border-surface-border pb-4">
-                 🍕 Cardápio Clássico
-              </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {CLASSICAS.map((pizza) => (
-                  <ListItem key={pizza.id} pizza={pizza} onAdd={() => addToCart(pizza)} />
-                ))}
-              </div>
-            </section>
-
+                    {/* Cardápio Completo */}
+                    {classicas.length > 0 && (
+                      <section>
+                        <h3 className="font-display text-2xl font-black mb-8 border-b border-surface-border pb-4">
+                           🍕 Cardápio Clássico
+                        </h3>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                          {classicas.map((pizza) => (
+                            <ListItem key={pizza.id} pizza={pizza} onAdd={() => addToCart(pizza)} />
+                          ))}
+                        </div>
+                      </section>
+                    )}
+                  </>
+                ) : (
+                  <section>
+                    <h3 className="font-display text-3xl font-black mb-8 border-b border-surface-border pb-4 flex items-center gap-3">
+                       <span className="text-primary text-glow">
+                         {activeCategory === 'bebidas' ? '🥤' : activeCategory === 'combos' ? '✨' : activeCategory === 'sobremesas' ? '🍨' : '🍽️'}
+                       </span> {displayedCategories.find(c => c.id === activeCategory)?.name || 'Produtos'}
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                      {activeCategoryProducts.map((item) => (
+                        <ProductCard key={item.id} pizza={item} onAdd={() => addToCart(item)} />
+                      ))}
+                    </div>
+                  </section>
+                )}
+              </>
+            )}
           </div>
         </main>
       </div>
@@ -291,7 +450,7 @@ function ProductCard({ pizza, onAdd }: any) {
       className="glass-card flex flex-col group overflow-hidden"
     >
       <div className="h-56 overflow-hidden relative">
-        <img src={pizza.image} alt={pizza.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
+        <img src={pizza.image || pizza.main_image_url} alt={pizza.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
         <div className="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent" />
         
         {/* Favorite Button */}
@@ -350,7 +509,14 @@ function ListItem({ pizza, onAdd }: any) {
       )}
 
       <div className={`w-20 h-20 rounded-2xl overflow-hidden flex-shrink-0 bg-surface border border-surface-border ${pizza.soldOut ? 'grayscale opacity-30' : ''}`}>
-        {pizza.image ? <img src={pizza.image} alt={pizza.name} className="w-full h-full object-cover" /> : <pizza.icon className="w-8 h-8 text-primary/20 m-auto mt-6" />}
+        {pizza.image || pizza.main_image_url ? (
+          <img src={pizza.image || pizza.main_image_url} alt={pizza.name} className="w-full h-full object-cover" />
+        ) : (
+          (() => {
+            const IconComponent = pizza.icon || PizzaIcon;
+            return <IconComponent className="w-8 h-8 text-primary/20 m-auto mt-6" />;
+          })()
+        )}
       </div>
       <div className={`flex-1 flex flex-col justify-center ${pizza.soldOut ? 'opacity-30' : ''}`}>
         <h5 className="text-sm font-black mb-1 group-hover:text-primary transition-colors">{pizza.name}</h5>
@@ -383,31 +549,63 @@ function MobileNavLink({ icon: Icon, label, active = false, to = "", onClick }: 
 }
 
 
+import { AuthProvider, useAuth } from './context/AuthContext';
+
 export default function App() {
   return (
-    <FavoritesProvider>
-      <PWAInstallPrompt />
-      <CartProvider>
-        <Router>
-          <Routes>
-            <Route path="/" element={<DeliveryApp />} />
-            <Route path="/clube" element={<LandingPage />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/dashboard/network" element={<Network />} />
-            <Route path="/dashboard/financial" element={<Financial />} />
-            <Route path="/dashboard/reports" element={<Reports />} />
-            <Route path="/dashboard/settings" element={<SettingsPage />} />
-            <Route path="/profile" element={<MyAccount />} />
-            <Route path="/favorites" element={<Favorites />} />
-            <Route path="/coupons" element={<Coupons />} />
-            <Route path="/support" element={<Support />} />
-            <Route path="/checkout" element={<Checkout />} />
-          </Routes>
-        </Router>
-      </CartProvider>
-    </FavoritesProvider>
+    <AuthProvider>
+      <FavoritesProvider>
+        <PWAInstallPrompt />
+        <Toaster 
+          position="top-right" 
+          toastOptions={{
+            duration: 4000,
+            style: {
+              background: '#0B0E14',
+              color: '#FFFFFF',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
+            },
+            success: {
+              duration: 4000,
+              iconTheme: {
+                primary: '#00E5FF',
+                secondary: '#0B0E14',
+              },
+            },
+          }}
+        />
+        <CartProvider>
+          <Router>
+            <Routes>
+              <Route path="/" element={<DeliveryApp />} />
+              <Route path="/clube" element={<LandingPage />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/dashboard/network" element={<Network />} />
+              <Route path="/dashboard/financial" element={<Financial />} />
+              <Route path="/dashboard/reports" element={<Reports />} />
+              <Route path="/dashboard/settings" element={<SettingsPage />} />
+              
+              {/* Admin Routes */}
+              <Route path="/admin/login" element={<AdminLogin />} />
+              <Route path="/admin" element={<AdminDashboard />} />
+              <Route path="/admin/orders" element={<AdminOrders />} />
+              <Route path="/admin/payouts" element={<AdminPayouts />} />
+              <Route path="/admin/users" element={<AdminUsers />} />
+              <Route path="/admin/menu" element={<AdminMenu />} />
+              <Route path="/admin/settings" element={<AdminSettings />} />
+
+              <Route path="/profile" element={<MyAccount />} />
+              <Route path="/favorites" element={<Favorites />} />
+              <Route path="/coupons" element={<Coupons />} />
+              <Route path="/support" element={<Support />} />
+              <Route path="/checkout" element={<Checkout />} />
+            </Routes>
+          </Router>
+        </CartProvider>
+      </FavoritesProvider>
+    </AuthProvider>
   );
 }
 

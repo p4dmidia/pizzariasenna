@@ -18,10 +18,13 @@ import {
   Filter,
   BarChart3,
   Target,
-  Award
+  Award,
+  Loader2,
+  Ticket
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import { useState } from 'react';
+import { useAuth } from '../context/AuthContext';
 
 const REPORT_STATS = [
   { label: 'Crescimento Mensal', value: '+24%', icon: TrendingUp, color: 'primary', trend: 'up' },
@@ -47,9 +50,40 @@ const CATEGORY_BREAKDOWN = [
 ];
 
 import logoImg from '../assets/logo-casarao.jpeg';
+import NotificationBell from '../components/NotificationBell';
 
 export default function Reports() {
+  const { user, profile: authProfile, loading, signOut } = useAuth();
   const [period, setPeriod] = useState('Mensal');
+
+  const isAdminDemo = localStorage.getItem('admin_auth') === 'true';
+  const profile = isAdminDemo ? {
+    id: 0,
+    mocha_user_id: 'admin',
+    email: 'admin@casarao.com',
+    full_name: 'Admin Casarão',
+    role: 'admin',
+    plan: 'master',
+    referral_code: 'ADMIN',
+    balance: 0,
+    points: 0
+  } : authProfile;
+
+  const handleSignOut = async () => {
+    localStorage.removeItem('admin_auth');
+    await signOut();
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4">
+        <Loader2 className="w-12 h-12 text-primary animate-spin" />
+        <p className="text-text-muted font-black uppercase tracking-widest text-xs">Carregando Relatórios...</p>
+      </div>
+    );
+  }
+
+  if (!user && !isAdminDemo) return <Navigate to="/login" replace />;
 
   return (
     <div className="min-h-screen bg-background text-text-main font-sans flex">
@@ -62,20 +96,29 @@ export default function Reports() {
         </div>
 
         <nav className="flex-1 px-4 space-y-2 mt-4">
-          <SidebarLink icon={LayoutDashboard} label="Dashboard" to="/dashboard" />
-          <SidebarLink icon={Users} label="Minha Rede" to="/dashboard/network" />
-          <SidebarLink icon={Wallet} label="Financeiro" to="/dashboard/financial" />
+          <SidebarLink icon={LayoutDashboard} label="Dashboard" to={isAdminDemo ? "/admin" : "/dashboard"} />
+          {!isAdminDemo && <SidebarLink icon={Users} label="Minha Rede" to="/dashboard/network" />}
+          {!isAdminDemo && <SidebarLink icon={Wallet} label="Financeiro" to="/dashboard/financial" />}
           <SidebarLink icon={ShoppingCart} label="Delivery" to="/" />
+          {!isAdminDemo && <SidebarLink icon={Ticket} label="Cupons" to="/coupons" />}
           <SidebarLink icon={PieChart} label="Relatórios" active />
-          <SidebarLink icon={Settings} label="Configurações" to="/dashboard/settings" />
-
+          {!isAdminDemo && <SidebarLink icon={Settings} label="Configurações" to="/dashboard/settings" />}
+          {isAdminDemo && (
+            <>
+              <SidebarLink icon={Wallet} label="Saques" to="/admin/payouts" />
+              <SidebarLink icon={Users} label="Usuários" to="/admin/users" />
+              <SidebarLink icon={Settings} label="Configurações" to="/admin/settings" />
+            </>
+          )}
         </nav>
 
         <div className="p-6">
-          <Link to="/login" className="flex items-center gap-3 w-full p-4 text-text-muted hover:text-red-400 transition-colors font-black text-xs uppercase tracking-widest">
+          <button 
+            onClick={handleSignOut}
+            className="flex items-center gap-3 w-full p-4 text-text-muted hover:text-red-400 transition-colors font-black text-xs uppercase tracking-widest text-left"
+          >
             <LogOut size={18} /> Sair da Conta
-          </Link>
-
+          </button>
         </div>
       </aside>
 
@@ -95,17 +138,14 @@ export default function Reports() {
           </div>
 
           <div className="flex items-center gap-6">
-            <button className="relative p-2 text-text-muted hover:text-primary transition-colors">
-              <Bell size={22} />
-              <span className="absolute top-2 right-2 w-2 h-2 bg-primary rounded-full" />
-            </button>
+            <NotificationBell />
             <div className="flex items-center gap-3 pl-6 border-l border-surface-border">
               <div className="text-right hidden sm:block">
-                <p className="text-xs font-black uppercase">Miguel Oliveira</p>
-                <p className="text-[10px] text-primary font-bold">ID: CASARAO007</p>
+                <p className="text-xs font-black uppercase">{profile?.full_name}</p>
+                <p className="text-[10px] text-primary font-bold">ID: {profile?.referral_code}</p>
               </div>
               <div className="w-10 h-10 rounded-xl bg-surface border border-surface-border flex items-center justify-center overflow-hidden">
-                <img src="https://ui-avatars.com/api/?name=Miguel+Oliveira&background=00E5FF&color=0B0E14&bold=true" alt="Avatar" />
+                <img src={profile?.avatar_url || `https://ui-avatars.com/api/?name=${profile?.full_name}&background=00E5FF&color=0B0E14&bold=true`} alt="Avatar" />
               </div>
             </div>
           </div>
@@ -243,9 +283,9 @@ export default function Reports() {
 
       {/* Mobile Bottom Nav */}
       <nav className="lg:hidden fixed bottom-0 left-0 w-full glass z-50 flex items-center justify-around py-3 px-4">
-        <MobileNavLink icon={LayoutDashboard} label="Home" to="/dashboard" />
-        <MobileNavLink icon={Users} label="Rede" to="/dashboard/network" />
-        <MobileNavLink icon={Wallet} label="Saldo" to="/dashboard/financial" />
+        <MobileNavLink icon={LayoutDashboard} label="Home" to={isAdminDemo ? "/admin" : "/dashboard"} />
+        {!isAdminDemo && <MobileNavLink icon={Users} label="Rede" to="/dashboard/network" />}
+        {!isAdminDemo && <MobileNavLink icon={Wallet} label="Saldo" to="/dashboard/financial" />}
         <MobileNavLink icon={PieChart} label="Relatórios" active />
       </nav>
     </div>
@@ -263,7 +303,7 @@ function SidebarLink({ icon: Icon, label, active, to = '#' }: any) {
       }`}
     >
       <Icon size={20} className={active ? '' : 'group-hover:text-primary transition-colors'} />
-      <span className="text-sm font-black uppercase tracking-widest">{label}</span>
+      <span className="text-sm font-black">{label}</span>
     </Link>
   );
 }

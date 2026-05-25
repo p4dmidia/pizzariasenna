@@ -1,4 +1,4 @@
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { 
   Wallet, 
   TrendingUp, 
@@ -18,10 +18,14 @@ import {
   Bell,
   CreditCard,
   DollarSign,
-  ChevronRight
+  ChevronRight,
+  Loader2,
+  X,
+  Ticket
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import { useState } from 'react';
+import { useAuth } from '../context/AuthContext';
 
 const FINANCIAL_STATS = [
   { label: 'Saldo Disponível', value: 'R$ 1.250,00', icon: Wallet, color: 'primary', description: 'Disponível para saque imediato' },
@@ -41,10 +45,24 @@ const TRANSACTIONS = [
 ];
 
 import logoImg from '../assets/logo-casarao.jpeg';
+import NotificationBell from '../components/NotificationBell';
 
 export default function Financial() {
+  const { user, profile, loading, signOut } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all');
+  const [selectedTransaction, setSelectedTransaction] = useState<any | null>(null);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4">
+        <Loader2 className="w-12 h-12 text-primary animate-spin" />
+        <p className="text-text-muted font-black uppercase tracking-widest text-xs">Carregando Financeiro...</p>
+      </div>
+    );
+  }
+
+  if (!user) return <Navigate to="/login" replace />;
 
   const filteredTransactions = TRANSACTIONS.filter(t => {
     const matchesSearch = t.description.toLowerCase().includes(searchTerm.toLowerCase());
@@ -69,6 +87,7 @@ export default function Financial() {
           <SidebarLink icon={Users} label="Minha Rede" to="/dashboard/network" />
           <SidebarLink icon={Wallet} label="Financeiro" active />
           <SidebarLink icon={ShoppingCart} label="Delivery" to="/" />
+          <SidebarLink icon={Ticket} label="Cupons" to="/coupons" />
           <SidebarLink icon={PieChart} label="Relatórios" to="/dashboard/reports" />
 
           <SidebarLink icon={Settings} label="Configurações" to="/dashboard/settings" />
@@ -76,10 +95,12 @@ export default function Financial() {
         </nav>
 
         <div className="p-6">
-          <Link to="/login" className="flex items-center gap-3 w-full p-4 text-text-muted hover:text-red-400 transition-colors font-black text-xs uppercase tracking-widest">
+          <button 
+            onClick={signOut}
+            className="flex items-center gap-3 w-full p-4 text-text-muted hover:text-red-400 transition-colors font-black text-xs uppercase tracking-widest text-left"
+          >
             <LogOut size={18} /> Sair da Conta
-          </Link>
-
+          </button>
         </div>
       </aside>
 
@@ -101,17 +122,14 @@ export default function Financial() {
           </div>
 
           <div className="flex items-center gap-6">
-            <button className="relative p-2 text-text-muted hover:text-primary transition-colors">
-              <Bell size={22} />
-              <span className="absolute top-2 right-2 w-2 h-2 bg-primary rounded-full" />
-            </button>
+            <NotificationBell />
             <div className="flex items-center gap-3 pl-6 border-l border-surface-border">
               <div className="text-right hidden sm:block">
-                <p className="text-xs font-black uppercase">Miguel Oliveira</p>
-                <p className="text-[10px] text-primary font-bold">ID: CASARAO007</p>
+                <p className="text-xs font-black uppercase">{profile?.full_name}</p>
+                <p className="text-[10px] text-primary font-bold">ID: {profile?.referral_code}</p>
               </div>
               <div className="w-10 h-10 rounded-xl bg-surface border border-surface-border flex items-center justify-center overflow-hidden">
-                <img src="https://ui-avatars.com/api/?name=Miguel+Oliveira&background=00E5FF&color=0B0E14&bold=true" alt="Avatar" />
+                <img src={profile?.avatar_url || `https://ui-avatars.com/api/?name=${profile?.full_name}&background=00E5FF&color=0B0E14&bold=true`} alt="Avatar" />
               </div>
             </div>
           </div>
@@ -136,7 +154,12 @@ export default function Financial() {
 
           {/* Stats Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {FINANCIAL_STATS.map((stat, index) => (
+            {[
+              { label: 'Saldo Disponível', value: `R$ ${(profile?.balance || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, icon: Wallet, color: 'primary', description: 'Disponível para saque imediato' },
+              { label: 'Saldo Pendente', value: 'R$ 0,00', icon: Clock, color: 'secondary', description: 'Em processo de liberação' },
+              { label: 'Ganhos Totais', value: `R$ ${(profile?.balance || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, icon: TrendingUp, color: 'primary', description: 'Acumulado desde o início' },
+              { label: 'Próximo Saque', value: 'R$ 0,00', icon: CheckCircle2, color: 'secondary', description: 'Valor mínimo atingido' },
+            ].map((stat, index) => (
               <motion.div 
                 key={index}
                 initial={{ opacity: 0, y: 20 }}
@@ -207,7 +230,8 @@ export default function Financial() {
                           key={t.id}
                           initial={{ opacity: 0 }}
                           animate={{ opacity: 1 }}
-                          className="group hover:bg-white/5 transition-colors"
+                          onClick={() => setSelectedTransaction(t)}
+                          className="group hover:bg-white/5 transition-colors cursor-pointer"
                          >
                             <td className="px-8 py-5">
                                <div className="flex items-center gap-4">
@@ -253,7 +277,10 @@ export default function Financial() {
                                </div>
                             </td>
                             <td className="px-8 py-5 text-right">
-                               <button className="p-2 text-text-muted hover:text-primary transition-all">
+                               <button 
+                                 onClick={(e) => { e.stopPropagation(); setSelectedTransaction(t); }}
+                                 className="p-2 text-text-muted hover:text-primary transition-all"
+                               >
                                   <ChevronRight size={18} />
                                 </button>
                             </td>
@@ -280,6 +307,106 @@ export default function Financial() {
         <MobileNavLink icon={Wallet} label="Saldo" active />
         <MobileNavLink icon={Settings} label="Perfil" />
       </nav>
+
+      {/* Detalhes da Transação Modal */}
+      <AnimatePresence>
+        {selectedTransaction && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSelectedTransaction(null)} 
+              className="fixed inset-0 bg-background/80 backdrop-blur-md" 
+            />
+            
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="glass-card max-w-md w-full border-white/10 p-8 relative z-10 overflow-hidden shadow-2xl"
+            >
+              {/* Decorative Glow */}
+              <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 blur-2xl rounded-full -mr-16 -mt-16" />
+              
+              {/* Close Button */}
+              <button 
+                onClick={() => setSelectedTransaction(null)}
+                className="absolute top-4 right-4 p-2 text-text-muted hover:text-white transition-colors"
+              >
+                <X size={20} />
+              </button>
+
+              {/* Modal Content */}
+              <div className="text-center mb-6">
+                <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 ${
+                  selectedTransaction.amount > 0 ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'
+                }`}>
+                  {selectedTransaction.amount > 0 ? <ArrowDownLeft size={32} /> : <ArrowUpRight size={32} />}
+                </div>
+                <span className={`text-[10px] font-black uppercase px-3 py-1 rounded-full ${
+                  selectedTransaction.status === 'confirmado' ? 'bg-emerald-500/10 text-emerald-400' : 
+                  selectedTransaction.status === 'pendente' ? 'bg-amber-500/10 text-amber-400' : 'bg-red-500/10 text-red-400'
+                }`}>
+                  {selectedTransaction.status === 'confirmado' ? 'Concluído' : 
+                   selectedTransaction.status === 'pendente' ? 'Pendente' : 'Cancelado'}
+                </span>
+                <h3 className="text-3xl font-black mt-4 text-glow">
+                  {selectedTransaction.amount > 0 ? '+' : ''} R$ {Math.abs(selectedTransaction.amount).toFixed(2)}
+                </h3>
+                <p className="text-sm text-text-muted mt-1">{selectedTransaction.description}</p>
+              </div>
+
+              <div className="space-y-4 border-t border-surface-border pt-6 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-text-muted font-bold">ID da Transação:</span>
+                  <span className="font-black text-white">#TXN-{(23400 + selectedTransaction.id).toString()}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-text-muted font-bold">Tipo:</span>
+                  <span className="font-black text-primary uppercase tracking-wider text-xs">
+                    {selectedTransaction.type === 'comissao' ? 'Indicação' : 
+                     selectedTransaction.type === 'saque' ? 'Saque' : 
+                     selectedTransaction.type === 'ativacao' ? 'Bônus Ativação' : 'Cashback'}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-text-muted font-bold">Data:</span>
+                  <span className="font-black text-white">{selectedTransaction.date} às 14:32</span>
+                </div>
+                
+                {/* Conditional detailed text */}
+                <div className="bg-surface/50 border border-surface-border rounded-xl p-4 mt-4">
+                  <p className="text-xs text-text-muted leading-relaxed">
+                    {selectedTransaction.type === 'comissao' && (
+                      "Comissão gerada pela compra de um afiliado da sua rede (Nível 1 ou 2). O valor foi creditado em seu saldo disponível."
+                    )}
+                    {selectedTransaction.type === 'cashback' && (
+                      "Cashback gerado pelas suas compras no Delivery Casarão. O saldo será liberado assim que o pedido for concluído."
+                    )}
+                    {selectedTransaction.type === 'saque' && selectedTransaction.status === 'confirmado' && (
+                      "Transferência de saque PIX processada e finalizada com sucesso para sua chave cadastrada."
+                    )}
+                    {selectedTransaction.type === 'saque' && selectedTransaction.status === 'cancelado' && (
+                      "Solicitação de saque recusada pela instituição financeira ou cancelada por inconsistência nos dados PIX."
+                    )}
+                    {selectedTransaction.type === 'ativacao' && (
+                      "Bônus especial de ativação recebido por trazer e ativar um novo afiliado direto na sua rede."
+                    )}
+                  </p>
+                </div>
+              </div>
+
+              <button 
+                onClick={() => setSelectedTransaction(null)}
+                className="w-full mt-6 bg-primary text-background py-3.5 rounded-xl font-black text-xs uppercase tracking-widest shadow-lg glow-primary hover:scale-[1.02] active:scale-[0.98] transition-all"
+              >
+                Fechar Detalhes
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -295,7 +422,7 @@ function SidebarLink({ icon: Icon, label, active, to = '#' }: any) {
       }`}
     >
       <Icon size={20} className={active ? '' : 'group-hover:text-primary transition-colors'} />
-      <span className="text-sm font-black uppercase tracking-widest">{label}</span>
+      <span className="text-sm font-black">{label}</span>
     </Link>
   );
 }

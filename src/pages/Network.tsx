@@ -21,138 +21,218 @@ import {
   LayoutList,
   Network as NetworkIcon,
   ChevronDown,
-  User
+  User,
+  Loader2,
+  Ticket
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
-import { useState } from 'react';
-
-const NETWORK_STATS = [
-  { label: 'Total na Rede', value: '142', icon: Users, color: 'primary' },
-  { label: 'Indicações Diretas', value: '48', icon: UserPlus, color: 'secondary' },
-  { label: 'Ativos este Mês', value: '126', icon: TrendingUp, color: 'primary' },
-  { label: 'Novos (30 dias)', value: '+12', icon: Award, color: 'secondary' },
-];
-
-const REFERRALS = [
-  { 
-    id: 67, 
-    name: 'Rogerio Lima', 
-    level: 1, 
-    status: 'active', 
-    date: '12/04/2026', 
-    email: 'rogerio@email.com', 
-    phone: '(11) 99999-9999',
-    avatar: 'https://ui-avatars.com/api/?name=Rogerio+Lima&background=00E5FF&color=0B0E14&bold=true',
-    referralsCount: 12
-  },
-  { 
-    id: 75, 
-    name: 'Afiliado #75', 
-    level: 1, 
-    status: 'active', 
-    date: '15/04/2026', 
-    email: 'afiliado75@email.com', 
-    phone: '(11) 98888-8888',
-    avatar: 'https://ui-avatars.com/api/?name=Afiliado+75&background=00E5FF&color=0B0E14&bold=true',
-    referralsCount: 0
-  },
-  { 
-    id: 76, 
-    name: 'Afiliado #76', 
-    level: 1, 
-    status: 'pending', 
-    date: '16/04/2026', 
-    email: 'afiliado76@email.com', 
-    phone: '(11) 97777-7777',
-    avatar: 'https://ui-avatars.com/api/?name=Afiliado+76&background=00E5FF&color=0B0E14&bold=true',
-    referralsCount: 2
-  },
-  { 
-    id: 77, 
-    name: 'Afiliado #77', 
-    level: 1, 
-    status: 'active', 
-    date: '18/04/2026', 
-    email: 'afiliado77@email.com', 
-    phone: '(11) 96666-6666',
-    avatar: 'https://ui-avatars.com/api/?name=Afiliado+77&background=00E5FF&color=0B0E14&bold=true',
-    referralsCount: 5
-  },
-  { 
-    id: 78, 
-    name: 'Márcio Bento Rezende', 
-    level: 2, 
-    status: 'active', 
-    date: '20/04/2026', 
-    email: 'marcio@email.com', 
-    phone: '(11) 95555-5555',
-    avatar: 'https://ui-avatars.com/api/?name=Marcio+Bento&background=FF3D00&color=FFFFFF&bold=true',
-    referralsCount: 3,
-    sponsorName: 'Rogerio Lima'
-  },
-];
-
-// Recursive data structure for the tree view (Limited to 2-3 levels for the visual demo)
-const TREE_NETWORK = {
-  id: 'me',
-  name: 'Miguel Oliveira',
-  level: 0,
-  status: 'active',
-  avatar: 'https://ui-avatars.com/api/?name=Miguel+Oliveira&background=00E5FF&color=0B0E14&bold=true',
-  children: [
-    { 
-      id: 67, 
-      name: 'Rogerio Lima', 
-      level: 1, 
-      status: 'active', 
-      avatar: 'https://ui-avatars.com/api/?name=Rogerio+Lima&background=00E5FF&color=0B0E14&bold=true',
-      children: [
-        { 
-          id: 78, 
-          name: 'Márcio Bento', 
-          level: 2, 
-          status: 'active', 
-          avatar: 'https://ui-avatars.com/api/?name=MB&background=FF3D00&color=FFFFFF&bold=true',
-          children: []
-        },
-        { 
-          id: 79, 
-          name: 'Ana Souza', 
-          level: 2, 
-          status: 'active', 
-          avatar: 'https://ui-avatars.com/api/?name=AS&background=FF3D00&color=FFFFFF&bold=true',
-          children: []
-        }
-      ]
-    },
-    { 
-      id: 76, 
-      name: 'Afiliado #76', 
-      level: 1, 
-      status: 'pending', 
-      avatar: 'https://ui-avatars.com/api/?name=A76&background=00E5FF&color=0B0E14&bold=true',
-      children: [
-        { 
-          id: 80, 
-          name: 'Carlos P.', 
-          level: 2, 
-          status: 'active', 
-          avatar: 'https://ui-avatars.com/api/?name=CP&background=FF3D00&color=FFFFFF&bold=true',
-          children: []
-        }
-      ]
-    }
-  ]
-};
+import { Link, Navigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { supabase } from '../lib/supabase';
+import { toast } from 'react-hot-toast';
 
 import logoImg from '../assets/logo-casarao.jpeg';
+import NotificationBell from '../components/NotificationBell';
 
 export default function Network() {
+  const { user, profile, loading, signOut } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterLevel, setFilterLevel] = useState('all');
   const [viewMode, setViewMode] = useState<'list' | 'tree'>('list');
+  const [networkMembers, setNetworkMembers] = useState<any[]>([]);
+  const [networkLoading, setNetworkLoading] = useState(true);
 
-  const filteredReferrals = REFERRALS.filter(ref => {
+  useEffect(() => {
+    if (profile?.id) {
+      fetchNetworkData(profile.id);
+    } else if (!loading) {
+      setNetworkLoading(false);
+    }
+  }, [profile, loading]);
+
+  const fetchNetworkData = async (userId: number) => {
+    try {
+      setNetworkLoading(true);
+
+      // Determinar limite máximo de profundidade com base no plano do usuário
+      let planMaxDepth = 7;
+      const userPlan = profile?.plan || 'cliente';
+      if (userPlan === 'cliente') planMaxDepth = 0;
+      else if (userPlan === 'empreendedor') planMaxDepth = 3;
+      else if (userPlan === 'visionario') planMaxDepth = 7;
+
+      try {
+        const { data: settingsData } = await supabase
+          .from('system_settings')
+          .select('key, value')
+          .eq('key', `plan_levels_${userPlan}`)
+          .maybeSingle();
+          
+        if (settingsData && settingsData.value) {
+          planMaxDepth = parseInt(settingsData.value, 10);
+        }
+      } catch (err) {
+        console.warn('Erro ao carregar regras de níveis do Supabase, usando padrão do plano:', err);
+      }
+      
+      let allMembers: any[] = [];
+      try {
+        let currentLevelSponsorIds = [userId];
+        let depth = 1;
+
+        while (currentLevelSponsorIds.length > 0 && depth <= planMaxDepth) {
+          const { data, error } = await supabase
+            .from('user_profiles')
+            .select('*')
+            .in('sponsor_id', currentLevelSponsorIds);
+
+          if (error) throw error;
+          if (!data || data.length === 0) break;
+
+          const levelMembers = data.map(member => ({
+            ...member,
+            level: depth
+          }));
+
+          allMembers = [...allMembers, ...levelMembers];
+          currentLevelSponsorIds = data.map(member => member.id);
+          depth++;
+        }
+      } catch (err) {
+        console.warn('Erro ao carregar rede do Supabase, tentando local storage:', err);
+        const mockProfiles = JSON.parse(localStorage.getItem('supabase.mock-profiles') || '[]');
+        
+        const mockProfilesWithId = mockProfiles.map((p: any, idx: number) => ({
+          ...p,
+          id: p.id || (idx + 1000)
+        }));
+        
+        mockProfilesWithId.forEach((p: any) => {
+          if (p.sponsor_id && typeof p.sponsor_id === 'string') {
+            const sponsor = mockProfilesWithId.find((s: any) => s.referral_code === p.sponsor_id);
+            if (sponsor) p.sponsor_id = sponsor.id;
+          }
+        });
+
+        let currentLevelSponsorIds = [userId];
+        let depth = 1;
+        
+        while (currentLevelSponsorIds.length > 0 && depth <= planMaxDepth) {
+          const levelData = mockProfilesWithId.filter((p: any) => currentLevelSponsorIds.includes(p.sponsor_id));
+          if (levelData.length === 0) break;
+
+          const levelMembers = levelData.map((member: any) => ({
+            ...member,
+            level: depth
+          }));
+
+          allMembers = [...allMembers, ...levelMembers];
+          currentLevelSponsorIds = levelData.map((member: any) => member.id);
+          depth++;
+        }
+      }
+
+      setNetworkMembers(allMembers);
+    } catch (err) {
+      console.error('Failed to fetch network:', err);
+    } finally {
+      setNetworkLoading(false);
+    }
+  };
+
+  const handleInvite = () => {
+    if (profile?.referral_code) {
+      const link = `casarao.com.br/clube/${profile.referral_code}`;
+      navigator.clipboard.writeText(link);
+      toast.success('Link de convite copiado para a área de transferência!');
+    } else {
+      toast.error('Código de indicação não disponível.');
+    }
+  };
+
+  if (loading || networkLoading) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4">
+        <Loader2 className="w-12 h-12 text-primary animate-spin" />
+        <p className="text-text-muted font-black uppercase tracking-widest text-xs">Carregando Rede...</p>
+      </div>
+    );
+  }
+
+  if (!user) return <Navigate to="/login" replace />;
+
+  const buildTree = (parentId: number, currentLevel: number): any[] => {
+    return networkMembers
+      .filter(m => m.sponsor_id === parentId)
+      .map(m => {
+        const nameParam = encodeURIComponent(m.full_name || 'Afiliado');
+        const bg = currentLevel === 1 ? '00E5FF' : 'FF3D00';
+        const color = currentLevel === 1 ? '0B0E14' : 'FFFFFF';
+        const avatar = m.avatar_url || `https://ui-avatars.com/api/?name=${nameParam}&background=${bg}&color=${color}&bold=true`;
+        
+        return {
+          id: m.id,
+          name: m.full_name,
+          level: currentLevel,
+          status: m.is_active ? 'active' : 'pending',
+          avatar,
+          children: buildTree(m.id, currentLevel + 1)
+        };
+      });
+  };
+
+  const userTree = {
+    id: 'me',
+    name: profile?.full_name || 'Usuário',
+    level: 0,
+    status: 'active',
+    avatar: profile?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile?.full_name || 'Usuário')}&background=00E5FF&color=0B0E14&bold=true`,
+    children: buildTree(profile?.id || 0, 1)
+  };
+
+  const directCount = networkMembers.filter(m => m.level === 1).length;
+  const activeCount = networkMembers.filter(m => m.is_active).length;
+  
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  const newCount = networkMembers.filter(m => m.created_at && new Date(m.created_at) >= thirtyDaysAgo).length;
+
+  const statsCards = [
+    { label: 'Total na Rede', value: networkMembers.length.toString(), icon: Users, color: 'primary' },
+    { label: 'Indicações Diretas', value: directCount.toString(), icon: UserPlus, color: 'secondary' },
+    { label: 'Ativos este Mês', value: activeCount.toString(), icon: TrendingUp, color: 'primary' },
+    { label: 'Novos (30 dias)', value: `+${newCount}`, icon: Award, color: 'secondary' },
+  ];
+
+  const referrals = networkMembers.map(member => {
+    let sponsorName = '';
+    if (member.level > 1) {
+      const sponsor = networkMembers.find(m => m.id === member.sponsor_id) || (member.sponsor_id === profile?.id ? profile : null);
+      sponsorName = sponsor?.full_name || '';
+    }
+    
+    const nameParam = encodeURIComponent(member.full_name || 'Afiliado');
+    const bg = member.level === 1 ? '00E5FF' : 'FF3D00';
+    const color = member.level === 1 ? '0B0E14' : 'FFFFFF';
+    const avatar = member.avatar_url || `https://ui-avatars.com/api/?name=${nameParam}&background=${bg}&color=${color}&bold=true`;
+    
+    const referralsCount = networkMembers.filter(m => m.sponsor_id === member.id).length;
+    
+    return {
+      id: member.id,
+      name: member.full_name,
+      level: member.level,
+      status: member.is_active ? 'active' : 'pending',
+      date: member.created_at ? new Date(member.created_at).toLocaleDateString('pt-BR') : 'Sem data',
+      email: member.email,
+      phone: member.phone || '(S/ Telefone)',
+      avatar,
+      referralsCount,
+      sponsorName
+    };
+  });
+
+  const filteredReferrals = referrals.filter(ref => {
     const matchesSearch = ref.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
                          ref.email.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesLevel = filterLevel === 'all' || ref.level.toString() === filterLevel;
@@ -161,7 +241,7 @@ export default function Network() {
 
   return (
     <div className="min-h-screen bg-background text-text-main font-sans flex">
-      {/* Sidebar Desktop (Reused from Dashboard for consistency) */}
+      {/* Sidebar Desktop */}
       <aside className="hidden lg:flex w-72 flex-col glass border-r border-surface-border fixed h-full z-50">
         <div className="p-8">
           <Link to="/" className="flex items-center gap-3">
@@ -175,6 +255,7 @@ export default function Network() {
           <SidebarLink icon={Wallet} label="Financeiro" to="/dashboard/financial" />
 
           <SidebarLink icon={ShoppingCart} label="Delivery" to="/" />
+          <SidebarLink icon={Ticket} label="Cupons" to="/coupons" />
           <SidebarLink icon={PieChart} label="Relatórios" to="/dashboard/reports" />
 
           <SidebarLink icon={Settings} label="Configurações" to="/dashboard/settings" />
@@ -182,10 +263,12 @@ export default function Network() {
         </nav>
 
         <div className="p-6">
-          <Link to="/login" className="flex items-center gap-3 w-full p-4 text-text-muted hover:text-red-400 transition-colors font-black text-xs uppercase tracking-widest">
+          <button 
+            onClick={signOut}
+            className="flex items-center gap-3 w-full p-4 text-text-muted hover:text-red-400 transition-colors font-black text-xs uppercase tracking-widest text-left"
+          >
             <LogOut size={18} /> Sair da Conta
-          </Link>
-
+          </button>
         </div>
       </aside>
 
@@ -207,17 +290,14 @@ export default function Network() {
           </div>
 
           <div className="flex items-center gap-6">
-            <button className="relative p-2 text-text-muted hover:text-primary transition-colors">
-              <Bell size={22} />
-              <span className="absolute top-2 right-2 w-2 h-2 bg-primary rounded-full" />
-            </button>
+            <NotificationBell />
             <div className="flex items-center gap-3 pl-6 border-l border-surface-border">
               <div className="text-right hidden sm:block">
-                <p className="text-xs font-black uppercase">Miguel Oliveira</p>
-                <p className="text-[10px] text-primary font-bold">ID: CASARAO007</p>
+                <p className="text-xs font-black uppercase">{profile?.full_name}</p>
+                <p className="text-[10px] text-primary font-bold">ID: {profile?.referral_code}</p>
               </div>
               <div className="w-10 h-10 rounded-xl bg-surface border border-surface-border flex items-center justify-center overflow-hidden">
-                <img src="https://ui-avatars.com/api/?name=Miguel+Oliveira&background=00E5FF&color=0B0E14&bold=true" alt="Avatar" />
+                <img src={profile?.avatar_url || `https://ui-avatars.com/api/?name=${profile?.full_name}&background=00E5FF&color=0B0E14&bold=true`} alt="Avatar" />
               </div>
             </div>
           </div>
@@ -247,7 +327,7 @@ export default function Network() {
                      <NetworkIcon size={18} />
                    </button>
                 </div>
-                <button className="bg-primary text-background px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg glow-primary flex items-center gap-2">
+                <button onClick={handleInvite} className="bg-primary text-background px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg glow-primary flex items-center gap-2">
                    <UserPlus size={16} /> Convidar Novo
                 </button>
              </div>
@@ -255,7 +335,7 @@ export default function Network() {
 
           {/* Stats Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {NETWORK_STATS.map((stat, index) => (
+            {statsCards.map((stat, index) => (
               <motion.div 
                 key={index}
                 initial={{ opacity: 0, y: 20 }}
@@ -392,7 +472,7 @@ export default function Network() {
                 <div className="p-8 md:p-12 min-h-[600px] overflow-x-auto">
                    <h3 className="text-xl font-black mb-12 text-center">Mapa de Rede</h3>
                    <div className="flex justify-center min-w-[800px]">
-                      <TreeNode node={TREE_NETWORK} />
+                      <TreeNode node={userTree} />
                    </div>
                 </div>
              )}
@@ -490,7 +570,7 @@ function SidebarLink({ icon: Icon, label, active, to = '#' }: any) {
       }`}
     >
       <Icon size={20} className={active ? '' : 'group-hover:text-primary transition-colors'} />
-      <span className="text-sm font-black uppercase tracking-widest">{label}</span>
+      <span className="text-sm font-black">{label}</span>
     </Link>
   );
 }

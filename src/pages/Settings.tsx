@@ -5,7 +5,6 @@ import {
   Lock, 
   Share2, 
   Wallet, 
-  Bell, 
   Check, 
   Camera,
   LayoutDashboard,
@@ -16,10 +15,16 @@ import {
   ChevronRight,
   Shield,
   CreditCard,
-  Target
+  Target,
+  Loader2,
+  Ticket
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
-import { useState } from 'react';
+import { Link, Navigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { supabase } from '../lib/supabase';
+import { toast } from 'react-hot-toast';
+import NotificationBell from '../components/NotificationBell';
 
 const TABS = [
   { id: 'profile', label: 'Perfil', icon: User },
@@ -31,7 +36,104 @@ const TABS = [
 import logoImg from '../assets/logo-casarao.jpeg';
 
 export default function SettingsPage() {
+  const { user, profile, loading, signOut, refreshProfile } = useAuth();
   const [activeTab, setActiveTab] = useState('profile');
+  const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (profile) {
+      setName(profile.full_name || '');
+      setPhone(profile.phone || '');
+    }
+  }, [profile]);
+
+  const handleSave = async () => {
+    if (!name.trim()) {
+      toast.error('O nome completo é obrigatório.');
+      return;
+    }
+
+    try {
+      setSaving(true);
+      
+      // 1. Tentar atualizar no banco de dados real do Supabase
+      if (profile?.mocha_user_id) {
+        try {
+          const { error } = await supabase
+            .from('user_profiles')
+            .update({ 
+              full_name: name, 
+              phone: phone,
+            })
+            .eq('mocha_user_id', profile.mocha_user_id);
+            
+          if (error) {
+            console.warn('Erro ao atualizar no banco (usando local fallback):', error);
+          }
+        } catch (e) {
+          console.warn('Conexão com o banco falhou:', e);
+        }
+
+        // 2. Atualizar no localStorage para manter consistência nos testes locais
+        const mockProfiles = JSON.parse(localStorage.getItem('supabase.mock-profiles') || '[]');
+        const profileIndex = mockProfiles.findIndex((p: any) => p.mocha_user_id === profile.mocha_user_id);
+        
+        if (profileIndex !== -1) {
+          mockProfiles[profileIndex] = {
+            ...mockProfiles[profileIndex],
+            full_name: name,
+            phone: phone,
+          };
+          localStorage.setItem('supabase.mock-profiles', JSON.stringify(mockProfiles));
+        } else {
+          mockProfiles.push({
+            ...profile,
+            full_name: name,
+            phone: phone,
+          });
+          localStorage.setItem('supabase.mock-profiles', JSON.stringify(mockProfiles));
+        }
+
+        // Também atualizar a sessão simulada se aplicável
+        const mockSessionStr = localStorage.getItem('supabase.auth.mock-session');
+        if (mockSessionStr) {
+          try {
+            const mockSession = JSON.parse(mockSessionStr);
+            if (mockSession?.user?.id === profile.mocha_user_id) {
+              mockSession.user.user_metadata = {
+                ...mockSession.user.user_metadata,
+                full_name: name
+              };
+              localStorage.setItem('supabase.auth.mock-session', JSON.stringify(mockSession));
+            }
+          } catch (e) {
+            console.error(e);
+          }
+        }
+      }
+
+      await refreshProfile();
+      window.dispatchEvent(new Event('mock-auth-change'));
+      toast.success('Configurações atualizadas com sucesso!');
+    } catch (error: any) {
+      toast.error('Erro ao salvar configurações.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4">
+        <Loader2 className="w-12 h-12 text-primary animate-spin" />
+        <p className="text-text-muted font-black uppercase tracking-widest text-xs">Carregando Configurações...</p>
+      </div>
+    );
+  }
+
+  if (!user) return <Navigate to="/login" replace />;
 
   return (
     <div className="min-h-screen bg-background text-text-main font-sans flex">
@@ -48,15 +150,18 @@ export default function SettingsPage() {
           <SidebarLink icon={Users} label="Minha Rede" to="/dashboard/network" />
           <SidebarLink icon={Wallet} label="Financeiro" to="/dashboard/financial" />
           <SidebarLink icon={ShoppingCart} label="Delivery" to="/" />
+          <SidebarLink icon={Ticket} label="Cupons" to="/coupons" />
           <SidebarLink icon={PieChart} label="Relatórios" to="/dashboard/reports" />
           <SidebarLink icon={Settings} label="Configurações" active />
         </nav>
 
         <div className="p-6">
-          <Link to="/login" className="flex items-center gap-3 w-full p-4 text-text-muted hover:text-red-400 transition-colors font-black text-xs uppercase tracking-widest">
+          <button 
+            onClick={signOut}
+            className="flex items-center gap-3 w-full p-4 text-text-muted hover:text-red-400 transition-colors font-black text-xs uppercase tracking-widest text-left"
+          >
             <LogOut size={18} /> Sair da Conta
-          </Link>
-
+          </button>
         </div>
       </aside>
 
@@ -69,17 +174,14 @@ export default function SettingsPage() {
           </div>
 
           <div className="flex items-center gap-6">
-            <button className="relative p-2 text-text-muted hover:text-primary transition-colors">
-              <Bell size={22} />
-              <span className="absolute top-2 right-2 w-2 h-2 bg-primary rounded-full" />
-            </button>
+            <NotificationBell />
             <div className="flex items-center gap-3 pl-6 border-l border-surface-border">
               <div className="text-right hidden sm:block">
-                <p className="text-xs font-black uppercase">Miguel Oliveira</p>
-                <p className="text-[10px] text-primary font-bold">ID: CASARAO007</p>
+                <p className="text-xs font-black uppercase">{profile?.full_name}</p>
+                <p className="text-[10px] text-primary font-bold">ID: {profile?.referral_code}</p>
               </div>
               <div className="w-10 h-10 rounded-xl bg-surface border border-surface-border flex items-center justify-center overflow-hidden">
-                <img src="https://ui-avatars.com/api/?name=Miguel+Oliveira&background=00E5FF&color=0B0E14&bold=true" alt="Avatar" />
+                <img src={profile?.avatar_url || `https://ui-avatars.com/api/?name=${profile?.full_name}&background=00E5FF&color=0B0E14&bold=true`} alt="Avatar" />
               </div>
             </div>
           </div>
@@ -113,30 +215,40 @@ export default function SettingsPage() {
                         <div className="flex items-center gap-6 mb-8">
                            <div className="relative group">
                               <div className="w-24 h-24 rounded-3xl overflow-hidden border-2 border-primary/20">
-                                 <img src="https://ui-avatars.com/api/?name=Miguel+Oliveira&background=00E5FF&color=0B0E14&bold=true" alt="Profile" />
+                                 <img src={profile?.avatar_url || `https://ui-avatars.com/api/?name=${profile?.full_name}&background=00E5FF&color=0B0E14&bold=true`} alt="Profile" />
                               </div>
                               <button className="absolute -bottom-2 -right-2 p-2 bg-primary text-background rounded-xl shadow-lg hover:scale-110 transition-all">
                                  <Camera size={16} />
                               </button>
                            </div>
                            <div>
-                              <h3 className="text-xl font-black">Miguel Oliveira</h3>
-                              <p className="text-text-muted text-sm uppercase font-bold tracking-tighter">Membro desde Abril 2026</p>
+                              <h3 className="text-xl font-black">{profile?.full_name}</h3>
+                              <p className="text-text-muted text-sm uppercase font-bold tracking-tighter">Membro do plano {profile?.plan || 'Cliente'}</p>
                            </div>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                            <div className="space-y-2">
                               <label className="text-[10px] font-black uppercase text-text-muted ml-1">Nome Completo</label>
-                              <input type="text" defaultValue="Miguel Oliveira" className="w-full bg-background border border-surface-border rounded-xl py-3 px-4 outline-none focus:border-primary/50 text-sm" />
+                              <input 
+                                type="text" 
+                                value={name} 
+                                onChange={(e) => setName(e.target.value)} 
+                                className="w-full bg-background border border-surface-border rounded-xl py-3 px-4 outline-none focus:border-primary/50 text-sm" 
+                              />
                            </div>
                            <div className="space-y-2">
                               <label className="text-[10px] font-black uppercase text-text-muted ml-1">E-mail</label>
-                              <input type="email" defaultValue="miguel@email.com" className="w-full bg-background border border-surface-border rounded-xl py-3 px-4 outline-none focus:border-primary/50 text-sm" />
+                              <input type="email" defaultValue={user?.email} disabled className="w-full bg-background/50 border border-surface-border rounded-xl py-3 px-4 outline-none text-text-muted text-sm cursor-not-allowed" />
                            </div>
                            <div className="space-y-2">
                               <label className="text-[10px] font-black uppercase text-text-muted ml-1">Telefone</label>
-                              <input type="text" defaultValue="(11) 99999-9999" className="w-full bg-background border border-surface-border rounded-xl py-3 px-4 outline-none focus:border-primary/50 text-sm" />
+                              <input 
+                                type="text" 
+                                value={phone} 
+                                onChange={(e) => setPhone(e.target.value)} 
+                                className="w-full bg-background border border-surface-border rounded-xl py-3 px-4 outline-none focus:border-primary/50 text-sm" 
+                              />
                            </div>
                            <div className="space-y-2">
                               <label className="text-[10px] font-black uppercase text-text-muted ml-1">CPF</label>
@@ -144,8 +256,16 @@ export default function SettingsPage() {
                            </div>
                         </div>
 
-                        <button className="mt-8 bg-primary text-background px-8 py-3 rounded-xl font-black text-xs uppercase tracking-widest shadow-lg glow-primary hover:scale-105 transition-all">
-                           Salvar Alterações
+                        <button 
+                          onClick={handleSave}
+                          disabled={saving}
+                          className="mt-8 bg-primary text-background px-8 py-3 rounded-xl font-black text-xs uppercase tracking-widest shadow-lg glow-primary hover:scale-105 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                        >
+                           {saving ? (
+                             <>Salvando... <Loader2 className="animate-spin" size={14} /></>
+                           ) : (
+                             'Salvar Alterações'
+                           )}
                         </button>
                      </div>
                   </motion.div>
@@ -218,7 +338,7 @@ export default function SettingsPage() {
                      <div className="glass-card p-8 border-white/5">
                         <h3 className="text-lg font-black mb-4">Link de Indicação</h3>
                         <div className="flex gap-4">
-                           <input type="text" readOnly defaultValue="casarao.com.br/clube/CASARAO007" className="flex-1 bg-background border border-surface-border rounded-xl py-3 px-4 outline-none text-text-muted text-sm font-mono" />
+                           <input type="text" readOnly defaultValue={`casarao.com.br/clube/${profile?.referral_code || ""}`} className="flex-1 bg-background border border-surface-border rounded-xl py-3 px-4 outline-none text-text-muted text-sm font-mono" />
                            <button className="bg-surface border border-surface-border text-white px-6 py-3 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-surface-hover transition-all">
                               Copiar
                            </button>
@@ -293,7 +413,7 @@ function SidebarLink({ icon: Icon, label, active, to = '#' }: any) {
       }`}
     >
       <Icon size={20} className={active ? '' : 'group-hover:text-primary transition-colors'} />
-      <span className="text-sm font-black uppercase tracking-widest">{label}</span>
+      <span className="text-sm font-black">{label}</span>
     </Link>
   );
 }

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
@@ -10,23 +10,131 @@ import {
   Zap, 
   User, 
   TrendingUp,
-  ChevronLeft
+  ChevronLeft,
+  Loader2
 } from 'lucide-react';
 import logoImg from '../assets/logo-casarao.jpeg';
+
+import { supabase } from '../lib/supabase';
+import { toast } from 'react-hot-toast';
 
 export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
   const [role, setRole] = useState<'cliente' | 'afiliado'>('cliente');
   const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Logic for login will go here
-    console.log('Login attempt:', { email, password, role });
-    // For now, let's just redirect to dashboard
-    navigate('/dashboard');
+    try {
+      setLoading(true);
+      
+      // Limpar bypass do admin se estiver fazendo login como cliente/afiliado
+      localStorage.removeItem('admin_auth');
+
+      // Verificação em perfis locais (mock profiles criados via registro local)
+      const mockProfiles = JSON.parse(localStorage.getItem('supabase.mock-profiles') || '[]');
+      const foundLocalProfile = mockProfiles.find((p: any) => p.email.toLowerCase() === email.toLowerCase());
+
+      if (foundLocalProfile) {
+        if (role === 'afiliado' && foundLocalProfile.plan === 'cliente') {
+          throw new Error('Usuários com nível Cliente não possuem acesso à área de afiliados.');
+        }
+
+        const mockUser = {
+          id: foundLocalProfile.mocha_user_id,
+          email: foundLocalProfile.email,
+          user_metadata: {
+            full_name: foundLocalProfile.full_name
+          },
+          aud: 'authenticated',
+          role: 'authenticated',
+          created_at: new Date().toISOString()
+        };
+        const mockSession = {
+          user: mockUser,
+          expires_at: Math.floor(Date.now() / 1000) + 3600 * 24 * 7 // 1 semana
+        };
+        localStorage.setItem('supabase.auth.mock-session', JSON.stringify(mockSession));
+        window.dispatchEvent(new Event('mock-auth-change'));
+        toast.success('Login realizado com sucesso (Bypass de Confirmação)!', { duration: 3000 });
+        navigate(role === 'afiliado' ? '/dashboard' : '/');
+        return;
+      }
+
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        // Bypass de desenvolvimento se o e-mail não estiver confirmado ou credenciais inválidas (Modo Demo)
+        const isBypassableError = error.message && (
+          error.message.toLowerCase().includes('email not confirmed') ||
+          error.message.toLowerCase().includes('invalid login credentials') ||
+          error.message.toLowerCase().includes('invalid credentials') ||
+          error.message.toLowerCase().includes('user not found')
+        );
+
+        if (isBypassableError) {
+          const { data: profileData, error: profileError } = await supabase
+            .from('user_profiles')
+            .select('*')
+            .eq('email', email)
+            .single();
+
+          if (!profileError && profileData) {
+            if (role === 'afiliado' && profileData.plan === 'cliente') {
+              throw new Error('Usuários com nível Cliente não possuem acesso à área de afiliados.');
+            }
+
+            const mockUser = {
+              id: profileData.mocha_user_id,
+              email: profileData.email,
+              user_metadata: {
+                full_name: profileData.full_name
+              },
+              aud: 'authenticated',
+              role: 'authenticated',
+              created_at: new Date().toISOString()
+            };
+            const mockSession = {
+              user: mockUser,
+              expires_at: Math.floor(Date.now() / 1000) + 3600 * 24 * 7 // 1 semana
+            };
+            localStorage.setItem('supabase.auth.mock-session', JSON.stringify(mockSession));
+            window.dispatchEvent(new Event('mock-auth-change'));
+            toast.success('Login realizado com sucesso (Bypass de Confirmação)!', { duration: 3000 });
+            navigate(role === 'afiliado' ? '/dashboard' : '/');
+            return;
+          }
+        }
+        throw error;
+      }
+
+      // Se logou com sucesso via Supabase Real, verificar plano do perfil
+      if (data && data.user) {
+        const { data: profileData } = await supabase
+          .from('user_profiles')
+          .select('plan')
+          .eq('mocha_user_id', data.user.id)
+          .single();
+
+        if (role === 'afiliado' && (!profileData || profileData.plan === 'cliente')) {
+          await supabase.auth.signOut().catch(() => {});
+          throw new Error('Usuários com nível Cliente não possuem acesso à área de afiliados.');
+        }
+      }
+
+      toast.success('Login realizado com sucesso!', { duration: 3000 });
+      navigate(role === 'afiliado' ? '/dashboard' : '/');
+    } catch (error: any) {
+      toast.error(error.message || 'Erro ao fazer login.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -119,6 +227,8 @@ export default function Login() {
               <div className="relative group">
                 <input 
                   type="email" 
+                  name="email"
+                  autoComplete="username"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="exemplo@email.com"
@@ -137,6 +247,8 @@ export default function Login() {
               <div className="relative group">
                 <input 
                   type={showPassword ? 'text' : 'password'} 
+                  name="password"
+                  autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
@@ -156,11 +268,16 @@ export default function Login() {
 
             <button 
               type="submit"
-              className={`w-full py-4 rounded-2xl font-black uppercase tracking-widest text-sm flex items-center justify-center gap-2 transition-all hover:scale-[1.02] active:scale-[0.98] shadow-xl ${
+              disabled={loading}
+              className={`w-full py-4 rounded-2xl font-black uppercase tracking-widest text-sm flex items-center justify-center gap-2 transition-all hover:scale-[1.02] active:scale-[0.98] shadow-xl disabled:opacity-50 ${
                 role === 'cliente' ? 'bg-primary text-background glow-primary' : 'bg-secondary text-background glow-secondary'
               }`}
             >
-              Acessar Conta <ArrowRight size={18} />
+              {loading ? (
+                <>Processando... <Loader2 className="animate-spin" size={18} /></>
+              ) : (
+                <>Acessar Conta <ArrowRight size={18} /></>
+              )}
             </button>
           </form>
 

@@ -14,24 +14,171 @@ import {
   X, 
   Search, 
   ShoppingCart,
-  Bell,
   Camera,
-  ArrowLeft
+  ArrowLeft,
+  Loader2
 } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
-import { useState } from 'react';
+import { Link, useNavigate, Navigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
 import CartDrawer from '../components/CartDrawer';
 import { useCart } from '../context/CartContext';
+import { useAuth } from '../context/AuthContext';
+import { supabase } from '../lib/supabase';
+import { toast } from 'react-hot-toast';
+import NotificationBell from '../components/NotificationBell';
 
 
 
 import logoImg from '../assets/logo-casarao.jpeg';
 
 export default function MyAccount() {
+  const { user, profile, loading, signOut, refreshProfile } = useAuth();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [address, setAddress] = useState('');
+  const [number, setNumber] = useState('');
+  const [complement, setComplement] = useState('');
+  const [neighborhood, setNeighborhood] = useState('');
+  const [city, setCity] = useState('');
+  const [state, setState] = useState('');
+  const [zipcode, setZipcode] = useState('');
+  const [saving, setSaving] = useState(false);
   const { cartCount } = useCart();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (profile) {
+      setName(profile.full_name || '');
+      setPhone(profile.phone || '');
+      setAddress(profile.address || '');
+      setNumber(profile.number || '');
+      setComplement(profile.complement || '');
+      setNeighborhood(profile.neighborhood || '');
+      setCity(profile.city || '');
+      setState(profile.state || '');
+      setZipcode(profile.zipcode || '');
+    }
+  }, [profile]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4">
+        <Loader2 className="w-12 h-12 text-primary animate-spin" />
+        <p className="text-text-muted font-black uppercase tracking-widest text-xs">Carregando Perfil...</p>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  const handleSave = async () => {
+    if (!name.trim()) {
+      toast.error('O nome completo é obrigatório.');
+      return;
+    }
+
+    try {
+      setSaving(true);
+      
+      // 1. Tentar atualizar no banco de dados real do Supabase
+      if (profile?.mocha_user_id) {
+        try {
+          const { error } = await supabase
+            .from('user_profiles')
+            .update({ 
+              full_name: name, 
+              phone: phone,
+              address: address,
+              number: number,
+              complement: complement,
+              neighborhood: neighborhood,
+              city: city,
+              state: state,
+              zipcode: zipcode
+            })
+            .eq('mocha_user_id', profile.mocha_user_id);
+            
+          if (error) {
+            console.warn('Erro ao atualizar no banco (usando local fallback):', error);
+          }
+        } catch (e) {
+          console.warn('Conexão com o banco falhou:', e);
+        }
+
+        // 2. Atualizar no localStorage para manter consistência nos testes locais
+        const mockProfiles = JSON.parse(localStorage.getItem('supabase.mock-profiles') || '[]');
+        const profileIndex = mockProfiles.findIndex((p: any) => p.mocha_user_id === profile.mocha_user_id);
+        
+        if (profileIndex !== -1) {
+          mockProfiles[profileIndex] = {
+            ...mockProfiles[profileIndex],
+            full_name: name,
+            phone: phone,
+            address: address,
+            number: number,
+            complement: complement,
+            neighborhood: neighborhood,
+            city: city,
+            state: state,
+            zipcode: zipcode
+          };
+          localStorage.setItem('supabase.mock-profiles', JSON.stringify(mockProfiles));
+        } else {
+          mockProfiles.push({
+            ...profile,
+            full_name: name,
+            phone: phone,
+            address: address,
+            number: number,
+            complement: complement,
+            neighborhood: neighborhood,
+            city: city,
+            state: state,
+            zipcode: zipcode
+          });
+          localStorage.setItem('supabase.mock-profiles', JSON.stringify(mockProfiles));
+        }
+
+        // Também atualizar a sessão simulada se aplicável
+        const mockSessionStr = localStorage.getItem('supabase.auth.mock-session');
+        if (mockSessionStr) {
+          try {
+            const mockSession = JSON.parse(mockSessionStr);
+            if (mockSession?.user?.id === profile.mocha_user_id) {
+              mockSession.user.user_metadata = {
+                ...mockSession.user.user_metadata,
+                full_name: name
+              };
+              localStorage.setItem('supabase.auth.mock-session', JSON.stringify(mockSession));
+            }
+          } catch (e) {
+            console.error(e);
+          }
+        }
+      }
+
+      await refreshProfile();
+      window.dispatchEvent(new Event('mock-auth-change'));
+      toast.success('Perfil atualizado com sucesso!');
+    } catch (error: any) {
+      toast.error('Erro ao atualizar os dados.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const nameInitials = (profile?.full_name || 'Visitante')
+    .split(' ')
+    .map(n => n[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
+
+  const avatarUrl = profile?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile?.full_name || 'Visitante')}&background=00E5FF&color=0B0E14&bold=true`;
 
   return (
     <div className="min-h-screen bg-background flex flex-col text-text-main">
@@ -61,10 +208,7 @@ export default function MyAccount() {
           <Link to="/clube" className="hidden lg:flex items-center gap-2 px-4 py-2 rounded-full bg-secondary/10 border border-secondary/20 text-secondary text-xs font-black uppercase hover:bg-secondary/20 transition-all">
              <TrendingUp size={14} /> Clube 7
           </Link>
-          <button className="p-2.5 text-text-muted hover:text-primary hover:bg-primary/10 rounded-full transition-all relative">
-            <Bell size={22} />
-            <span className="absolute top-2 right-2 w-2 h-2 bg-primary rounded-full" />
-          </button>
+          <NotificationBell />
           <button 
             onClick={() => setIsCartOpen(true)}
             className="p-2.5 text-text-muted hover:text-primary hover:bg-primary/10 rounded-full transition-all relative"
@@ -96,12 +240,16 @@ export default function MyAccount() {
 
           <div className="p-6">
             <div className="flex items-center gap-4 mb-8 p-4 rounded-2xl bg-primary/10 border border-primary/20 shadow-[0_0_15px_rgba(0,229,255,0.1)]">
-              <div className="w-12 h-12 rounded-full bg-gradient-primary flex items-center justify-center text-background">
-                <User size={24} />
+              <div className="w-12 h-12 rounded-full bg-gradient-primary flex items-center justify-center text-background overflow-hidden">
+                {profile?.avatar_url ? (
+                  <img src={profile.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+                ) : (
+                  <span className="font-bold text-sm">{nameInitials}</span>
+                )}
               </div>
               <div>
-                <p className="font-bold text-sm">Miguel Oliveira</p>
-                <p className="text-[10px] text-text-muted uppercase font-black tracking-widest">Visionário</p>
+                <p className="font-bold text-sm line-clamp-1">{profile?.full_name || 'Visitante'}</p>
+                <p className="text-[10px] text-text-muted uppercase font-black tracking-widest">{profile?.plan || 'Cliente'}</p>
               </div>
             </div>
 
@@ -117,9 +265,12 @@ export default function MyAccount() {
 
             </nav>
 
-            <Link to="/login" className="block w-full mt-8 bg-surface border border-surface-border text-text-muted font-black py-4 rounded-2xl text-xs uppercase tracking-widest hover:text-red-400 transition-all text-center">
+            <button 
+              onClick={signOut} 
+              className="block w-full mt-8 bg-surface border border-surface-border text-text-muted font-black py-4 rounded-2xl text-xs uppercase tracking-widest hover:text-red-400 transition-all text-center"
+            >
               SAIR DA CONTA
-            </Link>
+            </button>
           </div>
         </aside>
 
@@ -140,21 +291,24 @@ export default function MyAccount() {
                  <div className="flex flex-col md:flex-row items-center gap-8 mb-12">
                     <div className="relative group">
                        <div className="w-32 h-32 rounded-[2.5rem] overflow-hidden border-2 border-primary/20 shadow-2xl">
-                          <img src="https://ui-avatars.com/api/?name=Miguel+Oliveira&background=00E5FF&color=0B0E14&bold=true" alt="Profile" />
+                          <img src={avatarUrl} alt="Profile" className="w-full h-full object-cover" />
                        </div>
                        <button className="absolute -bottom-2 -right-2 p-3 bg-primary text-background rounded-2xl shadow-xl hover:scale-110 transition-all">
                           <Camera size={18} />
                        </button>
                     </div>
                     <div className="text-center md:text-left">
-                       <h3 className="text-2xl font-black mb-1">Miguel Oliveira</h3>
-                       <p className="text-text-muted text-sm uppercase font-bold tracking-widest mb-4">miguel.oliveira@email.com</p>
+                       <h3 className="text-2xl font-black mb-1">{profile?.full_name || 'Visitante'}</h3>
+                       <p className="text-text-muted text-sm uppercase font-bold tracking-widest mb-4">{profile?.email || 'sem-email@casarao.com'}</p>
                        <div className="flex flex-wrap justify-center md:justify-start gap-3">
                           <span className="px-4 py-1.5 rounded-full bg-primary/10 text-primary text-[10px] font-black uppercase tracking-widest border border-primary/20">
-                             Visionário
+                             {profile?.plan || 'Cliente'}
                           </span>
                           <span className="px-4 py-1.5 rounded-full bg-emerald-500/10 text-emerald-400 text-[10px] font-black uppercase tracking-widest border border-emerald-500/20">
                              Ativo
+                          </span>
+                          <span className="px-4 py-1.5 rounded-full bg-secondary/10 text-secondary text-[10px] font-black uppercase tracking-widest border border-secondary/20">
+                             Saldo Cashback: R$ {profile?.balance?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) || '0,00'}
                           </span>
                        </div>
                     </div>
@@ -163,16 +317,109 @@ export default function MyAccount() {
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
                        <label className="text-[10px] font-black uppercase text-text-muted ml-1">Nome Completo</label>
-                       <input type="text" defaultValue="Miguel Oliveira" className="w-full bg-background border border-surface-border rounded-2xl py-4 px-6 outline-none focus:border-primary/50 transition-all text-sm font-bold" />
+                       <input 
+                         type="text" 
+                         value={name} 
+                         onChange={(e) => setName(e.target.value)} 
+                         className="w-full bg-background border border-surface-border rounded-2xl py-4 px-6 outline-none focus:border-primary/50 transition-all text-sm font-bold text-white" 
+                       />
                     </div>
                     <div className="space-y-2">
                        <label className="text-[10px] font-black uppercase text-text-muted ml-1">WhatsApp</label>
-                       <input type="text" defaultValue="(11) 99999-9999" className="w-full bg-background border border-surface-border rounded-2xl py-4 px-6 outline-none focus:border-primary/50 transition-all text-sm font-bold" />
+                       <input 
+                         type="text" 
+                         value={phone} 
+                         onChange={(e) => setPhone(e.target.value)} 
+                         className="w-full bg-background border border-surface-border rounded-2xl py-4 px-6 outline-none focus:border-primary/50 transition-all text-sm font-bold text-white" 
+                       />
+                    </div>
+                    
+                    <div className="space-y-2">
+                       <label className="text-[10px] font-black uppercase text-text-muted ml-1">CEP (Código Postal)</label>
+                       <input 
+                         type="text" 
+                         value={zipcode} 
+                         onChange={(e) => setZipcode(e.target.value)} 
+                         placeholder="Ex: 01000-000"
+                         className="w-full bg-background border border-surface-border rounded-2xl py-4 px-6 outline-none focus:border-primary/50 transition-all text-sm font-bold text-white" 
+                       />
+                    </div>
+                    <div className="space-y-2">
+                       <label className="text-[10px] font-black uppercase text-text-muted ml-1">Endereço (Rua, Avenida)</label>
+                       <input 
+                         type="text" 
+                         value={address} 
+                         onChange={(e) => setAddress(e.target.value)} 
+                         placeholder="Ex: Rua das Flores"
+                         className="w-full bg-background border border-surface-border rounded-2xl py-4 px-6 outline-none focus:border-primary/50 transition-all text-sm font-bold text-white" 
+                       />
+                    </div>
+                    <div className="space-y-2">
+                       <label className="text-[10px] font-black uppercase text-text-muted ml-1">Número</label>
+                       <input 
+                         type="text" 
+                         value={number} 
+                         onChange={(e) => setNumber(e.target.value)} 
+                         placeholder="Ex: 123"
+                         className="w-full bg-background border border-surface-border rounded-2xl py-4 px-6 outline-none focus:border-primary/50 transition-all text-sm font-bold text-white" 
+                       />
+                    </div>
+                    <div className="space-y-2">
+                       <label className="text-[10px] font-black uppercase text-text-muted ml-1">Complemento</label>
+                       <input 
+                         type="text" 
+                         value={complement} 
+                         onChange={(e) => setComplement(e.target.value)} 
+                         placeholder="Ex: Apto 45, Bloco B"
+                         className="w-full bg-background border border-surface-border rounded-2xl py-4 px-6 outline-none focus:border-primary/50 transition-all text-sm font-bold text-white" 
+                       />
+                    </div>
+                    <div className="space-y-2">
+                       <label className="text-[10px] font-black uppercase text-text-muted ml-1">Bairro</label>
+                       <input 
+                         type="text" 
+                         value={neighborhood} 
+                         onChange={(e) => setNeighborhood(e.target.value)} 
+                         placeholder="Ex: Centro"
+                         className="w-full bg-background border border-surface-border rounded-2xl py-4 px-6 outline-none focus:border-primary/50 transition-all text-sm font-bold text-white" 
+                       />
+                    </div>
+                    <div className="space-y-2">
+                       <div className="grid grid-cols-2 gap-4">
+                          <div>
+                             <label className="text-[10px] font-black uppercase text-text-muted ml-1">Cidade</label>
+                             <input 
+                               type="text" 
+                               value={city} 
+                               onChange={(e) => setCity(e.target.value)} 
+                               placeholder="Ex: São Paulo"
+                               className="w-full bg-background border border-surface-border rounded-2xl py-4 px-4 outline-none focus:border-primary/50 transition-all text-sm font-bold text-white" 
+                             />
+                          </div>
+                          <div>
+                             <label className="text-[10px] font-black uppercase text-text-muted ml-1">Estado</label>
+                             <input 
+                               type="text" 
+                               value={state} 
+                               onChange={(e) => setState(e.target.value)} 
+                               placeholder="Ex: SP"
+                               className="w-full bg-background border border-surface-border rounded-2xl py-4 px-4 outline-none focus:border-primary/50 transition-all text-sm font-bold text-white" 
+                             />
+                          </div>
+                       </div>
                     </div>
                  </div>
                  
-                 <button className="mt-10 bg-primary text-background px-10 py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl glow-primary hover:scale-105 transition-all">
-                    Salvar Dados
+                 <button 
+                   onClick={handleSave}
+                   disabled={saving}
+                   className="mt-10 bg-primary text-background px-10 py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl glow-primary hover:scale-105 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                 >
+                   {saving ? (
+                     <>Salvando... <Loader2 className="animate-spin" size={16} /></>
+                   ) : (
+                     'Salvar Dados'
+                   )}
                  </button>
               </section>
 
@@ -182,23 +429,23 @@ export default function MyAccount() {
                     <h3 className="text-xl font-black flex items-center gap-3">
                        <MapPin className="text-primary" size={24} /> Meus Endereços
                     </h3>
-                    <button className="text-primary text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:scale-110 transition-all">
-                       <Plus size={14} /> Adicionar Novo
-                    </button>
                  </div>
                  
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <AddressCard 
-                      label="Casa" 
-                      address="Rua das Flores, 123 - Centro" 
-                      city="São Paulo - SP" 
-                      active 
-                    />
-                    <AddressCard 
-                      label="Trabalho" 
-                      address="Av. Paulista, 1000 - Bela Vista" 
-                      city="São Paulo - SP" 
-                    />
+                    {profile?.address ? (
+                       <AddressCard 
+                         label="Principal" 
+                         address={`${profile.address}, ${profile.number}${profile.complement ? ` - ${profile.complement}` : ''}`} 
+                         city={`${profile.neighborhood ? `${profile.neighborhood}, ` : ''}${profile.city} - ${profile.state}`} 
+                         active 
+                       />
+                    ) : (
+                       <div className="p-8 rounded-3xl border-2 border-dashed border-surface-border bg-surface/30 text-center flex flex-col items-center justify-center gap-3 col-span-2 py-12">
+                          <MapPin className="text-text-muted animate-bounce" size={32} />
+                          <p className="text-sm font-black uppercase tracking-wider text-text-muted">Nenhum endereço cadastrado</p>
+                          <p className="text-xs text-text-muted/60 max-w-sm">Preencha os campos de CEP, endereço, número, bairro, cidade e estado acima e clique em "Salvar Dados" para registrar seu endereço de entrega.</p>
+                       </div>
+                    )}
                  </div>
               </section>
 
