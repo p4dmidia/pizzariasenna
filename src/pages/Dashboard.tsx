@@ -26,7 +26,7 @@ import { Link, Navigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
-import logoImg from '../assets/logo-casarao.jpeg';
+import AppLogo from '../components/AppLogo';
 import NotificationBell from '../components/NotificationBell';
 
 export default function Dashboard() {
@@ -125,7 +125,7 @@ export default function Dashboard() {
       <aside className="hidden lg:flex w-72 flex-col glass border-r border-surface-border fixed h-full z-50">
         <div className="p-8">
           <Link to="/" className="flex items-center gap-3">
-             <img src={logoImg} alt="Casarão Clube 7" className="h-12 w-auto object-contain" />
+             <AppLogo />
           </Link>
         </div>
 

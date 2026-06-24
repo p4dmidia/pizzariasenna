@@ -71,7 +71,7 @@ const COUPONS = [
   }
 ];
 
-import logoImg from '../assets/logo-casarao.jpeg';
+import AppLogo from '../components/AppLogo';
 import NotificationBell from '../components/NotificationBell';
 
 export default function Coupons() {
@@ -123,7 +123,7 @@ export default function Coupons() {
         {/* Logo no topo da Sidebar (Desktop) */}
         <div className="p-8 hidden lg:block border-b border-surface-border/5">
           <Link to="/" className="flex items-center gap-3">
-             <img src={logoImg} alt="Casarão Clube 7" className="h-12 w-auto object-contain" />
+             <AppLogo />
           </Link>
         </div>
 
@@ -158,7 +158,7 @@ export default function Coupons() {
                   <SidebarLink icon={History} label="Meus Pedidos" isLink to="/" />
                   <SidebarLink icon={Heart} label="Favoritos" isLink to="/favorites" />
                   <SidebarLink icon={Ticket} label="Cupons" active />
-                  <SidebarLink icon={TrendingUp} label="Clube 7" isLink to="/clube" />
+                  <SidebarLink icon={TrendingUp} label="Clube" isLink to="/clube" />
                   <SidebarLink icon={HelpCircle} label="Suporte" isLink to="/support" />
                 </>
               )}
@@ -191,7 +191,7 @@ export default function Coupons() {
               <Menu size={24} />
             </button>
             <Link to="/" className="flex items-center gap-3 lg:hidden">
-               <img src={logoImg} alt="Casarão Clube 7" className="h-12 w-auto object-contain" />
+               <AppLogo />
             </Link>
           </div>
 
@@ -208,7 +208,7 @@ export default function Coupons() {
 
           <div className="flex items-center gap-2 md:gap-4">
             <Link to="/clube" className="hidden lg:flex items-center gap-2 px-4 py-2 rounded-full bg-secondary/10 border border-secondary/20 text-secondary text-xs font-black uppercase hover:bg-secondary/20 transition-all">
-               <TrendingUp size={14} /> Clube 7
+               <TrendingUp size={14} /> Clube
             </Link>
             {user ? (
               <div className="flex items-center gap-3 pl-4 md:pl-6 border-l border-surface-border">

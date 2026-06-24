@@ -1,6 +1,6 @@
 -- ==========================================
 -- SQL de Inicialização do Banco de Dados
--- Pizzaria Casarão / Clube 7
+-- APP Delivery P4D Mídia
 -- ==========================================
 
 -- 1. Habilitar extensões necessárias
@@ -108,7 +108,7 @@ BEGIN
     COALESCE(new.raw_user_meta_data->>'full_name', 'Novo Usuário'),
     'user',
     'cliente',
-    'CASARAO' || floor(random() * 9000 + 1000)::text,
+    'DELIVERY' || floor(random() * 9000 + 1000)::text,
     0.00,
     0
   )
@@ -182,7 +182,7 @@ INSERT INTO public.products (id, name, description, price, category_id, main_ima
 (105, 'Cerveja Heineken Long Neck', 'Cerveja Heineken Long Neck 330ml gelada.', 9.00, 2, 'https://images.unsplash.com/photo-1608270586620-248524c67de9?auto=format&fit=crop&q=80&w=1000', TRUE, 100, 2, 9.00),
 (106, 'Água Mineral sem Gás', 'Garrafa de água mineral sem gás 500ml.', 4.00, 2, 'https://images.unsplash.com/photo-1548839140-29a749e1cf4d?auto=format&fit=crop&q=80&w=1000', TRUE, 300, 1, 4.00),
 -- Combos
-(201, 'Combo Casarão', '1 Pizza Grande (Calabresa, Margherita ou Quatro Queijos) + 1 Refrigerante 2L de sua escolha.', 55.00, 3, 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&q=80&w=1000', TRUE, 99, 12, 55.00),
+(201, 'Combo Master', '1 Pizza Grande (Calabresa, Margherita ou Quatro Queijos) + 1 Refrigerante 2L de sua escolha.', 55.00, 3, 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&q=80&w=1000', TRUE, 99, 12, 55.00),
 (202, 'Combo Casal', '1 Pizza Média + 2 Latas de Refrigerante + 1 Pizza Doce de Chocolate broto para sobremesa.', 69.00, 3, 'https://images.unsplash.com/photo-1615557960901-b458b82bc7b2?auto=format&fit=crop&q=80&w=1000', TRUE, 99, 15, 69.00),
 (203, 'Combo Família', '2 Pizzas Grandes + 1 Refrigerante 2L + 1 Porção generosa de Batata Frita.', 99.00, 3, 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?auto=format&fit=crop&q=80&w=1000', TRUE, 99, 22, 99.00),
 (204, 'Combo Individual', '1 Pizza Brotinho + 1 Lata de Refrigerante de sua escolha.', 35.00, 3, 'https://images.unsplash.com/photo-1628840042765-356cda07504e?auto=format&fit=crop&q=80&w=1000', TRUE, 99, 7, 35.00),
@@ -216,7 +216,7 @@ INSERT INTO public.user_profiles (
   'Administrador Geral',
   'admin',
   'visionario',
-  'CASARAOADMIN',
+  'DELIVERYADMIN',
   0.00,
   0
 )

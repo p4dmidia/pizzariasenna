@@ -31,7 +31,7 @@ import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 import { toast } from 'react-hot-toast';
 
-import logoImg from '../assets/logo-casarao.jpeg';
+import AppLogo from '../components/AppLogo';
 import NotificationBell from '../components/NotificationBell';
 
 export default function Network() {
@@ -142,7 +142,7 @@ export default function Network() {
 
   const handleInvite = () => {
     if (profile?.referral_code) {
-      const link = `casarao.com.br/clube/${profile.referral_code}`;
+      const link = `appdelivery.p4dmidia.com/clube/${profile.referral_code}`;
       navigator.clipboard.writeText(link);
       toast.success('Link de convite copiado para a área de transferência!');
     } else {
@@ -245,7 +245,7 @@ export default function Network() {
       <aside className="hidden lg:flex w-72 flex-col glass border-r border-surface-border fixed h-full z-50">
         <div className="p-8">
           <Link to="/" className="flex items-center gap-3">
-             <img src={logoImg} alt="Casarão Clube 7" className="h-12 w-auto object-contain" />
+             <AppLogo />
           </Link>
         </div>
 

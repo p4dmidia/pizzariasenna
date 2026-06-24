@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
-import logoImg from '../assets/logo-casarao.jpeg';
+import AppLogo from './AppLogo';
 import { supabase } from '../lib/supabase';
 import NotificationBell from './NotificationBell';
 
@@ -145,7 +145,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <aside className="hidden lg:flex w-72 flex-col glass border-r border-surface-border fixed h-full z-50">
         <div className="p-8">
           <Link to="/" className="flex items-center gap-3">
-             <img src={logoImg} alt="Casarão Clube 7" className="h-12 w-auto object-contain" />
+             <AppLogo />
           </Link>
         </div>
 
@@ -191,7 +191,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"}
       `}>
         <div className="p-8 flex items-center justify-between">
-          <img src={logoImg} alt="Casarão Clube 7" className="h-10 w-auto object-contain" />
+          <AppLogo />
           <button onClick={() => setIsSidebarOpen(false)} className="text-text-muted hover:text-white">
             <X size={24} />
           </button>
@@ -234,7 +234,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <div className="flex items-center gap-3 pl-6 border-l border-surface-border">
               <div className="text-right hidden sm:block">
                 <p className="text-xs font-black uppercase">
-                  {userRole === 'caixa' ? 'Caixa Casarão' : 'Admin Casarão'}
+                  {userRole === 'caixa' ? 'Caixa APP Delivery' : 'Admin APP Delivery'}
                 </p>
                 <p className="text-[10px] text-primary font-bold">
                   {userRole === 'caixa' ? 'Acesso Pedidos' : 'Acesso Total'}

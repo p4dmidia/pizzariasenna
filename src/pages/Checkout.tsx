@@ -23,7 +23,7 @@ import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 import { toast } from 'react-hot-toast';
 
-import logoImg from '../assets/logo-casarao.jpeg';
+import AppLogo from '../components/AppLogo';
 
 export default function Checkout() {
   const navigate = useNavigate();
@@ -45,8 +45,8 @@ export default function Checkout() {
   const profile = isAdminDemo ? {
     id: 0,
     mocha_user_id: 'admin',
-    email: 'admin@casarao.com',
-    full_name: 'Admin Casarão',
+    email: 'admin@appdelivery.com',
+    full_name: 'Admin APP Delivery',
     role: 'admin',
     plan: 'master',
     referral_code: 'ADMIN',
@@ -55,7 +55,7 @@ export default function Checkout() {
     number: '123',
     complement: 'Apt 1',
     neighborhood: 'Centro',
-    city: 'Casarão',
+    city: 'P4D Mídia',
     points: 100
   } : (authProfile || guestProfile);
 
@@ -96,9 +96,9 @@ export default function Checkout() {
       number: guestNumber,
       complement: guestComplement,
       neighborhood: guestNeighborhood,
-      city: guestCity || 'Casarão',
+      city: guestCity || 'P4D Mídia',
       zipcode: guestZipcode,
-      email: 'guest@casarao.com',
+      email: 'guest@appdelivery.com',
       balance: 0
     };
     
@@ -307,7 +307,7 @@ export default function Checkout() {
           const { data: adminProfile } = await supabase
             .from('user_profiles')
             .select('id')
-            .eq('email', 'admin@casarao.com')
+            .eq('email', 'admin@appdelivery.com.br')
             .maybeSingle();
 
           if (adminProfile) {
@@ -363,8 +363,8 @@ export default function Checkout() {
                 }));
               })(),
               payer: {
-                email: profile.email || 'cliente@casaraopizzaria.com',
-                name: profile.full_name || 'Cliente Casarão'
+                email: profile.email || 'cliente@appdelivery.com',
+                name: profile.full_name || 'Cliente APP Delivery'
               },
               back_urls: {
                 success: `${window.location.origin}/checkout?status=success&order_id=${orderData.id}`,
@@ -516,7 +516,7 @@ export default function Checkout() {
         cleanAddress = cleanAddress.replace("Nome: ", "*Nome:* ").replace(" | Tel: ", "\n*Tel:* ").replace(" | ", "\n*Endereço:* ");
       }
       
-      const message = `Olá! Gostaria de confirmar meu pedido *#${order.id}* na Pizzaria Casarão.\n\n` +
+      const message = `Olá! Gostaria de confirmar meu pedido *#${order.id}* no APP Delivery.\n\n` +
                       `*Itens do Pedido:*\n${itemsText}\n\n` +
                       `*Taxa de Entrega:* R$ ${Number(order.delivery_fee).toFixed(2)}\n` +
                       `*Total:* R$ ${Number(order.total_amount).toFixed(2)}\n\n` +
@@ -534,7 +534,7 @@ export default function Checkout() {
       <div className="min-h-screen bg-background text-text-main py-12 px-6 flex flex-col items-center">
         {/* Header */}
         <header className="w-full max-w-2xl mb-12 flex justify-between items-center">
-          <img src={logoImg} alt="Casarão Clube 7" className="h-10 w-auto object-contain" />
+          <AppLogo />
           <Link 
             to="/" 
             className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-text-muted hover:text-primary transition-colors"
@@ -714,7 +714,7 @@ export default function Checkout() {
           >
             <ArrowLeft size={20} />
           </button>
-          <img src={logoImg} alt="Casarão Clube 7" className="h-10 w-auto object-contain" />
+          <AppLogo />
         </div>
         <h1 className="text-xl font-black italic uppercase tracking-tighter hidden sm:block">Checkout</h1>
       </header>

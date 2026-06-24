@@ -39,8 +39,8 @@ const FAQ = [
     answer: 'Nossa entrega média é de 30 a 45 minutos, dependendo da sua localização e do horário do pedido. Você pode acompanhar o status em tempo real na tela "Meus Pedidos".'
   },
   {
-    question: 'Como funciona o cashback do Clube 7?',
-    answer: 'A cada pedido realizado, uma porcentagem do valor volta para sua carteira digital no Clube 7. Você pode usar esse saldo para pagar novos pedidos ou sacar via PIX se for um afiliado.'
+    question: 'Como funciona o cashback do APP Delivery?',
+    answer: 'A cada pedido realizado, uma porcentagem do valor volta para sua carteira digital no APP Delivery. Você pode usar esse saldo para pagar novos pedidos ou sacar via PIX se for um afiliado.'
   },
   {
     question: 'Quais as formas de pagamento aceitas?',
@@ -52,7 +52,7 @@ const FAQ = [
   }
 ];
 
-import logoImg from '../assets/logo-casarao.jpeg';
+import AppLogo from '../components/AppLogo';
 import NotificationBell from '../components/NotificationBell';
 
 export default function Support() {
@@ -95,7 +95,7 @@ export default function Support() {
         {/* Logo no topo da Sidebar (Desktop) */}
         <div className="p-8 hidden lg:block border-b border-surface-border/5">
           <Link to="/" className="flex items-center gap-3">
-             <img src={logoImg} alt="Casarão Clube 7" className="h-12 w-auto object-contain" />
+             <AppLogo />
           </Link>
         </div>
 
@@ -130,7 +130,7 @@ export default function Support() {
                   <SidebarLink icon={History} label="Meus Pedidos" isLink to="/" />
                   <SidebarLink icon={Heart} label="Favoritos" isLink to="/favorites" />
                   <SidebarLink icon={Ticket} label="Cupons" isLink to="/coupons" />
-                  <SidebarLink icon={TrendingUp} label="Clube 7" isLink to="/clube" />
+                  <SidebarLink icon={TrendingUp} label="Clube" isLink to="/clube" />
                   <SidebarLink icon={HelpCircle} label="Suporte" active />
                 </>
               )}
@@ -162,9 +162,9 @@ export default function Support() {
             <button onClick={() => setIsSidebarOpen(true)} className="lg:hidden text-primary">
               <Menu size={24} />
             </button>
-            <Link to="/" className="flex items-center gap-3 lg:hidden">
-               <img src={logoImg} alt="Casarão Clube 7" className="h-12 w-auto object-contain" />
-            </Link>
+             <Link to="/" className="flex items-center gap-3 lg:hidden">
+                <AppLogo />
+             </Link>
           </div>
 
           <div className="flex-1 max-w-xl hidden md:block">
@@ -179,9 +179,9 @@ export default function Support() {
           </div>
 
           <div className="flex items-center gap-2 md:gap-4">
-            <Link to="/clube" className="hidden lg:flex items-center gap-2 px-4 py-2 rounded-full bg-secondary/10 border border-secondary/20 text-secondary text-xs font-black uppercase hover:bg-secondary/20 transition-all">
-               <TrendingUp size={14} /> Clube 7
-            </Link>
+             <Link to="/clube" className="hidden lg:flex items-center gap-2 px-4 py-2 rounded-full bg-secondary/10 border border-secondary/20 text-secondary text-xs font-black uppercase hover:bg-secondary/20 transition-all">
+                <TrendingUp size={14} /> Clube
+             </Link>
             {user ? (
               <div className="flex items-center gap-3 pl-4 md:pl-6 border-l border-surface-border">
                 <div className="text-right hidden sm:block">

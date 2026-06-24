@@ -35,7 +35,7 @@ import NotificationBell from '../components/NotificationBell';
 
 
 
-import logoImg from '../assets/logo-casarao.jpeg';
+import AppLogo from '../components/AppLogo';
 
 export default function MyAccount() {
   const { user, profile, loading, signOut, refreshProfile } = useAuth();
@@ -211,7 +211,7 @@ export default function MyAccount() {
         {/* Logo no topo da Sidebar (Desktop) */}
         <div className="p-8 hidden lg:block border-b border-surface-border/5">
           <Link to="/" className="flex items-center gap-3">
-             <img src={logoImg} alt="Casarão Clube 7" className="h-12 w-auto object-contain" />
+             <AppLogo />
           </Link>
         </div>
 
@@ -246,7 +246,7 @@ export default function MyAccount() {
                   <SidebarLink icon={History} label="Meus Pedidos" isLink to="/" />
                   <SidebarLink icon={Heart} label="Favoritos" isLink to="/favorites" />
                   <SidebarLink icon={Ticket} label="Cupons" isLink to="/coupons" />
-                  <SidebarLink icon={TrendingUp} label="Clube 7" isLink to="/clube" />
+                  <SidebarLink icon={TrendingUp} label="Clube" isLink to="/clube" />
                   <SidebarLink icon={HelpCircle} label="Suporte" isLink to="/support" />
                 </>
               )}
@@ -279,7 +279,7 @@ export default function MyAccount() {
               <Menu size={24} />
             </button>
             <Link to="/" className="flex items-center gap-3 lg:hidden">
-               <img src={logoImg} alt="Casarão Clube 7" className="h-12 w-auto object-contain" />
+               <AppLogo />
             </Link>
           </div>
 
@@ -296,7 +296,7 @@ export default function MyAccount() {
 
           <div className="flex items-center gap-2 md:gap-4">
             <Link to="/clube" className="hidden lg:flex items-center gap-2 px-4 py-2 rounded-full bg-secondary/10 border border-secondary/20 text-secondary text-xs font-black uppercase hover:bg-secondary/20 transition-all">
-               <TrendingUp size={14} /> Clube 7
+               <TrendingUp size={14} /> Clube
             </Link>
             {user ? (
               <div className="flex items-center gap-3 pl-4 md:pl-6 border-l border-surface-border">
@@ -353,7 +353,7 @@ export default function MyAccount() {
                     </div>
                     <div className="text-center md:text-left">
                        <h3 className="text-2xl font-black mb-1">{profile?.full_name || 'Visitante'}</h3>
-                       <p className="text-text-muted text-sm uppercase font-bold tracking-widest mb-4">{profile?.email || 'sem-email@casarao.com'}</p>
+                       <p className="text-text-muted text-sm uppercase font-bold tracking-widest mb-4">{profile?.email || 'sem-email@appdelivery.com'}</p>
                        <div className="flex flex-wrap justify-center md:justify-start gap-3">
                           <span className="px-4 py-1.5 rounded-full bg-primary/10 text-primary text-[10px] font-black uppercase tracking-widest border border-primary/20">
                              {profile?.plan || 'Cliente'}

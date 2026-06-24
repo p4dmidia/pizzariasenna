@@ -44,7 +44,7 @@ const TRANSACTIONS = [
   { id: 7, type: 'saque', description: 'Saque solicitado (PIX)', amount: -250.00, date: '08/05/2026', status: 'cancelado' },
 ];
 
-import logoImg from '../assets/logo-casarao.jpeg';
+import AppLogo from '../components/AppLogo';
 import NotificationBell from '../components/NotificationBell';
 
 export default function Financial() {
@@ -78,7 +78,7 @@ export default function Financial() {
       <aside className="hidden lg:flex w-72 flex-col glass border-r border-surface-border fixed h-full z-50">
         <div className="p-8">
           <Link to="/" className="flex items-center gap-3">
-             <img src={logoImg} alt="Casarão Clube 7" className="h-12 w-auto object-contain" />
+             <AppLogo />
           </Link>
         </div>
 
@@ -382,7 +382,7 @@ export default function Financial() {
                       "Comissão gerada pela compra de um afiliado da sua rede (Nível 1 ou 2). O valor foi creditado em seu saldo disponível."
                     )}
                     {selectedTransaction.type === 'cashback' && (
-                      "Cashback gerado pelas suas compras no Delivery Casarão. O saldo será liberado assim que o pedido for concluído."
+                      "Cashback gerado pelas suas compras no APP Delivery. O saldo será liberado assim que o pedido for concluído."
                     )}
                     {selectedTransaction.type === 'saque' && selectedTransaction.status === 'confirmado' && (
                       "Transferência de saque PIX processada e finalizada com sucesso para sua chave cadastrada."

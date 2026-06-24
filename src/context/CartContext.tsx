@@ -41,7 +41,7 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 export function CartProvider({ children }: { children: ReactNode }) {
   const [cartItems, setCartItems] = useState<CartItem[]>(() => {
     try {
-      const stored = localStorage.getItem('casarao.cart');
+      const stored = localStorage.getItem('delivery.cart');
       return stored ? JSON.parse(stored) : [];
     } catch {
       return [];
@@ -50,7 +50,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
 
   React.useEffect(() => {
-    localStorage.setItem('casarao.cart', JSON.stringify(cartItems));
+    localStorage.setItem('delivery.cart', JSON.stringify(cartItems));
   }, [cartItems]);
 
   const addToCart = (product: any) => {

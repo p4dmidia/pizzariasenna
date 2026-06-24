@@ -309,7 +309,7 @@ export default function AdminMenu() {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
            <div>
               <h1 className="text-3xl font-black mb-1">Gestão do Cardápio 🍕</h1>
-              <p className="text-text-muted text-sm">Adicione, edite ou remova produtos do delivery da <span className="text-primary font-bold">Casarão</span>.</p>
+              <p className="text-text-muted text-sm">Adicione, edite ou remova produtos do delivery do <span className="text-primary font-bold">APP Delivery</span>.</p>
            </div>
            <div className="flex gap-3">
              <button 

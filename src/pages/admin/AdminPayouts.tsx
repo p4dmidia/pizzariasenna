@@ -119,7 +119,7 @@ export default function AdminPayouts() {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
            <div>
               <h1 className="text-3xl font-black mb-1">Saques 💰</h1>
-              <p className="text-text-muted text-sm">Gerencie e processe os pagamentos da rede <span className="text-primary font-bold">Clube 7</span>.</p>
+              <p className="text-text-muted text-sm">Gerencie e processe os pagamentos da rede <span className="text-primary font-bold">APP Delivery</span>.</p>
            </div>
            <div className="flex gap-3">
               <div className="flex bg-surface rounded-2xl p-1 border border-surface-border overflow-x-auto">

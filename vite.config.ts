@@ -17,9 +17,9 @@ export default defineConfig(({mode}) => {
         },
         includeAssets: ['pwa-icon.jpeg', 'favicon.ico', 'robots.txt', 'apple-touch-icon.png'],
         manifest: {
-          name: 'Casarão Clube 7',
-          short_name: 'Casarão7',
-          description: 'A maior plataforma de fidelidade e consumo recorrente do Brasil.',
+          name: 'APP Delivery P4D Mídia',
+          short_name: 'APP Delivery',
+          description: 'A plataforma de delivery e consumo recorrente do seu negócio.',
           theme_color: '#0B0E14',
           background_color: '#0B0E14',
           display: 'standalone',

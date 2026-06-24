@@ -117,7 +117,7 @@ export const BEBIDAS = [
 export const COMBOS = [
   {
     id: 201,
-    name: 'Combo Casarão',
+    name: 'Combo Master',
     description: '1 Pizza Grande (Calabresa, Margherita ou Quatro Queijos) + 1 Refrigerante 2L de sua escolha.',
     price: 55.00,
     category: 'combos',

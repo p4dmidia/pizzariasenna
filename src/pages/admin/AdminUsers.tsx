@@ -170,7 +170,7 @@ export default function AdminUsers() {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
                <h1 className="text-3xl font-black mb-1">Usuários 👥</h1>
-               <p className="text-text-muted text-sm">Gerencie todos os clientes e a rede de afiliados da <span className="text-primary font-bold">Casarão</span>.</p>
+               <p className="text-text-muted text-sm">Gerencie todos os clientes e a rede de afiliados do <span className="text-primary font-bold">APP Delivery</span>.</p>
             </div>
             <Link 
               to="/register"

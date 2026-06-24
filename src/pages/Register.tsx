@@ -21,7 +21,7 @@ import {
 import { supabase } from '../lib/supabase';
 import { toast } from 'react-hot-toast';
 
-import logoImg from '../assets/logo-casarao.jpeg';
+import AppLogo from '../components/AppLogo';
 
 export default function Register() {
   const [step, setStep] = useState(1);
@@ -108,7 +108,7 @@ export default function Register() {
         }
       }
 
-      const generatedReferralCode = `CASARAO${Math.floor(1000 + Math.random() * 9000)}`;
+      const generatedReferralCode = `DELIVERY${Math.floor(1000 + Math.random() * 9000)}`;
       const profilePayload = {
         mocha_user_id: authUser ? authUser.id : mochaUserId,
         email: formData.email,
@@ -156,7 +156,7 @@ export default function Register() {
       {/* Header */}
       <header className="h-20 flex items-center px-6 md:px-12 justify-between glass fixed top-0 w-full z-50">
         <Link to="/" className="flex items-center gap-3">
-           <img src={logoImg} alt="Casarão Clube 7" className="h-12 w-auto object-contain" />
+           <AppLogo />
         </Link>
         <div className="hidden md:flex items-center gap-6">
           <Link to="/" className="text-[10px] font-black uppercase tracking-widest text-text-muted hover:text-primary transition-colors flex items-center gap-2">
@@ -244,7 +244,7 @@ export default function Register() {
                       <p className="text-xs text-text-muted">Fazendo parte de uma rede, você cresce mais rápido.</p>
                     </div>
                   </div>
-                  <Input icon={Zap} label="ID do Patrocinador ( opcional )" placeholder="Ex: CASARAO007" value={formData.sponsorId} onChange={(e: any) => setFormData({...formData, sponsorId: e.target.value})} />
+                  <Input icon={Zap} label="ID do Patrocinador ( opcional )" placeholder="Ex: DELIVERY007" value={formData.sponsorId} onChange={(e: any) => setFormData({...formData, sponsorId: e.target.value})} />
                 </div>
 
                 <div className="flex gap-4">
@@ -269,7 +269,7 @@ export default function Register() {
             >
               <div className="text-center">
                 <h2 className="text-3xl font-black mb-2">Escolha seu Perfil</h2>
-                <p className="text-text-muted">Como você deseja começar no Casarão Clube 7?</p>
+                <p className="text-text-muted">Como você deseja começar no APP Delivery?</p>
               </div>
 
               <div className="grid md:grid-cols-3 gap-6">
@@ -326,7 +326,7 @@ export default function Register() {
               </div>
               <div>
                 <h2 className="text-4xl font-black mb-4">Parabéns!</h2>
-                <p className="text-text-muted mb-8 text-lg">Seu cadastro foi realizado com sucesso. Você agora faz parte do Clube 7.</p>
+                <p className="text-text-muted mb-8 text-lg">Seu cadastro foi realizado com sucesso. Você agora faz parte da nossa rede de afiliados.</p>
               </div>
               <button 
                 onClick={() => navigate('/login')}

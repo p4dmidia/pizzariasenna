@@ -10,12 +10,12 @@ const FavoritesContext = createContext<FavoritesContextType | undefined>(undefin
 
 export const FavoritesProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [favorites, setFavorites] = useState<number[]>(() => {
-    const saved = localStorage.getItem('casarao_favorites');
+    const saved = localStorage.getItem('delivery_favorites');
     return saved ? JSON.parse(saved) : [];
   });
 
   useEffect(() => {
-    localStorage.setItem('casarao_favorites', JSON.stringify(favorites));
+    localStorage.setItem('delivery_favorites', JSON.stringify(favorites));
   }, [favorites]);
 
   const toggleFavorite = (productId: number) => {

@@ -207,7 +207,7 @@ export default function CareerModal({ isOpen, onClose, currentPoints = 0 }: Care
                         <p className="text-secondary font-black text-sm uppercase tracking-widest flex items-center justify-center md:justify-start gap-2">
                           <Crown size={18} className="animate-pulse" /> Nível Máximo Atingido!
                         </p>
-                        <p className="text-xs text-text-muted mt-1">Você atingiu o topo do plano de carreira do Casarão Clube 7.</p>
+                        <p className="text-xs text-text-muted mt-1">Você atingiu o topo do plano de carreira do APP Delivery.</p>
                       </div>
                     )}
                   </div>

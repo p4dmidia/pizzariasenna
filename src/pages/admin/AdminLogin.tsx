@@ -11,7 +11,7 @@ import {
   ChevronLeft,
   Loader2
 } from 'lucide-react';
-import logoImg from '../../assets/logo-casarao.jpeg';
+import AppLogo from '../../components/AppLogo';
 
 import { supabase } from '../../lib/supabase';
 import { toast } from 'react-hot-toast';
@@ -29,7 +29,7 @@ export default function AdminLogin() {
       setLoading(true);
       
       // Bypass de desenvolvimento para administrador padrão
-      if (email === 'admin@casarao.com' && password === 'admin123') {
+      if (email === 'admin@appdelivery.com' && password === 'admin123') {
         localStorage.setItem('admin_auth', 'true');
         toast.success('Acesso autorizado (Modo Demonstração)!', { duration: 3000 });
         navigate('/admin');
@@ -149,7 +149,7 @@ export default function AdminLogin() {
         className="w-full max-w-md relative z-10"
       >
         <div className="text-center mb-10">
-          <img src={logoImg} alt="Casarão" className="h-16 w-auto mx-auto mb-6 glow-primary" />
+          <AppLogo className="justify-center mx-auto" />
           <h1 className="text-3xl font-black mb-2">Painel de Controle</h1>
           <p className="text-text-muted text-sm uppercase font-black tracking-widest flex items-center justify-center gap-2">
             <ShieldCheck size={14} className="text-primary" /> Acesso Restrito
@@ -167,7 +167,7 @@ export default function AdminLogin() {
                   type="email" 
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="admin@casarao.com"
+                  placeholder="admin@appdelivery.com"
                   className="w-full bg-background border border-surface-border rounded-2xl py-4 px-12 outline-none focus:ring-2 focus:ring-primary/50 transition-all text-sm group-hover:border-primary/30"
                   required
                 />

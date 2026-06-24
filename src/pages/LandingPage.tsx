@@ -18,53 +18,54 @@ import {
 import { motion } from 'motion/react';
 import { Link } from 'react-router-dom';
 import { useState } from 'react';
+import AppLogo from '../components/AppLogo';
 
 const FEATURES = [
   {
     icon: ShoppingCart,
-    title: "Delivery Inteligente",
-    description: "Peça suas pizzas favoritas com rapidez e receba cashback real em cada compra.",
+    title: "Delivery Profissional",
+    description: "Plataforma ágil e moderna para seus clientes fazerem pedidos de forma rápida e intuitiva.",
     color: "primary"
   },
   {
     icon: TrendingUp,
-    title: "MMN de Consumo",
-    description: "Construa uma rede sólida baseada no consumo real de produtos de alta demanda.",
+    title: "Programa de Afiliados",
+    description: "Transforme seus clientes recorrentes em promotores de vendas ativos que atraem novos consumidores.",
     color: "secondary"
   },
   {
     icon: Percent,
-    title: "Bônus Recorrente",
-    description: "Receba comissões mensais sobre as ativações e pedidos da sua rede.",
+    title: "Fidelização & Cashback",
+    description: "Estimule a recorrência de pedidos oferecendo cashback real para ser consumido no seu próprio negócio.",
     color: "primary"
   },
   {
     icon: Wallet,
-    title: "Saques via PIX",
-    description: "Seus ganhos caem na conta com agilidade e total transparência.",
+    title: "Previsibilidade de Caixa",
+    description: "Crie planos de assinatura ou fidelidade mensais para garantir receita recorrente para o estabelecimento.",
     color: "secondary"
   }
 ];
 
 const STEPS = [
   {
-    title: "1. Cadastro Inteligente",
-    description: "Crie sua conta em segundos e escolha seu perfil. Como cliente, você já começa economizando com cashback em cada pedido de pizza.",
+    title: "1. O Cliente Acessa",
+    description: "Seu cliente abre o aplicativo web do seu estabelecimento em qualquer celular ou computador sem complicações.",
     icon: User
   },
   {
-    title: "2. Consumo & Experiência",
-    description: "Peça suas pizzas favoritas no Casarão Delivery. A cada mordida, uma porcentagem do valor volta direto para sua carteira digital.",
+    title: "2. Consumo & Benefícios",
+    description: "Ele faz o pedido do cardápio normal e acumula créditos de cashback configurados por você para usar na próxima compra.",
     icon: ShoppingCart
   },
   {
-    title: "3. Expansão de Rede",
-    description: "Compartilhe seu link exclusivo com amigos e familiares. Quando eles pedirem pizza, você ganha comissões sobre o consumo deles.",
+    title: "3. Divulgação Orgânica",
+    description: "Satisfeito, o cliente compartilha seu link de recomendação exclusivo com amigos, parentes e grupos.",
     icon: TrendingUp
   },
   {
-    title: "4. Liberdade Financeira",
-    description: "Acompanhe seus ganhos crescendo em tempo real. Saque via PIX ou use para pagar seus próprios pedidos. Sua rede é seu patrimônio.",
+    title: "4. Escala de Vendas",
+    description: "Seu restaurante ganha novos clientes no piloto automático enquanto sua rede de promotores recebe recompensas.",
     icon: Wallet
   }
 ];
@@ -73,53 +74,51 @@ const PLANS = [
   {
     name: "Cliente",
     price: "Grátis",
-    description: "Para quem ama pizza e quer economizar no dia a dia.",
+    description: "Para quem consome regularmente e quer acumular cashback nas compras.",
     features: [
-      "Cashback em todos os pedidos",
-      "Acesso ao Delivery Premium",
-      "Cupons de desconto exclusivos",
-      "Sem taxa de adesão",
-      "Participação em sorteios"
+      "Acúmulo de cashback configurado",
+      "Acesso ao painel básico de pedidos",
+      "Recebimento de cupons exclusivos",
+      "Adesão totalmente gratuita",
+      "Visualização do extrato de consumo"
     ],
-    cta: "Começar Agora",
+    cta: "Entrar como Cliente",
     popular: false
   },
   {
     name: "Empreendedor",
     price: "49,90",
     period: "/mês",
-    description: "Para quem busca uma renda extra sólida indicando amigos.",
+    description: "Para clientes promotores que indicam ativamente e criam uma rede básica.",
     features: [
-      "Tudo do plano Cliente",
-      "Ganhos sobre rede até 3º nível",
-      "Painel de controle de rede",
-      "Suporte via WhatsApp 24h",
-      "Material de marketing pronto",
-      "Bônus de indicação direta"
+      "Todas as vantagens de Cliente",
+      "Ganhos sobre consumo da rede até 3º nível",
+      "Painel de controle de rede de afiliados",
+      "Material de divulgação personalizado",
+      "Suporte prioritário do estabelecimento",
+      "Bônus de indicação direta de novos membros"
     ],
-    cta: "Ser Empreendedor",
+    cta: "Ativar Plano Empreendedor",
     popular: true
   },
   {
     name: "Visionário",
     price: "97,00",
     period: "/mês",
-    description: "Para líderes que buscam a independência financeira total.",
+    description: "Nível máximo de fidelidade para grandes divulgadores do negócio.",
     features: [
-      "Tudo do plano Empreendedor",
-      "Ganhos sobre rede até 7º nível",
-      "Bônus de Liderança Global",
-      "Mentoria exclusiva com fundadores",
-      "Eventos presenciais VIP",
-      "Participação nos lucros da empresa",
-      "Prioridade em novos lançamentos"
+      "Todas as vantagens de Empreendedor",
+      "Ganhos sobre consumo da rede até 7º nível",
+      "Participação em metas globais do negócio",
+      "Acesso a promoções e lançamentos exclusivos",
+      "Convites para eventos e testes de cardápio",
+      "Bonificações adicionais configuráveis",
+      "Prioridade máxima no suporte e entrega"
     ],
-    cta: "Ser Visionário",
+    cta: "Ativar Plano Visionário",
     popular: false
   }
 ];
-
-import logoImg from '../assets/logo-casarao.jpeg';
 
 export default function LandingPage() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -130,7 +129,7 @@ export default function LandingPage() {
       <nav className="fixed top-0 w-full z-50 glass h-20 flex items-center px-6 md:px-12 justify-between">
         <div className="flex items-center gap-3">
           <Link to="/" className="flex items-center gap-3">
-             <img src={logoImg} alt="Casarão Clube 7" className="h-12 w-auto object-contain" />
+             <AppLogo />
           </Link>
         </div>
 
@@ -138,7 +137,7 @@ export default function LandingPage() {
         <div className="hidden lg:flex items-center gap-8">
           <Link to="/" className="text-sm font-bold hover:text-primary transition-colors">Delivery</Link>
           <a href="#como-funciona" className="text-sm font-bold hover:text-primary transition-colors">Como Funciona</a>
-          <a href="#planos" className="text-sm font-bold hover:text-primary transition-colors">Planos</a>
+          <a href="#planos" className="text-sm font-bold hover:text-primary transition-colors">Exemplos de Planos</a>
           <Link to="/login" className="bg-primary text-background px-6 py-2.5 rounded-full font-bold text-sm hover:scale-105 active:scale-95 transition-all shadow-lg glow-primary uppercase tracking-widest text-[10px]">
             ÁREA DO AFILIADO
           </Link>
@@ -180,20 +179,20 @@ export default function LandingPage() {
             transition={{ duration: 0.6 }}
           >
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 text-primary text-[10px] font-black tracking-widest uppercase mb-8">
-              <Zap size={14} /> O Futuro do Mercado Multinível é o Consumo Real
+              <Zap size={14} /> Fidelização, Vendas Orgânicas e Recorrência de Receita
             </div>
             <h1 className="font-display text-5xl md:text-8xl font-black mb-8 leading-[0.9]">
-              Sua Pizza agora gera <span className="text-primary text-glow">Lucro Vitalício</span>.
+              Alavanque seu negócio com <span className="text-primary text-glow">Delivery e Afiliados</span>.
             </h1>
             <p className="text-text-muted text-lg md:text-xl mb-10 max-w-xl leading-relaxed">
-              Diferente de tudo o que você já viu, o Casarão Clube 7 remunera você pelo consumo diário. Sem produtos difíceis de vender, apenas a melhor pizza da região direto na sua rede.
+              Uma solução robusta de delivery integrada com um inovador programa de fidelidade por indicação recorrente. Aumente as vendas estimulando o boca-a-boca digital dos seus próprios clientes.
             </p>
             <div className="flex flex-col sm:flex-row gap-5">
               <Link to="/register" className="bg-gradient-primary text-background px-10 py-5 rounded-2xl font-black text-sm uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-xl glow-primary flex items-center justify-center gap-2">
-                Começar Agora <ArrowRight size={18} />
+                Experimentar Agora <ArrowRight size={18} />
               </Link>
               <Link to="/" className="glass px-10 py-5 rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-surface-hover transition-all flex items-center justify-center gap-2">
-                Ir para o Delivery
+                Visualizar Delivery Demo
               </Link>
             </div>
           </motion.div>
@@ -210,8 +209,8 @@ export default function LandingPage() {
                   <div className="p-6 pt-12 bg-gradient-to-b from-primary/10 to-transparent">
                      <div className="flex justify-between items-center mb-6">
                         <div>
-                           <p className="text-[10px] text-text-muted uppercase font-black">Meu Saldo</p>
-                           <p className="text-2xl font-black">R$ 14.280,50</p>
+                           <p className="text-[10px] text-text-muted uppercase font-black">Meta de Faturamento</p>
+                           <p className="text-2xl font-black">R$ 48.250,00</p>
                         </div>
                         <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary">
                            <Wallet size={20} />
@@ -220,8 +219,8 @@ export default function LandingPage() {
                      <div className="space-y-4">
                         <div className="p-4 rounded-2xl bg-surface/50 border border-white/5">
                            <div className="flex justify-between text-[10px] font-black mb-2">
-                              <span>BÔNUS DE REDE</span>
-                              <span className="text-primary">+R$ 840,00</span>
+                              <span>NOVOS AFILIADOS ATIVOS</span>
+                              <span className="text-primary">+12 Clientes</span>
                            </div>
                            <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
                               <div className="h-full w-4/5 bg-primary" />
@@ -230,20 +229,20 @@ export default function LandingPage() {
                      </div>
                   </div>
                   <div className="p-6">
-                     <p className="text-[10px] font-black text-text-muted uppercase mb-4">Extrato Recente</p>
+                     <p className="text-[10px] font-black text-text-muted uppercase mb-4">Pedidos Recentes da Rede</p>
                      {[1,2,3].map(i => (
-                       <div key={i} className="flex items-center justify-between py-3 border-b border-white/5">
-                          <div className="flex items-center gap-3">
-                             <div className="w-8 h-8 rounded-lg bg-surface flex items-center justify-center">
-                                <Users size={14} className="text-primary" />
-                             </div>
-                             <div>
-                                <p className="text-[10px] font-bold">Indicação Nível {i}</p>
-                                <p className="text-[8px] text-text-muted">Consumo de Pizza G</p>
-                             </div>
-                          </div>
-                          <p className="text-[10px] font-black text-emerald-400">+ R$ {15 * i},00</p>
-                       </div>
+                        <div key={i} className="flex items-center justify-between py-3 border-b border-white/5">
+                           <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-lg bg-surface flex items-center justify-center">
+                                 <Users size={14} className="text-primary" />
+                              </div>
+                              <div>
+                                 <p className="text-[10px] font-bold">Indicação de Nível {i}</p>
+                                 <p className="text-[8px] text-text-muted">Novo Pedido Confirmado</p>
+                              </div>
+                           </div>
+                           <p className="text-[10px] font-black text-emerald-400">R$ {60 * i},90</p>
+                        </div>
                      ))}
                   </div>
                </div>
@@ -255,7 +254,7 @@ export default function LandingPage() {
                   <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400">
                      <Target size={20} />
                   </div>
-                  <p className="text-xs font-bold whitespace-nowrap">Meta de Liderança: 85%</p>
+                  <p className="text-xs font-bold whitespace-nowrap">Retenção de Clientes: 92%</p>
                </div>
             </motion.div>
           </motion.div>
@@ -266,9 +265,9 @@ export default function LandingPage() {
       <section id="como-funciona" className="py-32 px-6 bg-surface/30">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-24">
-            <h2 className="font-display text-4xl md:text-6xl font-black mb-6">O Ciclo da <span className="text-primary text-glow">Prosperidade</span></h2>
+            <h2 className="font-display text-4xl md:text-6xl font-black mb-6">Ciclo de <span className="text-primary text-glow">Crescimento</span></h2>
             <p className="text-text-muted max-w-3xl mx-auto text-lg">
-              Nosso sistema foi desenhado para ser autossustentável. Ao contrário de pirâmides financeiras, aqui o ganho vem do consumo real de um produto que todo mundo ama: PIZZA.
+              Nosso ecossistema foi projetado para transformar o consumo cotidiano em uma máquina orgânica de marketing de recomendação direta, alavancando os resultados do seu estabelecimento.
             </p>
           </div>
 
@@ -297,8 +296,10 @@ export default function LandingPage() {
       <section id="planos" className="py-32 px-6">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-24">
-            <h2 className="font-display text-4xl md:text-6xl font-black mb-6">Escolha o seu <span className="text-primary text-glow">Destino</span></h2>
-            <p className="text-text-muted max-w-3xl mx-auto text-lg">Seja um consumidor inteligente ou um grande líder de rede. Temos o plano perfeito para você escalar seus resultados.</p>
+            <h2 className="font-display text-4xl md:text-6xl font-black mb-6">Exemplos de <span className="text-primary text-glow">Planos e Regras</span></h2>
+            <p className="text-text-muted max-w-3xl mx-auto text-lg">
+              Estes são exemplos práticos de planos de fidelidade e níveis de promotores que você pode configurar de forma personalizada para trabalhar dentro do seu próprio negócio gastronômico.
+            </p>
           </div>
 
           <div className="grid lg:grid-cols-3 gap-8">
@@ -314,7 +315,7 @@ export default function LandingPage() {
               >
                 {plan.popular && (
                   <div className="absolute -top-5 left-1/2 -translate-x-1/2 bg-primary text-background px-8 py-2 rounded-full text-xs font-black uppercase tracking-widest">
-                    RECOMENDADO
+                    SUGESTÃO POPULAR
                   </div>
                 )}
                 <div className="mb-10">
@@ -375,16 +376,16 @@ export default function LandingPage() {
       <section className="py-32 px-6">
         <div className="max-w-6xl mx-auto glass-card p-16 text-center relative overflow-hidden border-primary/20">
           <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-primary/10 via-transparent to-secondary/10 opacity-50" />
-          <h2 className="font-display text-5xl md:text-7xl font-black mb-8 relative z-10 leading-tight">Chegou a sua hora de <br/> <span className="text-primary text-glow italic">Fazer História</span>.</h2>
+          <h2 className="font-display text-5xl md:text-7xl font-black mb-8 relative z-10 leading-tight">Leve seu estabelecimento para <br/> <span className="text-primary text-glow italic">O Próximo Nível</span>.</h2>
           <p className="text-text-muted mb-12 max-w-2xl mx-auto text-lg relative z-10">
-            O Casarão Clube 7 é a única plataforma que une um produto real e amado com um sistema de ganhos escalável. Não deixe essa oportunidade passar.
+            A única solução do mercado que integra um delivery de alto desempenho com um programa de indicações e marketing direto recorrente para o seu negócio.
           </p>
           <div className="flex flex-col sm:flex-row gap-6 justify-center relative z-10">
             <Link to="/register" className="bg-primary text-background px-12 py-5 rounded-2xl font-black text-sm uppercase tracking-widest hover:scale-105 transition-all shadow-2xl glow-primary">
-              Cadastre-se Agora
+              Cadastrar Minha Empresa
             </Link>
             <button className="glass px-12 py-5 rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-surface-hover transition-all">
-              Falar com Consultor
+              Falar com Consultor P4D
             </button>
           </div>
         </div>
@@ -395,9 +396,9 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
           <div>
             <div className="flex items-center gap-3 mb-4 justify-center md:justify-start">
-               <img src={logoImg} alt="Casarão Clube 7" className="h-10 w-auto object-contain" />
+               <AppLogo />
             </div>
-            <p className="text-sm text-text-muted max-w-sm">A maior plataforma de fidelidade e consumo recorrente do Brasil. Pizza, Ganhos e Liberdade.</p>
+            <p className="text-sm text-text-muted max-w-sm">A melhor plataforma de fidelidade, indicações e delivery sob medida para o seu negócio.</p>
           </div>
           <div className="flex items-center gap-10 text-xs text-text-muted uppercase font-black tracking-widest">
             <a href="#" className="hover:text-primary transition-colors">Termos</a>
@@ -406,7 +407,7 @@ export default function LandingPage() {
           </div>
         </div>
         <div className="max-w-7xl mx-auto mt-16 pt-8 border-t border-surface-border flex flex-col md:flex-row justify-between items-center gap-4">
-           <p className="text-[10px] text-text-muted uppercase tracking-widest">© 2026 Casarão Clube 7. CNPJ: 00.000.000/0001-00</p>
+           <p className="text-[10px] text-text-muted uppercase tracking-widest">© 2026 APP Delivery P4D Mídia. Todos os direitos reservados.</p>
            <div className="flex items-center gap-6">
               <ShieldCheck size={16} className="text-emerald-500" />
               <CheckCircle2 size={16} className="text-emerald-500" />

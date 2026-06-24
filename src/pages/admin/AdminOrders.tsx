@@ -252,7 +252,7 @@ export default function AdminOrders() {
   const distributeOrderRewards = async (orderId: number) => {
     try {
       // Evitar duplicar recompensas usando cache local no localStorage
-      const distributedOrders = JSON.parse(localStorage.getItem('casarao.rewards-distributed') || '[]');
+      const distributedOrders = JSON.parse(localStorage.getItem('appdelivery.rewards-distributed') || '[]');
       if (distributedOrders.includes(orderId)) {
         return;
       }
@@ -391,7 +391,7 @@ export default function AdminOrders() {
 
       // Registrar que já foi distribuído para evitar duplicidade
       distributedOrders.push(orderId);
-      localStorage.setItem('casarao.rewards-distributed', JSON.stringify(distributedOrders));
+      localStorage.setItem('appdelivery.rewards-distributed', JSON.stringify(distributedOrders));
 
     } catch (err) {
       console.error('Erro na distribuição de recompensas do pedido:', err);
@@ -521,7 +521,7 @@ export default function AdminOrders() {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
            <div>
               <h1 className="text-3xl font-black mb-1">Pedidos 🍕</h1>
-              <p className="text-text-muted text-sm">Gerencie o fluxo de pedidos da <span className="text-primary font-bold">Casarão</span>.</p>
+              <p className="text-text-muted text-sm">Gerencie o fluxo de pedidos do <span className="text-primary font-bold">APP Delivery</span>.</p>
            </div>
            <div className="flex bg-surface rounded-2xl p-1 border border-surface-border overflow-x-auto hide-scrollbar">
               {['aberto', 'todos', 'pendente', 'preparando', 'entrega', 'concluido'].map((tab) => (

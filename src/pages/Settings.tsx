@@ -33,7 +33,7 @@ const TABS = [
   { id: 'payment', label: 'Pagamentos', icon: Wallet },
 ];
 
-import logoImg from '../assets/logo-casarao.jpeg';
+import AppLogo from '../components/AppLogo';
 
 export default function SettingsPage() {
   const { user, profile, loading, signOut, refreshProfile } = useAuth();
@@ -141,7 +141,7 @@ export default function SettingsPage() {
       <aside className="hidden lg:flex w-72 flex-col glass border-r border-surface-border fixed h-full z-50">
         <div className="p-8">
           <Link to="/" className="flex items-center gap-3">
-             <img src={logoImg} alt="Casarão Clube 7" className="h-12 w-auto object-contain" />
+             <AppLogo />
           </Link>
         </div>
 
@@ -338,7 +338,7 @@ export default function SettingsPage() {
                      <div className="glass-card p-8 border-white/5">
                         <h3 className="text-lg font-black mb-4">Link de Indicação</h3>
                         <div className="flex gap-4">
-                           <input type="text" readOnly defaultValue={`casarao.com.br/clube/${profile?.referral_code || ""}`} className="flex-1 bg-background border border-surface-border rounded-xl py-3 px-4 outline-none text-text-muted text-sm font-mono" />
+                           <input type="text" readOnly defaultValue={`appdelivery.p4dmidia.com/clube/${profile?.referral_code || ""}`} className="flex-1 bg-background border border-surface-border rounded-xl py-3 px-4 outline-none text-text-muted text-sm font-mono" />
                            <button className="bg-surface border border-surface-border text-white px-6 py-3 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-surface-hover transition-all">
                               Copiar
                            </button>

@@ -13,7 +13,7 @@ import {
   ChevronLeft,
   Loader2
 } from 'lucide-react';
-import logoImg from '../assets/logo-casarao.jpeg';
+import AppLogo from '../components/AppLogo';
 
 import { supabase } from '../lib/supabase';
 import { toast } from 'react-hot-toast';
@@ -150,7 +150,7 @@ export default function Login() {
             animate={{ opacity: 1, scale: 1 }}
             className="mb-8"
           >
-             <img src={logoImg} alt="Casarão Clube 7" className="w-48 h-auto object-contain mx-auto glow-primary" />
+             <AppLogo className="justify-center mx-auto" />
           </motion.div>
           <motion.h2 
             initial={{ opacity: 0, y: 20 }}
@@ -188,7 +188,7 @@ export default function Login() {
           <Link to="/" className="text-text-muted hover:text-primary transition-colors">
             <ChevronLeft size={24} />
           </Link>
-          <img src={logoImg} alt="Casarão Clube 7" className="h-10 w-auto object-contain" />
+          <AppLogo />
         </div>
 
         <motion.div 

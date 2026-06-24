@@ -53,7 +53,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           full_name: 'Usuário Simulador',
           role: 'afiliado',
           plan: 'empreendedor',
-          referral_code: 'CASARAOMOCK',
+          referral_code: 'DELIVERYMOCK',
           balance: 0,
           points: 0
         });

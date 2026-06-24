@@ -54,7 +54,7 @@ import Support from './pages/Support';
 import Checkout from './pages/Checkout';
 import { FavoritesProvider, useFavorites } from './context/FavoritesContext';
 import { MAIS_PEDIDAS, CLASSICAS, BEBIDAS, COMBOS, SOBREMESAS, ALL_PRODUCTS } from './data/products';
-import logoImg from './assets/logo-casarao.jpeg';
+import AppLogo from './components/AppLogo';
 import { supabase } from './lib/supabase';
 import PWAInstallPrompt from './components/PWAInstallPrompt';
 import { Toaster } from 'react-hot-toast';
@@ -211,7 +211,7 @@ function DeliveryApp() {
         {/* Logo no topo da Sidebar (Desktop) */}
         <div className="p-8 hidden lg:block border-b border-surface-border/5">
           <Link to="/" className="flex items-center gap-3">
-             <img src={logoImg} alt="Casarão Clube 7" className="h-12 w-auto object-contain" />
+             <AppLogo />
           </Link>
         </div>
 
@@ -246,7 +246,7 @@ function DeliveryApp() {
                   <SidebarLink icon={History} label="Meus Pedidos" active />
                   <SidebarLink icon={Heart} label="Favoritos" isLink to="/favorites" />
                   <SidebarLink icon={Ticket} label="Cupons" isLink to="/coupons" />
-                  <SidebarLink icon={TrendingUp} label="Clube 7" isLink to="/clube" />
+                  <SidebarLink icon={TrendingUp} label="Clube Delivery" isLink to="/clube" />
                   <SidebarLink icon={HelpCircle} label="Suporte" isLink to="/support" />
                 </>
               )}
@@ -279,7 +279,7 @@ function DeliveryApp() {
               <Menu size={24} />
             </button>
             <Link to="/" className="flex items-center gap-3 lg:hidden">
-               <img src={logoImg} alt="Casarão Clube 7" className="h-12 w-auto object-contain" />
+               <AppLogo />
             </Link>
           </div>
 
@@ -296,7 +296,7 @@ function DeliveryApp() {
 
           <div className="flex items-center gap-2 md:gap-4">
             <Link to="/clube" className="hidden lg:flex items-center gap-2 px-4 py-2 rounded-full bg-secondary/10 border border-secondary/20 text-secondary text-xs font-black uppercase hover:bg-secondary/20 transition-all">
-               <TrendingUp size={14} /> Clube 7
+               <TrendingUp size={14} /> Clube Delivery
             </Link>
             {user ? (
               <div className="flex items-center gap-3 pl-4 md:pl-6 border-l border-surface-border">
@@ -335,7 +335,7 @@ function DeliveryApp() {
             <div className="absolute inset-0 bg-gradient-to-r from-background via-background/60 to-transparent z-10" />
             <img 
               src="https://images.unsplash.com/photo-1541745537411-b8046dc6d66c?auto=format&fit=crop&q=80&w=1500" 
-              alt="Casarão Delivery"
+              alt="APP Delivery"
               className="absolute inset-0 w-full h-full object-cover"
             />
             <div className="relative z-20 px-6 md:px-12 max-w-2xl">
@@ -344,7 +344,7 @@ function DeliveryApp() {
                 animate={{ opacity: 1, y: 0 }}
                 className="font-display text-4xl md:text-5xl font-black mb-4 leading-tight"
               >
-                O Sabor Original da <span className="text-primary text-glow">Casarão</span> na sua Casa.
+                O Sabor Original do <span className="text-primary text-glow">Delivery</span> na sua Casa.
               </motion.h2>
               <motion.p 
                 initial={{ opacity: 0, y: 20 }}

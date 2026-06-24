@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Download, X, Smartphone, Zap } from 'lucide-react';
-import logoImg from '../assets/logo-casarao.jpeg';
+import { Download, X, Smartphone, Zap, ShoppingCart } from 'lucide-react';
 
 export default function PWAInstallPrompt() {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
@@ -118,12 +117,12 @@ export default function PWAInstallPrompt() {
           </button>
 
           <div className="flex items-center gap-5 mb-6">
-            <div className="w-16 h-16 rounded-2xl overflow-hidden border-2 border-primary/20 shadow-xl flex-shrink-0">
-               <img src={logoImg} alt="App Logo" className="w-full h-full object-cover" />
+            <div className="w-16 h-16 rounded-2xl bg-gradient-primary border-2 border-primary/20 shadow-xl flex-shrink-0 flex items-center justify-center text-background">
+               <ShoppingCart className="w-8 h-8 text-background" />
             </div>
             <div>
               <h3 className="font-display font-black text-lg tracking-tighter uppercase leading-none mb-1">
-                Instale o <span className="text-primary">Casarão7</span>
+                Instale o <span className="text-primary">APP Delivery</span>
               </h3>
               <p className="text-[10px] text-text-muted uppercase font-black tracking-widest flex items-center gap-2">
                 <Smartphone size={12} className="text-primary" /> Experiência Completa
@@ -132,7 +131,7 @@ export default function PWAInstallPrompt() {
           </div>
 
           <p className="text-xs text-text-muted mb-8 leading-relaxed">
-            Peça suas pizzas favoritas com mais agilidade e receba notificações exclusivas de cashback e promoções.
+            Faça seus pedidos com mais agilidade e receba notificações exclusivas de cashback e promoções.
           </p>
 
           <div className="flex gap-4">

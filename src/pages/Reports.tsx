@@ -49,7 +49,7 @@ const CATEGORY_BREAKDOWN = [
   { label: 'Sobremesas', value: '10%', color: 'bg-amber-500' },
 ];
 
-import logoImg from '../assets/logo-casarao.jpeg';
+import AppLogo from '../components/AppLogo';
 import NotificationBell from '../components/NotificationBell';
 
 export default function Reports() {
@@ -60,8 +60,8 @@ export default function Reports() {
   const profile = isAdminDemo ? {
     id: 0,
     mocha_user_id: 'admin',
-    email: 'admin@casarao.com',
-    full_name: 'Admin Casarão',
+    email: 'admin@appdelivery.com',
+    full_name: 'Admin APP Delivery',
     role: 'admin',
     plan: 'master',
     referral_code: 'ADMIN',
@@ -91,7 +91,7 @@ export default function Reports() {
       <aside className="hidden lg:flex w-72 flex-col glass border-r border-surface-border fixed h-full z-50">
         <div className="p-8">
           <Link to="/" className="flex items-center gap-3">
-             <img src={logoImg} alt="Casarão Clube 7" className="h-12 w-auto object-contain" />
+             <AppLogo />
           </Link>
         </div>
 
