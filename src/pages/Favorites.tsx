@@ -13,7 +13,13 @@ import {
   ShoppingCart,
   Bell,
   Trash2,
-  ArrowLeft
+  ArrowLeft,
+  LayoutDashboard,
+  Users,
+  Wallet,
+  PieChart,
+  Settings,
+  LogOut
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useState, useMemo } from 'react';
@@ -46,62 +52,36 @@ export default function Favorites() {
     .toUpperCase();
 
   return (
-    <div className="min-h-screen bg-background flex flex-col text-text-main">
-      {/* Header */}
-      <header className="sticky top-0 z-50 glass h-20 flex items-center px-4 md:px-8 justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <button onClick={() => setIsSidebarOpen(true)} className="lg:hidden text-primary">
-            <Menu size={24} />
+    <div className="min-h-screen bg-background text-text-main font-sans flex">
+      {/* Mobile Sidebar Overlay */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] lg:hidden"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
+      {/* Sidebar */}
+      <aside className={`
+        fixed inset-y-0 left-0 z-[70] w-72 glass border-r border-surface-border flex flex-col transition-transform duration-300 lg:translate-x-0
+        ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"}
+      `}>
+        <div className="p-6 flex items-center justify-between lg:hidden border-b border-surface-border/5">
+          <span className="font-black text-primary uppercase tracking-widest text-sm">Menu</span>
+          <button onClick={() => setIsSidebarOpen(false)} className="text-text-muted hover:text-white">
+            <X size={24} />
           </button>
+        </div>
+
+        {/* Logo no topo da Sidebar (Desktop) */}
+        <div className="p-8 hidden lg:block border-b border-surface-border/5">
           <Link to="/" className="flex items-center gap-3">
              <img src={logoImg} alt="Casarão Clube 7" className="h-12 w-auto object-contain" />
           </Link>
         </div>
 
-        <div className="flex-1 max-w-xl hidden md:block">
-           <div className="relative">
-              <input 
-                type="text" 
-                placeholder="Busque nos seus favoritos..."
-                className="w-full bg-surface/50 border border-surface-border rounded-full py-2.5 px-12 focus:ring-2 focus:ring-primary/50 transition-all text-sm outline-none"
-              />
-              <Search className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-text-muted" />
-           </div>
-        </div>
-
-        <div className="flex items-center gap-2 md:gap-4">
-          <Link to="/clube" className="hidden lg:flex items-center gap-2 px-4 py-2 rounded-full bg-secondary/10 border border-secondary/20 text-secondary text-xs font-black uppercase hover:bg-secondary/20 transition-all">
-             <TrendingUp size={14} /> Clube 7
-          </Link>
-          <NotificationBell />
-          <button 
-            onClick={() => setIsCartOpen(true)}
-            className="p-2.5 text-text-muted hover:text-primary hover:bg-primary/10 rounded-full transition-all relative"
-          >
-            <ShoppingCart size={22} />
-            {cartCount > 0 && (
-              <span className="absolute top-2 right-2 w-4 h-4 bg-primary text-background text-[8px] font-black rounded-full flex items-center justify-center shadow-[0_0_8px_rgba(0,229,255,0.8)]">
-                {cartCount}
-              </span>
-            )}
-          </button>
-        </div>
-      </header>
-
-      <div className="flex flex-1 relative">
-        {/* Sidebar */}
-        <aside className={`
-          fixed inset-y-0 left-0 z-[60] w-72 bg-surface border-r border-surface-border flex flex-col transition-transform duration-300 lg:sticky lg:top-20 lg:h-[calc(100vh-80px)] lg:translate-x-0
-          ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"}
-        `}>
-          <div className="p-6 flex items-center justify-between lg:hidden">
-            <span className="font-black text-primary uppercase tracking-widest text-sm">Menu</span>
-            <button onClick={() => setIsSidebarOpen(false)} className="text-text-muted hover:text-white">
-              <X size={24} />
-            </button>
-          </div>
-
-          <div className="p-6">
+        <div className="p-6 flex-1 flex flex-col justify-between overflow-y-auto">
+          <div>
             <div className="flex items-center gap-4 mb-8 p-4 rounded-2xl bg-primary/10 border border-primary/20 shadow-[0_0_15px_rgba(0,229,255,0.1)]">
               <div className="w-12 h-12 rounded-full bg-gradient-primary flex items-center justify-center text-background overflow-hidden">
                 {profile?.avatar_url ? (
@@ -117,27 +97,85 @@ export default function Favorites() {
             </div>
 
             <nav className="space-y-1">
-              <SidebarLink icon={User} label="Minha Conta" isLink to="/profile" />
-              <SidebarLink icon={History} label="Meus Pedidos" isLink to="/" />
-              <SidebarLink icon={Heart} label="Favoritos" active />
-              <SidebarLink icon={Ticket} label="Cupons" isLink to="/coupons" />
-
-              <SidebarLink icon={TrendingUp} label="Clube 7" isLink to="/clube" />
-              <SidebarLink icon={HelpCircle} label="Suporte" isLink to="/support" />
-
+              {profile?.plan === 'empreendedor' || profile?.plan === 'visionario' ? (
+                <>
+                  <SidebarLink icon={LayoutDashboard} label="Dashboard" isLink to="/dashboard" />
+                  <SidebarLink icon={Users} label="Minha Rede" isLink to="/dashboard/network" />
+                  <SidebarLink icon={Wallet} label="Financeiro" isLink to="/dashboard/financial" />
+                  <SidebarLink icon={ShoppingCart} label="Delivery" isLink to="/" />
+                  <SidebarLink icon={Ticket} label="Cupons" isLink to="/coupons" />
+                  <SidebarLink icon={PieChart} label="Relatórios" isLink to="/dashboard/reports" />
+                  <SidebarLink icon={Settings} label="Configurações" isLink to="/dashboard/settings" />
+                </>
+              ) : (
+                <>
+                  <SidebarLink icon={User} label="Minha Conta" isLink to="/profile" />
+                  <SidebarLink icon={History} label="Meus Pedidos" isLink to="/" />
+                  <SidebarLink icon={Heart} label="Favoritos" active />
+                  <SidebarLink icon={Ticket} label="Cupons" isLink to="/coupons" />
+                  <SidebarLink icon={TrendingUp} label="Clube 7" isLink to="/clube" />
+                  <SidebarLink icon={HelpCircle} label="Suporte" isLink to="/support" />
+                </>
+              )}
             </nav>
+          </div>
 
+          <div className="mt-8">
             <button 
               onClick={signOut}
-              className="block w-full mt-8 bg-surface border border-surface-border text-text-muted font-black py-4 rounded-2xl text-xs uppercase tracking-widest hover:text-red-400 transition-all text-center"
+              className="flex items-center gap-3 w-full p-4 text-text-muted hover:text-red-400 transition-colors font-black text-xs uppercase tracking-widest"
             >
-              SAIR DA CONTA
+              <LogOut size={18} /> Sair da Conta
             </button>
           </div>
-        </aside>
+        </div>
+      </aside>
 
-        {/* Main Content */}
-        <main className="flex-1 p-6 md:p-12 max-w-7xl mx-auto w-full">
+      {/* Main Content */}
+      <main className="flex-1 lg:ml-72 min-h-screen flex flex-col">
+        {/* Header */}
+        <header className="h-20 glass-card mx-6 mt-6 flex items-center justify-between px-8 border border-white/5 shrink-0">
+          <div className="flex items-center gap-4">
+            <button onClick={() => setIsSidebarOpen(true)} className="lg:hidden text-primary">
+              <Menu size={24} />
+            </button>
+            <Link to="/" className="flex items-center gap-3 lg:hidden">
+               <img src={logoImg} alt="Casarão Clube 7" className="h-12 w-auto object-contain" />
+            </Link>
+          </div>
+
+          <div className="flex-1 max-w-xl hidden md:block">
+             <div className="relative">
+                <input 
+                  type="text" 
+                  placeholder="Busque nos seus favoritos..."
+                  className="w-full bg-surface/50 border border-surface-border rounded-full py-2.5 px-12 focus:ring-2 focus:ring-primary/50 transition-all text-sm outline-none"
+                />
+                <Search className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-text-muted" />
+             </div>
+          </div>
+
+          <div className="flex items-center gap-2 md:gap-4">
+            <Link to="/clube" className="hidden lg:flex items-center gap-2 px-4 py-2 rounded-full bg-secondary/10 border border-secondary/20 text-secondary text-xs font-black uppercase hover:bg-secondary/20 transition-all">
+               <TrendingUp size={14} /> Clube 7
+            </Link>
+            <NotificationBell />
+            <button 
+              onClick={() => setIsCartOpen(true)}
+              className="p-2.5 text-text-muted hover:text-primary hover:bg-primary/10 rounded-full transition-all relative"
+            >
+              <ShoppingCart size={22} />
+              {cartCount > 0 && (
+                <span className="absolute top-2 right-2 w-4 h-4 bg-primary text-background text-[8px] font-black rounded-full flex items-center justify-center shadow-[0_0_8px_rgba(0,229,255,0.8)]">
+                  {cartCount}
+                </span>
+              )}
+            </button>
+          </div>
+        </header>
+
+        {/* Inner Content */}
+        <div className="flex-1 p-6 md:p-12 max-w-7xl mx-auto w-full">
            <div className="flex items-center gap-4 mb-12">
               <button onClick={() => navigate('/')} className="p-2 hover:bg-surface rounded-xl transition-all text-text-muted hover:text-primary">
                  <ArrowLeft size={20} />
@@ -193,8 +231,8 @@ export default function Favorites() {
                 </Link>
              </div>
            )}
-        </main>
-      </div>
+        </div>
+      </main>
 
       <CartDrawer isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} />
     </div>
@@ -203,12 +241,12 @@ export default function Favorites() {
 
 function SidebarLink({ icon: Icon, label, active = false, isLink = false, to = "" }: any) {
   const content = (
-    <div className={`flex items-center gap-4 p-3.5 rounded-2xl transition-all ${
+    <div className={`flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all group ${
       active 
-        ? 'bg-primary/10 text-primary font-bold border border-primary/20 shadow-[0_0_15px_rgba(0,229,255,0.1)]' 
+        ? 'bg-primary text-background shadow-lg glow-primary font-bold' 
         : 'text-text-muted hover:text-white hover:bg-surface-hover'
     }`}>
-      <Icon size={20} />
+      <Icon size={20} className={active ? '' : 'group-hover:text-primary transition-colors'} />
       <span className="text-sm">{label}</span>
     </div>
   );

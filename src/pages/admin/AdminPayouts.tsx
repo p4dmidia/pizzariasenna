@@ -206,7 +206,7 @@ export default function AdminPayouts() {
                           </td>
                           <td className="px-8 py-5">
                              <div className="flex flex-col">
-                                <span className="text-sm font-black text-white">R$ {Number(req.amount).toFixed(2)}</span>
+                                <span className="text-sm font-black text-text-main">R$ {Number(req.amount).toFixed(2)}</span>
                                 <span className="text-[8px] text-text-muted font-bold uppercase">Líquido: R$ {Number(req.net_amount).toFixed(2)}</span>
                              </div>
                           </td>

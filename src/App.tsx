@@ -25,7 +25,13 @@ import {
   PlusCircle,
   Menu,
   X,
-  Loader2
+  Loader2,
+  LayoutDashboard,
+  Users,
+  Wallet,
+  PieChart,
+  Settings,
+  LogOut
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useState, useEffect } from 'react';
@@ -181,108 +187,79 @@ function DeliveryApp() {
 
 
   return (
-    <div className="min-h-screen bg-background flex flex-col text-text-main">
-      {/* Header */}
-      <header className="sticky top-0 z-50 glass h-20 flex items-center px-4 md:px-8 justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <button onClick={() => setIsSidebarOpen(true)} className="lg:hidden text-primary">
-            <Menu size={24} />
+    <div className="min-h-screen bg-background text-text-main font-sans flex">
+      {/* Mobile Sidebar Overlay */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] lg:hidden"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
+      {/* Sidebar */}
+      <aside className={`
+        fixed inset-y-0 left-0 z-[70] w-72 glass border-r border-surface-border flex flex-col transition-transform duration-300 lg:translate-x-0
+        ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"}
+      `}>
+        <div className="p-6 flex items-center justify-between lg:hidden border-b border-surface-border/5">
+          <span className="font-black text-primary uppercase tracking-widest text-sm">Menu</span>
+          <button onClick={() => setIsSidebarOpen(false)} className="text-text-muted hover:text-white">
+            <X size={24} />
           </button>
+        </div>
+
+        {/* Logo no topo da Sidebar (Desktop) */}
+        <div className="p-8 hidden lg:block border-b border-surface-border/5">
           <Link to="/" className="flex items-center gap-3">
              <img src={logoImg} alt="Casarão Clube 7" className="h-12 w-auto object-contain" />
           </Link>
         </div>
 
-        <div className="flex-1 max-w-xl hidden md:block">
-          <div className="relative">
-            <input 
-              type="text" 
-              placeholder="Busque sua pizza favorita..."
-              className="w-full bg-surface/50 border border-surface-border rounded-full py-2.5 px-12 focus:ring-2 focus:ring-primary/50 transition-all text-sm outline-none"
-            />
-            <Search className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-text-muted" />
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 md:gap-4">
-          <Link to="/clube" className="hidden lg:flex items-center gap-2 px-4 py-2 rounded-full bg-secondary/10 border border-secondary/20 text-secondary text-xs font-black uppercase hover:bg-secondary/20 transition-all">
-             <TrendingUp size={14} /> Clube 7
-          </Link>
-          <Link to={user ? "/profile" : "/login"} className="p-2.5 text-text-muted hover:text-primary hover:bg-primary/10 rounded-full transition-all flex items-center justify-center overflow-hidden w-10 h-10 rounded-full border border-surface-border">
-            {profile?.avatar_url ? (
-              <img src={profile.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
-            ) : (
-              <User size={22} />
-            )}
-          </Link>
-          <NotificationBell />
-          <button 
-            onClick={() => setIsCartOpen(true)}
-            className="p-2.5 text-text-muted hover:text-primary hover:bg-primary/10 rounded-full transition-all relative"
-          >
-            <ShoppingCart size={22} />
-            {cartCount > 0 && (
-              <span className="absolute top-2 right-2 w-4 h-4 bg-primary text-background text-[8px] font-black rounded-full flex items-center justify-center shadow-[0_0_8px_rgba(0,229,255,0.8)]">
-                {cartCount}
-              </span>
-            )}
-          </button>
-
-
-        </div>
-      </header>
-
-      <div className="flex flex-1 relative">
-        {/* Sidebar */}
-        <aside className={`
-          fixed inset-y-0 left-0 z-[60] w-72 bg-surface border-r border-surface-border flex flex-col transition-transform duration-300 lg:sticky lg:top-20 lg:h-[calc(100vh-80px)] lg:translate-x-0
-          ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"}
-        `}>
-          <div className="p-6 flex items-center justify-between lg:hidden">
-            <span className="font-black text-primary uppercase tracking-widest text-sm">Menu</span>
-            <button onClick={() => setIsSidebarOpen(false)} className="text-text-muted hover:text-white">
-              <X size={24} />
-            </button>
-          </div>
-
-          <div className="p-6">
-            <div className="flex items-center gap-4 mb-8 p-4 rounded-2xl bg-primary/5 border border-primary/10">
-              {profile?.avatar_url ? (
-                <div className="w-12 h-12 rounded-full border border-primary/20 overflow-hidden flex-shrink-0">
-                  <img src={profile.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
-                </div>
-              ) : (
+        <div className="p-6 flex-1 flex flex-col justify-between overflow-y-auto">
+          <div>
+            {!user && (
+              <div className="flex items-center gap-4 mb-8 p-4 rounded-2xl bg-primary/5 border border-primary/10">
                 <div className="w-12 h-12 rounded-full bg-gradient-primary flex items-center justify-center text-background flex-shrink-0">
                   <User size={24} />
                 </div>
-              )}
-              <div>
-                <p className="font-bold text-sm leading-tight line-clamp-1">Olá, {profile ? profile.full_name : 'Visitante'}</p>
-                <p className="text-[10px] text-text-muted uppercase font-black tracking-widest leading-none mt-1">
-                  {profile ? `ID: ${profile.referral_code || 'Cliente'}` : 'Seja Bem-vindo'}
-                </p>
+                <div>
+                  <p className="font-bold text-sm leading-tight">Olá, Visitante</p>
+                  <p className="text-[10px] text-text-muted uppercase font-black tracking-widest leading-none mt-1">Seja Bem-vindo</p>
+                </div>
               </div>
-            </div>
+            )}
 
             <nav className="space-y-1">
-              <SidebarLink icon={User} label="Minha Conta" isLink to="/profile" />
-
-              <SidebarLink icon={History} label="Meus Pedidos" active />
-              <SidebarLink icon={Heart} label="Favoritos" isLink to="/favorites" />
-
-              <SidebarLink icon={Ticket} label="Cupons" isLink to="/coupons" />
-
-              <SidebarLink icon={TrendingUp} label="Clube 7" isLink to="/clube" />
-              <SidebarLink icon={HelpCircle} label="Suporte" isLink to="/support" />
-
+              {profile?.plan === 'empreendedor' || profile?.plan === 'visionario' ? (
+                <>
+                  <SidebarLink icon={LayoutDashboard} label="Dashboard" isLink to="/dashboard" />
+                  <SidebarLink icon={Users} label="Minha Rede" isLink to="/dashboard/network" />
+                  <SidebarLink icon={Wallet} label="Financeiro" isLink to="/dashboard/financial" />
+                  <SidebarLink icon={ShoppingCart} label="Delivery" active />
+                  <SidebarLink icon={Ticket} label="Cupons" isLink to="/coupons" />
+                  <SidebarLink icon={PieChart} label="Relatórios" isLink to="/dashboard/reports" />
+                  <SidebarLink icon={Settings} label="Configurações" isLink to="/dashboard/settings" />
+                </>
+              ) : (
+                <>
+                  <SidebarLink icon={User} label="Minha Conta" isLink to="/profile" />
+                  <SidebarLink icon={History} label="Meus Pedidos" active />
+                  <SidebarLink icon={Heart} label="Favoritos" isLink to="/favorites" />
+                  <SidebarLink icon={Ticket} label="Cupons" isLink to="/coupons" />
+                  <SidebarLink icon={TrendingUp} label="Clube 7" isLink to="/clube" />
+                  <SidebarLink icon={HelpCircle} label="Suporte" isLink to="/support" />
+                </>
+              )}
             </nav>
+          </div>
 
+          <div className="mt-8">
             {user ? (
               <button 
                 onClick={signOut}
-                className="block w-full mt-8 bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 font-black py-4 rounded-2xl text-xs uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-lg text-center"
+                className="flex items-center gap-3 w-full p-4 text-text-muted hover:text-red-400 transition-colors font-black text-xs uppercase tracking-widest"
               >
-                SAIR DA CONTA
+                <LogOut size={18} /> Sair da Conta
               </button>
             ) : (
               <Link to="/login" className="block w-full mt-8 bg-gradient-primary text-background font-black py-4 rounded-2xl text-xs uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-lg glow-primary text-center">
@@ -290,10 +267,69 @@ function DeliveryApp() {
               </Link>
             )}
           </div>
-        </aside>
+        </div>
+      </aside>
 
-        {/* Main Content */}
-        <main className="flex-1 overflow-x-hidden">
+      {/* Main Content */}
+      <main className="flex-1 lg:ml-72 min-h-screen flex flex-col">
+        {/* Header */}
+        <header className="h-20 glass-card mx-6 mt-6 flex items-center justify-between px-8 border border-white/5 shrink-0">
+          <div className="flex items-center gap-4">
+            <button onClick={() => setIsSidebarOpen(true)} className="lg:hidden text-primary">
+              <Menu size={24} />
+            </button>
+            <Link to="/" className="flex items-center gap-3 lg:hidden">
+               <img src={logoImg} alt="Casarão Clube 7" className="h-12 w-auto object-contain" />
+            </Link>
+          </div>
+
+          <div className="flex-1 max-w-xl hidden md:block">
+            <div className="relative">
+              <input 
+                type="text" 
+                placeholder="Busque sua pizza favorita..."
+                className="w-full bg-surface/50 border border-surface-border rounded-full py-2.5 px-12 focus:ring-2 focus:ring-primary/50 transition-all text-sm outline-none"
+              />
+              <Search className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-text-muted" />
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 md:gap-4">
+            <Link to="/clube" className="hidden lg:flex items-center gap-2 px-4 py-2 rounded-full bg-secondary/10 border border-secondary/20 text-secondary text-xs font-black uppercase hover:bg-secondary/20 transition-all">
+               <TrendingUp size={14} /> Clube 7
+            </Link>
+            {user ? (
+              <div className="flex items-center gap-3 pl-4 md:pl-6 border-l border-surface-border">
+                <div className="text-right hidden sm:block">
+                  <p className="text-xs font-black uppercase text-text-main leading-tight">{profile?.full_name}</p>
+                  <p className="text-[10px] text-primary font-bold mt-0.5">ID: {profile?.referral_code || 'Cliente'}</p>
+                </div>
+                <Link to="/profile" className="w-10 h-10 rounded-xl bg-surface border border-surface-border flex items-center justify-center overflow-hidden flex-shrink-0 hover:scale-105 transition-all">
+                  <img src={profile?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile?.full_name || 'User')}&background=EA1D2C&color=FFFFFF&bold=true`} alt="Avatar" className="w-full h-full object-cover" />
+                </Link>
+              </div>
+            ) : (
+              <Link to="/login" className="p-2.5 text-text-muted hover:text-primary hover:bg-primary/10 rounded-full transition-all flex items-center justify-center overflow-hidden w-10 h-10 rounded-full border border-surface-border">
+                <User size={22} />
+              </Link>
+            )}
+            <NotificationBell />
+            <button 
+              onClick={() => setIsCartOpen(true)}
+              className="p-2.5 text-text-muted hover:text-primary hover:bg-primary/10 rounded-full transition-all relative"
+            >
+              <ShoppingCart size={22} />
+              {cartCount > 0 && (
+                <span className="absolute top-2 right-2 w-4 h-4 bg-primary text-background text-[8px] font-black rounded-full flex items-center justify-center shadow-[0_0_8px_rgba(0,229,255,0.8)]">
+                  {cartCount}
+                </span>
+              )}
+            </button>
+          </div>
+        </header>
+
+        {/* Inner Content */}
+        <div className="flex-1 overflow-x-hidden">
           {/* Hero Section */}
           <section className="relative h-[300px] md:h-[400px] flex items-center overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-r from-background via-background/60 to-transparent z-10" />
@@ -408,8 +444,8 @@ function DeliveryApp() {
               </>
             )}
           </div>
-        </main>
-      </div>
+        </div>
+      </main>
 
       {/* Mobile Bottom Nav */}
       <nav className="lg:hidden fixed bottom-0 left-0 w-full glass z-50 flex items-center justify-around py-3 px-4">
@@ -426,12 +462,12 @@ function DeliveryApp() {
 
 function SidebarLink({ icon: Icon, label, active = false, isLink = false, to = "" }: any) {
   const content = (
-    <div className={`flex items-center gap-4 p-3.5 rounded-2xl transition-all ${
+    <div className={`flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all group ${
       active 
-        ? 'bg-primary/10 text-primary font-bold border border-primary/20 shadow-[0_0_15px_rgba(0,229,255,0.1)]' 
+        ? 'bg-primary text-background shadow-lg glow-primary font-bold' 
         : 'text-text-muted hover:text-white hover:bg-surface-hover'
     }`}>
-      <Icon size={20} />
+      <Icon size={20} className={active ? '' : 'group-hover:text-primary transition-colors'} />
       <span className="text-sm">{label}</span>
     </div>
   );
@@ -561,15 +597,15 @@ export default function App() {
           toastOptions={{
             duration: 4000,
             style: {
-              background: '#0B0E14',
-              color: '#FFFFFF',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
+              background: '#FFFFFF',
+              color: '#1F2937',
+              border: '1px solid rgba(0, 0, 0, 0.08)',
             },
             success: {
               duration: 4000,
               iconTheme: {
-                primary: '#00E5FF',
-                secondary: '#0B0E14',
+                primary: '#EA1D2C',
+                secondary: '#FFFFFF',
               },
             },
           }}

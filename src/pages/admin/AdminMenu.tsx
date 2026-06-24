@@ -417,7 +417,7 @@ export default function AdminMenu() {
                    </div>
                    <div className="text-right">
                       <p className="text-[10px] text-primary font-black uppercase tracking-widest mb-1">Pontos</p>
-                      <p className="text-lg font-black text-white">{product.points} pts</p>
+                      <p className="text-lg font-black text-text-main">{product.points} pts</p>
                    </div>
                 </div>
 
@@ -427,7 +427,7 @@ export default function AdminMenu() {
                        setEditingProduct(product);
                        setIsModalOpen(true);
                      }}
-                     className="flex-1 bg-surface border border-surface-border hover:bg-surface-hover text-white py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all"
+                     className="flex-1 bg-surface border border-surface-border hover:bg-surface-hover text-text-main py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all"
                    >
                       <Edit2 size={14} /> Editar
                    </button>
@@ -778,7 +778,7 @@ export default function AdminMenu() {
                                   <IconComp size={16} />
                                 </div>
                               </td>
-                              <td className="p-4 text-sm font-bold text-white">{cat.name}</td>
+                              <td className="p-4 text-sm font-bold text-text-main">{cat.name}</td>
                               <td className="p-4 text-sm text-text-muted">{cat.slug}</td>
                               <td className="p-4 text-right">
                                 <button 

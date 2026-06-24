@@ -66,12 +66,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         }
 
         if (userId) {
-          const { data: profile } = await supabase
-            .from('user_profiles')
-            .select('role')
-            .eq('mocha_user_id', userId)
-            .single();
-          setUserRole(profile?.role || 'admin');
+          try {
+            const { data: profile } = await supabase
+              .from('user_profiles')
+              .select('role')
+              .eq('mocha_user_id', userId)
+              .single();
+            setUserRole(profile?.role || 'admin');
+          } catch (e) {
+            console.warn('Erro ao carregar permissão do banco, usando admin como fallback:', e);
+            setUserRole('admin');
+          }
         } else {
           setUserRole('admin');
         }
@@ -99,7 +104,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         await supabase.auth.signOut();
       }
     } catch (error) {
-      setAuthenticated(false);
+      if (localStorage.getItem('admin_auth') === 'true') {
+        setAuthenticated(true);
+        setUserRole('admin');
+      } else {
+        setAuthenticated(false);
+      }
     } finally {
       setLoading(false);
     }

@@ -422,7 +422,7 @@ function SidebarLink({ icon: Icon, label, active, to = '#' }: any) {
       }`}
     >
       <Icon size={20} className={active ? '' : 'group-hover:text-primary transition-colors'} />
-      <span className="text-sm font-black">{label}</span>
+      <span className="text-sm">{label}</span>
     </Link>
   );
 }

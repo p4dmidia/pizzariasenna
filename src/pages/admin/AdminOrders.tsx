@@ -150,7 +150,7 @@ export default function AdminOrders() {
       case 'entrega': return 'border-secondary/30 text-secondary bg-secondary/5 focus:border-secondary';
       case 'concluido': return 'border-emerald-500/30 text-emerald-500 bg-emerald-500/5 focus:border-emerald-500';
       case 'cancelado': return 'border-red-500/30 text-red-500 bg-red-500/5 focus:border-red-500';
-      default: return 'border-surface-border text-white bg-surface/50';
+      default: return 'border-surface-border text-text-main bg-surface/50';
     }
   };
 
@@ -703,7 +703,7 @@ export default function AdminOrders() {
                 <div className="inline-flex items-center justify-center w-16 h-16 bg-primary/10 text-primary rounded-full mb-4 animate-bounce">
                   <Bell size={32} className="animate-pulse" />
                 </div>
-                <h2 className="text-2xl font-black uppercase tracking-wider text-white">Novo Pedido Recebido!</h2>
+                <h2 className="text-2xl font-black uppercase tracking-wider text-text-main">Novo Pedido Recebido!</h2>
                 <p className="text-primary font-bold text-lg mt-1">#{newOrderAlert.id}</p>
               </div>
 
@@ -714,7 +714,7 @@ export default function AdminOrders() {
                     <>
                       <div className="grid grid-cols-3 gap-2">
                         <span className="text-[10px] font-black uppercase tracking-widest text-text-muted">Cliente:</span>
-                        <span className="col-span-2 text-sm font-black text-white">{alertName}</span>
+                        <span className="col-span-2 text-sm font-black text-text-main">{alertName}</span>
                       </div>
                       
                       <div className="grid grid-cols-3 gap-2">
@@ -787,7 +787,7 @@ export default function AdminOrders() {
 
               <div className="mb-6">
                 <span className="text-[10px] font-black uppercase tracking-widest text-primary">Detalhes do Pedido</span>
-                <h2 className="text-2xl font-black text-white mt-1">Pedido #{selectedOrderDetails.id}</h2>
+                <h2 className="text-2xl font-black text-text-main mt-1">Pedido #{selectedOrderDetails.id}</h2>
                 <p className="text-[10px] text-text-muted font-bold mt-1">
                   Realizado em {new Date(selectedOrderDetails.created_at).toLocaleString()}
                 </p>
@@ -815,10 +815,10 @@ export default function AdminOrders() {
                     const { name: detailName, address: detailAddress } = getOrderClientDetails(selectedOrderDetails);
                     return (
                       <div className="space-y-2">
-                        <p className="text-sm font-black text-white">{detailName}</p>
+                        <p className="text-sm font-black text-text-main">{detailName}</p>
                         <div className="bg-white/5 p-4 rounded-xl space-y-1">
                           <p className="text-xs font-bold text-text-muted uppercase tracking-widest">Endereço:</p>
-                          <div className="text-xs text-white leading-relaxed space-y-2">
+                          <div className="text-xs text-text-main leading-relaxed space-y-2">
                             <p>
                               {detailAddress}
                             </p>
@@ -846,7 +846,7 @@ export default function AdminOrders() {
                     </div>
                     <div className="flex justify-between text-xs pt-2 border-t border-white/5">
                       <span className="text-text-muted font-bold">Taxa de Entrega:</span>
-                      <span className="text-white font-black">
+                      <span className="text-text-main font-black">
                         R$ {Number(selectedOrderDetails.delivery_fee || 0).toFixed(2)}
                       </span>
                     </div>
@@ -863,7 +863,7 @@ export default function AdminOrders() {
               <div className="mt-8">
                 <button
                   onClick={() => setSelectedOrderDetails(null)}
-                  className="w-full py-4 bg-white/5 hover:bg-white/10 text-white rounded-2xl text-xs font-black uppercase tracking-widest transition-all"
+                  className="w-full py-4 bg-white/5 hover:bg-white/10 text-text-main rounded-2xl text-xs font-black uppercase tracking-widest transition-all"
                 >
                   Fechar Detalhes
                 </button>

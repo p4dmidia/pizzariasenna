@@ -616,7 +616,7 @@ export default function Checkout() {
                       {/* Step Text */}
                       <div className="flex-1 py-1">
                         <h4 className={`text-sm font-black uppercase tracking-wider transition-colors ${
-                          isActive ? 'text-primary' : isDone ? 'text-white' : 'text-text-muted'
+                          isActive ? 'text-primary' : isDone ? 'text-text-main' : 'text-text-muted'
                         }`}>
                           {stepInfo.label}
                         </h4>
@@ -666,11 +666,11 @@ export default function Checkout() {
                 </div>
                 <div>
                    <p className="text-[10px] text-text-muted font-black uppercase tracking-widest">Forma de Pagamento</p>
-                   <p className="font-bold text-white mt-1">{getPaymentLabel(order.payment_method)}</p>
+                    <p className="font-bold text-text-main mt-1">{getPaymentLabel(order.payment_method)}</p>
                 </div>
                 <div>
                    <p className="text-[10px] text-text-muted font-black uppercase tracking-widest">Taxa de Entrega</p>
-                   <p className="font-bold text-white mt-1">R$ {Number(order.delivery_fee).toFixed(2)}</p>
+                    <p className="font-bold text-text-main mt-1">R$ {Number(order.delivery_fee).toFixed(2)}</p>
                 </div>
                 <div>
                    <p className="text-[10px] text-text-muted font-black uppercase tracking-widest">Total Geral</p>
@@ -685,7 +685,7 @@ export default function Checkout() {
                    <div className="space-y-4">
                       {orderItems.map((item, idx) => (
                          <div key={idx} className="flex justify-between items-center">
-                            <p className="text-xs font-bold text-white">
+                            <p className="text-xs font-bold text-text-main">
                                <span className="text-primary font-black mr-2">{item.quantity}x</span> 
                                {item.name}
                             </p>
@@ -752,7 +752,7 @@ export default function Checkout() {
                          <MapPin size={20} />
                       </div>
                       <div className="flex-1 min-w-0">
-                         <p className={`font-bold text-sm ${isAddressSelected ? 'text-primary' : 'text-white'}`}>Principal</p>
+                         <p className={`font-bold text-sm ${isAddressSelected ? 'text-primary' : 'text-text-main'}`}>Principal</p>
                          <p className="text-[10px] text-text-muted truncate uppercase tracking-widest mt-1">
                             {profile.address}, {profile.number}{profile.complement ? ` - ${profile.complement}` : ''} - {profile.neighborhood}
                          </p>
@@ -851,7 +851,7 @@ export default function Checkout() {
                     </div>
                     <div className="text-right">
                        <p className="text-[10px] text-text-muted font-black uppercase tracking-widest">Valor do Pedido</p>
-                       <p className="text-lg font-black text-white">R$ {total.toFixed(2)}</p>
+                       <p className="text-lg font-black text-text-main">R$ {total.toFixed(2)}</p>
                     </div>
                  </motion.div>
                  
@@ -1044,7 +1044,7 @@ export default function Checkout() {
 
                <div className="mb-6">
                  <span className="text-[10px] font-black uppercase tracking-widest text-primary">Identificação e Entrega</span>
-                 <h2 className="text-2xl font-black text-white mt-1">Dados de Entrega</h2>
+                 <h2 className="text-2xl font-black text-text-main mt-1">Dados de Entrega</h2>
                  <p className="text-[10px] text-text-muted font-bold mt-1">
                    Preencha os campos abaixo para podermos entregar seu pedido.
                  </p>
@@ -1059,7 +1059,7 @@ export default function Checkout() {
                      value={guestName} 
                      onChange={(e) => setGuestName(e.target.value)} 
                      placeholder="Seu nome completo"
-                     className="w-full bg-background border border-surface-border rounded-2xl py-3 px-5 outline-none focus:border-primary/50 transition-all text-xs font-bold text-white" 
+                     className="w-full bg-background border border-surface-border rounded-2xl py-3 px-5 outline-none focus:border-primary/50 transition-all text-xs font-bold text-text-main" 
                    />
                  </div>
 
@@ -1071,7 +1071,7 @@ export default function Checkout() {
                      value={guestPhone} 
                      onChange={(e) => setGuestPhone(e.target.value)} 
                      placeholder="DDD + Celular (Ex: 11999999999)"
-                     className="w-full bg-background border border-surface-border rounded-2xl py-3 px-5 outline-none focus:border-primary/50 transition-all text-xs font-bold text-white" 
+                     className="w-full bg-background border border-surface-border rounded-2xl py-3 px-5 outline-none focus:border-primary/50 transition-all text-xs font-bold text-text-main" 
                    />
                  </div>
 
@@ -1083,7 +1083,7 @@ export default function Checkout() {
                        value={guestZipcode} 
                        onChange={(e) => setGuestZipcode(e.target.value)} 
                        placeholder="Ex: 01000-000"
-                       className="w-full bg-background border border-surface-border rounded-2xl py-3 px-5 outline-none focus:border-primary/50 transition-all text-xs font-bold text-white" 
+                       className="w-full bg-background border border-surface-border rounded-2xl py-3 px-5 outline-none focus:border-primary/50 transition-all text-xs font-bold text-text-main" 
                      />
                    </div>
                    <div className="space-y-2">
@@ -1094,7 +1094,7 @@ export default function Checkout() {
                        value={guestNumber} 
                        onChange={(e) => setGuestNumber(e.target.value)} 
                        placeholder="Ex: 123"
-                       className="w-full bg-background border border-surface-border rounded-2xl py-3 px-5 outline-none focus:border-primary/50 transition-all text-xs font-bold text-white" 
+                       className="w-full bg-background border border-surface-border rounded-2xl py-3 px-5 outline-none focus:border-primary/50 transition-all text-xs font-bold text-text-main" 
                      />
                    </div>
                  </div>
@@ -1107,7 +1107,7 @@ export default function Checkout() {
                      value={guestAddress} 
                      onChange={(e) => setGuestAddress(e.target.value)} 
                      placeholder="Ex: Rua das Flores"
-                     className="w-full bg-background border border-surface-border rounded-2xl py-3 px-5 outline-none focus:border-primary/50 transition-all text-xs font-bold text-white" 
+                     className="w-full bg-background border border-surface-border rounded-2xl py-3 px-5 outline-none focus:border-primary/50 transition-all text-xs font-bold text-text-main" 
                    />
                  </div>
 
@@ -1120,7 +1120,7 @@ export default function Checkout() {
                        value={guestNeighborhood} 
                        onChange={(e) => setGuestNeighborhood(e.target.value)} 
                        placeholder="Ex: Centro"
-                       className="w-full bg-background border border-surface-border rounded-2xl py-3 px-5 outline-none focus:border-primary/50 transition-all text-xs font-bold text-white" 
+                       className="w-full bg-background border border-surface-border rounded-2xl py-3 px-5 outline-none focus:border-primary/50 transition-all text-xs font-bold text-text-main" 
                      />
                    </div>
                    <div className="space-y-2">
@@ -1130,7 +1130,7 @@ export default function Checkout() {
                        value={guestComplement} 
                        onChange={(e) => setGuestComplement(e.target.value)} 
                        placeholder="Ex: Apto 45"
-                       className="w-full bg-background border border-surface-border rounded-2xl py-3 px-5 outline-none focus:border-primary/50 transition-all text-xs font-bold text-white" 
+                       className="w-full bg-background border border-surface-border rounded-2xl py-3 px-5 outline-none focus:border-primary/50 transition-all text-xs font-bold text-text-main" 
                      />
                    </div>
                  </div>
@@ -1142,7 +1142,7 @@ export default function Checkout() {
                      value={guestCity} 
                      onChange={(e) => setGuestCity(e.target.value)} 
                      placeholder="Ex: Sete Lagoas"
-                     className="w-full bg-background border border-surface-border rounded-2xl py-3 px-5 outline-none focus:border-primary/50 transition-all text-xs font-bold text-white" 
+                     className="w-full bg-background border border-surface-border rounded-2xl py-3 px-5 outline-none focus:border-primary/50 transition-all text-xs font-bold text-text-main" 
                    />
                  </div>
 
@@ -1150,7 +1150,7 @@ export default function Checkout() {
                    <button
                      type="button"
                      onClick={() => setShowGuestModal(false)}
-                     className="flex-1 py-3 bg-white/5 hover:bg-white/10 text-white rounded-2xl text-xs font-black uppercase tracking-widest transition-all"
+                     className="flex-1 py-3 bg-white/5 hover:bg-white/10 text-text-main rounded-2xl text-xs font-black uppercase tracking-widest transition-all"
                    >
                      Cancelar
                    </button>

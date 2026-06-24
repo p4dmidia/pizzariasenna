@@ -233,7 +233,7 @@ export default function AdminDashboard() {
                     </div>
                   </div>
                   <div className="text-right">
-                     <p className="text-sm font-black text-white">{order.amount}</p>
+                     <p className="text-sm font-black text-text-main">{order.amount}</p>
                      <p className={`text-[8px] uppercase font-black tracking-widest ${
                        order.status === 'pendente' ? 'text-amber-500' : 
                        order.status === 'preparando' ? 'text-primary' : 
@@ -271,7 +271,7 @@ export default function AdminDashboard() {
                       </div>
                       <p className="text-xs font-black uppercase tracking-widest">Payout Ratio</p>
                    </div>
-                   <p className="text-sm text-text-muted mb-4">As comissões representam <span className="text-white font-black">{Math.round(stats.payoutRatio)}%</span> do faturamento bruto este mês.</p>
+                   <p className="text-sm text-text-muted mb-4">As comissões representam <span className="text-text-main font-black">{Math.round(stats.payoutRatio)}%</span> do faturamento bruto este mês.</p>
                    <div className="flex items-center gap-2 text-[10px] font-black text-emerald-400">
                       <TrendingUp size={12} /> Saudável dentro da margem
                    </div>
