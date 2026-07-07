@@ -274,7 +274,7 @@ export default function AdminOrders() {
 
       if (amountToCalculate <= 0) return;
 
-      // 2. Buscar perfil do comprador para obter o sponsor_id
+      // 2. Buscar perfil do comprador
       const { data: buyerProfile, error: buyerErr } = await supabase
         .from('user_profiles')
         .select('*')
@@ -286,36 +286,25 @@ export default function AdminOrders() {
         return;
       }
 
-      // 3. Carregar configurações do sistema (comissões/cashback)
+      // 3. Obter porcentagem de cashback de fidelidade
+      let personalCashbackPercent = 10; // 10% padrão de cashback do restaurante
+      
       const { data: settingsData } = await supabase
         .from('system_settings')
         .select('key, value');
 
-      const getSettingVal = (key: string, defaultVal: string) => {
-        const item = settingsData?.find(s => s.key === key);
-        return item ? item.value : defaultVal;
-      };
-
-      const buyerPlan = buyerProfile.plan || 'cliente';
-      const personalCashbackKey = `commission_${buyerPlan}_l1`;
-      const personalActiveKey = `commission_${buyerPlan}_l1_active`;
-      
-      const isPersonalActive = getSettingVal(personalActiveKey, 'true') === 'true';
-      
-      let personalCashbackPercent = 10;
-      if (isPersonalActive) {
-        personalCashbackPercent = parseFloat(getSettingVal(personalCashbackKey, '10'));
-      } else {
-        personalCashbackPercent = 0;
+      const cashbackSetting = settingsData?.find(s => s.key === 'commission_cliente_l1');
+      if (cashbackSetting) {
+        personalCashbackPercent = parseFloat(cashbackSetting.value) || 10;
       }
 
       // O cashback pessoal deve ser calculado sobre o subtotal do pedido (descontando a taxa de entrega)
       const personalCashbackAmount = amountToCalculate * (personalCashbackPercent / 100);
       
-      // Creditar saldo ao comprador no banco
+      // Creditar cashback ao comprador no banco
       const { error: buyerUpdateErr } = await supabase
         .from('user_profiles')
-        .update({ balance: (buyerProfile.balance || 0) + personalCashbackAmount })
+        .update({ cashback_balance: (buyerProfile.cashback_balance || 0) + personalCashbackAmount })
         .eq('id', buyerId);
 
       if (buyerUpdateErr) {
@@ -328,65 +317,8 @@ export default function AdminOrders() {
       const mockProfiles = JSON.parse(localStorage.getItem('supabase.mock-profiles') || '[]');
       const buyerMockIndex = mockProfiles.findIndex((p: any) => p.mocha_user_id === buyerProfile.mocha_user_id);
       if (buyerMockIndex !== -1) {
-        mockProfiles[buyerMockIndex].balance = (mockProfiles[buyerMockIndex].balance || 0) + personalCashbackAmount;
+        mockProfiles[buyerMockIndex].cashback_balance = (mockProfiles[buyerMockIndex].cashback_balance || 0) + personalCashbackAmount;
         localStorage.setItem('supabase.mock-profiles', JSON.stringify(mockProfiles));
-      }
-
-      // 4. Distribuir comissões na rede (MLM) para os patrocinadores up-line
-      let currentSponsorId = buyerProfile.sponsor_id;
-      let level = 1;
-      const maxNetworkLevels = 10;
-
-      while (currentSponsorId && level <= maxNetworkLevels) {
-        const { data: sponsor, error: sponsorErr } = await supabase
-          .from('user_profiles')
-          .select('*')
-          .eq('id', currentSponsorId)
-          .single();
-
-        if (sponsorErr || !sponsor) break;
-
-        const plan = sponsor.plan || 'cliente';
-        
-        let maxDepth = plan === 'cliente' ? 0 : plan === 'empreendedor' ? 3 : 7;
-        const depthSettingKey = `plan_levels_${plan}`;
-        const depthSettingVal = getSettingVal(depthSettingKey, maxDepth.toString());
-        maxDepth = parseInt(depthSettingVal, 10);
-
-        if (level <= maxDepth) {
-          const commissionKey = `commission_${plan}_l${level}`;
-          const activeKey = `commission_${plan}_l${level}_active`;
-          
-          const isCommissionActive = getSettingVal(activeKey, 'true') === 'true';
-          
-          if (isCommissionActive) {
-            const commissionPercent = parseFloat(getSettingVal(commissionKey, '0'));
-            
-            if (commissionPercent > 0) {
-              const commissionAmount = amountToCalculate * (commissionPercent / 100);
-              
-              const { error: sponsorUpdateErr } = await supabase
-                .from('user_profiles')
-                .update({ balance: (sponsor.balance || 0) + commissionAmount })
-                .eq('id', sponsor.id);
-
-              if (sponsorUpdateErr) {
-                console.error(`Erro ao creditar comissão para sponsor ID ${sponsor.id}:`, sponsorUpdateErr);
-              } else {
-                console.log(`Comissão de R$ ${commissionAmount.toFixed(2)} (Nível ${level}) creditada para ${sponsor.full_name}`);
-                
-                const sponsorMockIndex = mockProfiles.findIndex((p: any) => p.mocha_user_id === sponsor.mocha_user_id);
-                if (sponsorMockIndex !== -1) {
-                  mockProfiles[sponsorMockIndex].balance = (mockProfiles[sponsorMockIndex].balance || 0) + commissionAmount;
-                  localStorage.setItem('supabase.mock-profiles', JSON.stringify(mockProfiles));
-                }
-              }
-            }
-          }
-        }
-
-        currentSponsorId = sponsor.sponsor_id;
-        level++;
       }
 
       // Registrar que já foi distribuído para evitar duplicidade

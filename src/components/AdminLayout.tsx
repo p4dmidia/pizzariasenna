@@ -21,7 +21,6 @@ import NotificationBell from './NotificationBell';
 const ADMIN_LINKS = [
   { icon: LayoutDashboard, label: 'Dashboard', to: '/admin' },
   { icon: ShoppingCart, label: 'Pedidos', to: '/admin/orders' },
-  { icon: Wallet, label: 'Saques', to: '/admin/payouts' },
   { icon: Users, label: 'Usuários', to: '/admin/users' },
   { icon: Pizza, label: 'Cardápio', to: '/admin/menu' },
   { icon: Settings, label: 'Configurações', to: '/admin/settings' },
@@ -101,7 +100,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         setUserRole(profile.role);
       } else {
         setAuthenticated(false);
-        await supabase.auth.signOut();
+        toast.error('Acesso negado. Esta conta não possui permissões administrativas.', { id: 'admin-access-denied' });
       }
     } catch (error) {
       if (localStorage.getItem('admin_auth') === 'true') {

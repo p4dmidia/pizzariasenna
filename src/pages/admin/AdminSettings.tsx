@@ -3,22 +3,16 @@ import { motion } from 'motion/react';
 import { 
   Settings, 
   Globe, 
-  Percent, 
-  Wallet, 
-  ShieldCheck, 
   Save, 
   Loader2,
-  AlertCircle,
   Smartphone,
   Mail,
-  Instagram,
-  Facebook,
   Database,
   Lock,
-  History,
-  TrendingUp,
-  CreditCard,
-  Zap
+  ShieldCheck,
+  Store,
+  Clock,
+  MapPin
 } from 'lucide-react';
 import AdminLayout from '../../components/AdminLayout';
 import { supabase } from '../../lib/supabase';
@@ -26,33 +20,14 @@ import { toast } from 'react-hot-toast';
 
 const TABS = [
   { id: 'geral', label: 'Geral', icon: Globe },
-  { id: 'comissoes', label: 'Comissões', icon: Percent },
-  { id: 'financeiro', label: 'Financeiro', icon: Wallet },
   { id: 'seguranca', label: 'Segurança & API', icon: ShieldCheck },
 ];
-
-const DEFAULT_COMMISSIONS: any = {
-  cliente: {
-    l1: 10, l2: 0, l3: 0, l4: 0, l5: 0, l6: 0, l7: 0, l8: 0, l9: 0, l10: 0
-  },
-  empreendedor: {
-    l1: 10, l2: 5, l3: 3, l4: 0, l5: 0, l6: 0, l7: 0, l8: 0, l9: 0, l10: 0
-  },
-  visionario: {
-    l1: 10, l2: 5, l3: 3, l4: 2, l5: 1, l6: 1, l7: 1, l8: 1, l9: 0.5, l10: 0.5
-  }
-};
 
 export default function AdminSettings() {
   const [activeTab, setActiveTab] = useState('geral');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [settings, setSettings] = useState<any[]>([]);
-  const [cashbackConfig, setCashbackConfig] = useState<any[]>([]);
-  
-  const [selectedCommissionPlan, setSelectedCommissionPlan] = useState('visionario');
-  const [planCommissions, setPlanCommissions] = useState<any>({ cliente: {}, empreendedor: {}, visionario: {} });
-  const [planCommissionsActive, setPlanCommissionsActive] = useState<any>({ cliente: {}, empreendedor: {}, visionario: {} });
 
   useEffect(() => {
     fetchData();
@@ -61,35 +36,13 @@ export default function AdminSettings() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [settingsRes, cashbackRes] = await Promise.all([
-        supabase.from('system_settings').select('*').order('key'),
-        supabase.from('cashback_config').select('*').order('level'),
-      ]);
+      const { data, error } = await supabase
+        .from('system_settings')
+        .select('*')
+        .order('key');
 
-      if (settingsRes.error) throw settingsRes.error;
-      if (cashbackRes.error) throw cashbackRes.error;
-
-      setSettings(settingsRes.data || []);
-      setCashbackConfig(cashbackRes.data || []);
-
-      const commissions: any = { cliente: {}, empreendedor: {}, visionario: {} };
-      const commissionsActive: any = { cliente: {}, empreendedor: {}, visionario: {} };
-      
-      ['cliente', 'empreendedor', 'visionario'].forEach(plan => {
-        for (let level = 1; level <= 10; level++) {
-          const key = `commission_${plan}_l${level}`;
-          const activeKey = `commission_${plan}_l${level}_active`;
-          
-          const setting = settingsRes.data?.find((s: any) => s.key === key);
-          const activeSetting = settingsRes.data?.find((s: any) => s.key === activeKey);
-          
-          commissions[plan][`l${level}`] = setting ? parseFloat(setting.value) : DEFAULT_COMMISSIONS[plan][`l${level}`];
-          commissionsActive[plan][`l${level}`] = activeSetting ? activeSetting.value === 'true' : (DEFAULT_COMMISSIONS[plan][`l${level}`] > 0);
-        }
-      });
-      
-      setPlanCommissions(commissions);
-      setPlanCommissionsActive(commissionsActive);
+      if (error) throw error;
+      setSettings(data || []);
     } catch (error: any) {
       toast.error('Erro ao carregar configurações: ' + error.message);
     } finally {
@@ -98,11 +51,13 @@ export default function AdminSettings() {
   };
 
   const updateSetting = (key: string, value: string) => {
-    setSettings(prev => prev.map(s => s.key === key ? { ...s, value } : s));
-  };
-
-  const updateCashback = (id: number, field: string, value: any) => {
-    setCashbackConfig(prev => prev.map(c => c.id === id ? { ...c, [field]: value } : c));
+    setSettings(prev => {
+      const exists = prev.some(s => s.key === key);
+      if (exists) {
+        return prev.map(s => s.key === key ? { ...s, value } : s);
+      }
+      return [...prev, { key, value, description: '' }];
+    });
   };
 
   const saveSettings = async (keys: string[]) => {
@@ -110,11 +65,17 @@ export default function AdminSettings() {
       setSaving(true);
       const itemsToUpdate = settings.filter(s => keys.includes(s.key));
       
+      // Se algum item não estiver no array, garanta que seja adicionado com valor em branco
+      keys.forEach(k => {
+        if (!itemsToUpdate.some(s => s.key === k)) {
+          itemsToUpdate.push({ key: k, value: '' });
+        }
+      });
+
       const { error } = await supabase.from('system_settings').upsert(
         itemsToUpdate.map(s => ({
           key: s.key,
-          value: s.value,
-          description: s.description,
+          value: s.value || '',
           updated_at: new Date().toISOString()
         })),
         { onConflict: 'key' }
@@ -122,70 +83,9 @@ export default function AdminSettings() {
 
       if (error) throw error;
       toast.success('Configurações salvas com sucesso!');
-    } catch (error: any) {
-      toast.error('Erro ao salvar: ' + error.message);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const saveCashback = async () => {
-    try {
-      setSaving(true);
-      const { error } = await supabase.from('cashback_config').upsert(
-        cashbackConfig.map(c => ({
-          id: c.id,
-          level: c.level,
-          amount: c.amount,
-          is_active: c.is_active,
-          updated_at: new Date().toISOString()
-        }))
-      );
-
-      if (error) throw error;
-      toast.success('Regras de comissão atualizadas!');
-    } catch (error: any) {
-      toast.error('Erro ao salvar comissões: ' + error.message);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const savePlanCommissions = async () => {
-    try {
-      setSaving(true);
-      
-      const payload: any[] = [];
-      ['cliente', 'empreendedor', 'visionario'].forEach(plan => {
-        for (let level = 1; level <= 10; level++) {
-          const key = `commission_${plan}_l${level}`;
-          const activeKey = `commission_${plan}_l${level}_active`;
-          const value = planCommissions[plan]?.[`l${level}`] ?? DEFAULT_COMMISSIONS[plan][`l${level}`];
-          const isActive = planCommissionsActive[plan]?.[`l${level}`] ?? (DEFAULT_COMMISSIONS[plan][`l${level}`] > 0);
-          
-          payload.push({
-            key,
-            value: value.toString(),
-            description: `Comissão do plano ${plan} no nível ${level}`,
-            updated_at: new Date().toISOString()
-          });
-          payload.push({
-            key: activeKey,
-            value: isActive.toString(),
-            description: `Status da comissão do plano ${plan} no nível ${level}`,
-            updated_at: new Date().toISOString()
-          });
-        }
-      });
-
-      const { error } = await supabase.from('system_settings').upsert(payload, { onConflict: 'key' });
-
-      if (error) throw error;
-      toast.success('Comissões por perfil salvas com sucesso!');
-      
       fetchData();
     } catch (error: any) {
-      toast.error('Erro ao salvar comissões: ' + error.message);
+      toast.error('Erro ao salvar: ' + error.message);
     } finally {
       setSaving(false);
     }
@@ -209,7 +109,7 @@ export default function AdminSettings() {
       <div className="space-y-8 pb-12">
         <header>
           <h1 className="text-3xl font-black mb-2">Configurações do Sistema ⚙️</h1>
-          <p className="text-text-muted text-sm">Ajuste as regras de negócio, limites e integrações da plataforma.</p>
+          <p className="text-text-muted text-sm">Ajuste as regras de negócio, limites de entrega e funcionamento da plataforma.</p>
         </header>
 
         <div className="flex flex-col lg:flex-row gap-8">
@@ -241,6 +141,49 @@ export default function AdminSettings() {
             >
               {activeTab === 'geral' && (
                 <div className="space-y-6">
+                  {/* Status da Loja e Funcionamento */}
+                  <SectionCard 
+                    title="Funcionamento & Entrega" 
+                    icon={Store} 
+                    onSave={() => saveSettings(['store_open', 'delivery_time_est', 'store_address'])}
+                    saving={saving}
+                  >
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase text-text-muted ml-1 flex items-center gap-2">
+                          <Store size={12} className="text-primary/50" /> Status da Loja
+                        </label>
+                        <select 
+                          value={getSetting('store_open').value} 
+                          onChange={(e) => updateSetting('store_open', e.target.value)}
+                          className="w-full bg-background border border-surface-border rounded-xl py-3 px-4 outline-none focus:border-primary/50 text-sm cursor-pointer font-bold text-white appearance-none"
+                        >
+                          <option value="true">Aberta para pedidos</option>
+                          <option value="false">Fechada temporariamente</option>
+                        </select>
+                      </div>
+                      
+                      <SettingInput 
+                        label="Tempo Estimado de Entrega" 
+                        value={getSetting('delivery_time_est').value} 
+                        onChange={(val: string) => updateSetting('delivery_time_est', val)} 
+                        icon={Clock}
+                        placeholder="Ex: 35 - 50 min"
+                      />
+                      
+                      <div className="md:col-span-2">
+                        <SettingInput 
+                          label="Endereço da Pizzaria" 
+                          value={getSetting('store_address').value} 
+                          onChange={(val: string) => updateSetting('store_address', val)} 
+                          icon={MapPin}
+                          placeholder="Ex: Av. Principal, 1234 - Centro"
+                        />
+                      </div>
+                    </div>
+                  </SectionCard>
+
+                  {/* Informações do Site */}
                   <SectionCard 
                     title="Informações do Site" 
                     icon={Globe} 
@@ -261,6 +204,7 @@ export default function AdminSettings() {
                     </div>
                   </SectionCard>
 
+                  {/* Canais de Suporte */}
                   <SectionCard 
                     title="Canais de Suporte" 
                     icon={Smartphone} 
@@ -279,209 +223,6 @@ export default function AdminSettings() {
                         value={getSetting('support_email').value} 
                         onChange={(val: string) => updateSetting('support_email', val)} 
                         icon={Mail}
-                      />
-                    </div>
-                  </SectionCard>
-                </div>
-              )}
-
-              {activeTab === 'comissoes' && (
-                <div className="space-y-6">
-                  <SectionCard 
-                    title="Níveis de Rede & Cashback por Perfil" 
-                    icon={TrendingUp} 
-                    onSave={savePlanCommissions}
-                    saving={saving}
-                    description="Configure as porcentagens de comissão para cada nível de acordo com o plano do patrocinador."
-                  >
-                    {/* Abas de Planos */}
-                    <div className="flex bg-surface rounded-xl p-1 border border-surface-border mb-6 max-w-md">
-                      {['cliente', 'empreendedor', 'visionario'].map((plan) => (
-                        <button
-                          key={plan}
-                          type="button"
-                          onClick={() => setSelectedCommissionPlan(plan)}
-                          className={`flex-1 py-2.5 rounded-lg text-[10px] font-black uppercase transition-all ${
-                            selectedCommissionPlan === plan 
-                              ? 'bg-primary text-background shadow-lg' 
-                              : 'text-text-muted hover:text-white'
-                          }`}
-                        >
-                          {plan}
-                        </button>
-                      ))}
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      {Array.from({ length: 10 }).map((_, i) => {
-                        const level = i + 1;
-                        const levelKey = `l${level}`;
-                        const value = planCommissions[selectedCommissionPlan]?.[levelKey] ?? 0;
-                        const isActive = planCommissionsActive[selectedCommissionPlan]?.[levelKey] ?? false;
-
-                        return (
-                          <div key={level} className="p-4 rounded-2xl bg-background border border-surface-border flex items-center justify-between group hover:border-primary/30 transition-all">
-                            <div className="flex items-center gap-4">
-                              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-black text-xs">
-                                L{level}
-                              </div>
-                              <div>
-                                <p className="text-[10px] font-black uppercase text-text-muted tracking-widest">Nível {level}</p>
-                                <div className="flex items-center gap-2">
-                                  <input 
-                                    type="number" 
-                                    step="0.1"
-                                    value={value}
-                                    onChange={(e) => {
-                                      const newVal = parseFloat(e.target.value) || 0;
-                                      setPlanCommissions((prev: any) => ({
-                                        ...prev,
-                                        [selectedCommissionPlan]: {
-                                          ...prev[selectedCommissionPlan],
-                                          [levelKey]: newVal
-                                        }
-                                      }));
-                                    }}
-                                    className="w-16 bg-transparent border-none text-lg font-black text-white focus:ring-0 p-0"
-                                  />
-                                  <span className="text-primary font-black">%</span>
-                                </div>
-                              </div>
-                            </div>
-                            <button 
-                              type="button"
-                              onClick={() => {
-                                setPlanCommissionsActive((prev: any) => ({
-                                  ...prev,
-                                  [selectedCommissionPlan]: {
-                                    ...prev[selectedCommissionPlan],
-                                    [levelKey]: !isActive
-                                  }
-                                }));
-                              }}
-                              className={`w-10 h-6 rounded-full relative transition-all ${isActive ? 'bg-primary' : 'bg-surface border border-surface-border'}`}
-                            >
-                              <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${isActive ? 'left-5' : 'left-1'}`} />
-                            </button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </SectionCard>
-
-                  <SectionCard 
-                    title="Regras Globais de MLM" 
-                    icon={Zap} 
-                    onSave={() => saveSettings([
-                      'max_network_levels', 
-                      'mlm_enabled', 
-                      'max_matrix_width', 
-                      'min_points_to_activate',
-                      'plan_levels_cliente',
-                      'plan_levels_empreendedor',
-                      'plan_levels_visionario'
-                    ])}
-                    saving={saving}
-                  >
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <SettingInput 
-                        label="Máximo de Níveis Geral" 
-                        value={getSetting('max_network_levels').value} 
-                        onChange={(val: string) => updateSetting('max_network_levels', val)} 
-                        type="number"
-                      />
-                      <SettingInput 
-                        label="Largura da Matriz" 
-                        value={getSetting('max_matrix_width').value} 
-                        onChange={(val: string) => updateSetting('max_matrix_width', val)} 
-                        type="number"
-                      />
-                      <SettingInput 
-                        label="Pontos Mínimos para Ativação" 
-                        value={getSetting('min_points_to_activate').value} 
-                        onChange={(val: string) => updateSetting('min_points_to_activate', val)} 
-                        type="number"
-                      />
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-black uppercase text-text-muted ml-1">Status do MLM</label>
-                        <select 
-                          value={getSetting('mlm_enabled').value} 
-                          onChange={(e) => updateSetting('mlm_enabled', e.target.value)}
-                          className="w-full bg-background border border-surface-border rounded-xl py-3 px-4 outline-none focus:border-primary/50 text-sm appearance-none cursor-pointer"
-                        >
-                          <option value="true">Ativado</option>
-                          <option value="false">Desativado</option>
-                        </select>
-                      </div>
-                      <SettingInput 
-                        label="Níveis de Indicação - Cliente" 
-                        value={getSetting('plan_levels_cliente').value || '0'} 
-                        onChange={(val: string) => updateSetting('plan_levels_cliente', val)} 
-                        type="number"
-                      />
-                      <SettingInput 
-                        label="Níveis de Indicação - Empreendedor" 
-                        value={getSetting('plan_levels_empreendedor').value || '3'} 
-                        onChange={(val: string) => updateSetting('plan_levels_empreendedor', val)} 
-                        type="number"
-                      />
-                      <SettingInput 
-                        label="Níveis de Indicação - Visionário" 
-                        value={getSetting('plan_levels_visionario').value || '7'} 
-                        onChange={(val: string) => updateSetting('plan_levels_visionario', val)} 
-                        type="number"
-                      />
-                    </div>
-                  </SectionCard>
-                </div>
-              )}
-
-              {activeTab === 'financeiro' && (
-                <div className="space-y-6">
-                  <SectionCard 
-                    title="Regras de Saque" 
-                    icon={Wallet} 
-                    onSave={() => saveSettings(['min_withdrawal_amount', 'withdrawal_fee_percentage', 'withdrawal_fee'])}
-                    saving={saving}
-                  >
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                      <SettingInput 
-                        label="Saque Mínimo (R$)" 
-                        value={getSetting('min_withdrawal_amount').value} 
-                        onChange={(val: string) => updateSetting('min_withdrawal_amount', val)} 
-                        type="number"
-                      />
-                      <SettingInput 
-                        label="Taxa de Saque (%)" 
-                        value={getSetting('withdrawal_fee_percentage').value} 
-                        onChange={(val: string) => updateSetting('withdrawal_fee_percentage', val)} 
-                        type="number"
-                      />
-                      <SettingInput 
-                        label="Taxa Fixa (R$)" 
-                        value={getSetting('withdrawal_fee').value} 
-                        onChange={(val: string) => updateSetting('withdrawal_fee', val)} 
-                        type="number"
-                      />
-                    </div>
-                  </SectionCard>
-
-                  <SectionCard 
-                    title="Dados de Pagamento (Matriz)" 
-                    icon={CreditCard} 
-                    onSave={() => saveSettings(['matrix_cpf', 'matrix_pix_key'])}
-                    saving={saving}
-                  >
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <SettingInput 
-                        label="CPF/CNPJ da Matriz" 
-                        value={getSetting('matrix_cpf').value} 
-                        onChange={(val: string) => updateSetting('matrix_cpf', val)} 
-                      />
-                      <SettingInput 
-                        label="Chave PIX da Matriz" 
-                        value={getSetting('matrix_pix_key').value} 
-                        onChange={(val: string) => updateSetting('matrix_pix_key', val)} 
                       />
                     </div>
                   </SectionCard>
@@ -574,7 +315,7 @@ function SectionCard({ title, icon: Icon, children, onSave, saving, description 
   );
 }
 
-function SettingInput({ label, value, onChange, type = 'text', icon: Icon }: any) {
+function SettingInput({ label, value, onChange, type = 'text', icon: Icon, placeholder }: any) {
   return (
     <div className="space-y-2">
       <label className="text-[10px] font-black uppercase text-text-muted ml-1 flex items-center gap-2">
@@ -585,7 +326,8 @@ function SettingInput({ label, value, onChange, type = 'text', icon: Icon }: any
         type={type} 
         value={value} 
         onChange={(e) => onChange(e.target.value)}
-        className="w-full bg-background border border-surface-border rounded-xl py-3 px-4 outline-none focus:border-primary/50 text-sm transition-all focus:ring-1 focus:ring-primary/20" 
+        placeholder={placeholder}
+        className="w-full bg-background border border-surface-border rounded-xl py-3 px-4 outline-none focus:border-primary/50 text-sm transition-all focus:ring-1 focus:ring-primary/20 text-white font-bold" 
       />
     </div>
   );

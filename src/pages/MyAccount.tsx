@@ -230,26 +230,11 @@ export default function MyAccount() {
             )}
 
             <nav className="space-y-1">
-              {profile?.plan === 'empreendedor' || profile?.plan === 'visionario' ? (
-                <>
-                  <SidebarLink icon={LayoutDashboard} label="Dashboard" isLink to="/dashboard" />
-                  <SidebarLink icon={Users} label="Minha Rede" isLink to="/dashboard/network" />
-                  <SidebarLink icon={Wallet} label="Financeiro" isLink to="/dashboard/financial" />
-                  <SidebarLink icon={ShoppingCart} label="Delivery" isLink to="/" />
-                  <SidebarLink icon={Ticket} label="Cupons" isLink to="/coupons" />
-                  <SidebarLink icon={PieChart} label="Relatórios" isLink to="/dashboard/reports" />
-                  <SidebarLink icon={Settings} label="Configurações" isLink to="/dashboard/settings" />
-                </>
-              ) : (
-                <>
-                  <SidebarLink icon={User} label="Minha Conta" active />
-                  <SidebarLink icon={History} label="Meus Pedidos" isLink to="/" />
-                  <SidebarLink icon={Heart} label="Favoritos" isLink to="/favorites" />
-                  <SidebarLink icon={Ticket} label="Cupons" isLink to="/coupons" />
-                  <SidebarLink icon={TrendingUp} label="Clube" isLink to="/clube" />
-                  <SidebarLink icon={HelpCircle} label="Suporte" isLink to="/support" />
-                </>
-              )}
+              <SidebarLink icon={User} label="Minha Conta" active />
+              <SidebarLink icon={History} label="Meus Pedidos" isLink to="/orders" />
+              <SidebarLink icon={Heart} label="Favoritos" isLink to="/favorites" />
+              <SidebarLink icon={Ticket} label="Cupons" isLink to="/coupons" />
+              <SidebarLink icon={HelpCircle} label="Suporte" isLink to="/support" />
             </nav>
           </div>
 
@@ -295,14 +280,11 @@ export default function MyAccount() {
           </div>
 
           <div className="flex items-center gap-2 md:gap-4">
-            <Link to="/clube" className="hidden lg:flex items-center gap-2 px-4 py-2 rounded-full bg-secondary/10 border border-secondary/20 text-secondary text-xs font-black uppercase hover:bg-secondary/20 transition-all">
-               <TrendingUp size={14} /> Clube
-            </Link>
             {user ? (
-              <div className="flex items-center gap-3 pl-4 md:pl-6 border-l border-surface-border">
+              <div className="flex items-center gap-3 pl-4 md:pl-6">
                 <div className="text-right hidden sm:block">
                   <p className="text-xs font-black uppercase text-text-main leading-tight">{profile?.full_name}</p>
-                  <p className="text-[10px] text-primary font-bold mt-0.5">ID: {profile?.referral_code || 'Cliente'}</p>
+                  <p className="text-[10px] text-primary font-bold mt-0.5">Cliente Casarão</p>
                 </div>
                 <Link to="/profile" className="w-10 h-10 rounded-xl bg-surface border border-surface-border flex items-center justify-center overflow-hidden flex-shrink-0 hover:scale-105 transition-all">
                   <img src={profile?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile?.full_name || 'User')}&background=EA1D2C&color=FFFFFF&bold=true`} alt="Avatar" className="w-full h-full object-cover" />
@@ -355,14 +337,11 @@ export default function MyAccount() {
                        <h3 className="text-2xl font-black mb-1">{profile?.full_name || 'Visitante'}</h3>
                        <p className="text-text-muted text-sm uppercase font-bold tracking-widest mb-4">{profile?.email || 'sem-email@appdelivery.com'}</p>
                        <div className="flex flex-wrap justify-center md:justify-start gap-3">
-                          <span className="px-4 py-1.5 rounded-full bg-primary/10 text-primary text-[10px] font-black uppercase tracking-widest border border-primary/20">
-                             {profile?.plan || 'Cliente'}
-                          </span>
                           <span className="px-4 py-1.5 rounded-full bg-emerald-500/10 text-emerald-400 text-[10px] font-black uppercase tracking-widest border border-emerald-500/20">
-                             Ativo
+                             Cliente Ativo
                           </span>
                           <span className="px-4 py-1.5 rounded-full bg-secondary/10 text-secondary text-[10px] font-black uppercase tracking-widest border border-secondary/20">
-                             Saldo Cashback: R$ {profile?.balance?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) || '0,00'}
+                             Saldo Cashback: R$ {profile?.cashback_balance?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) || '0,00'}
                           </span>
                        </div>
                     </div>

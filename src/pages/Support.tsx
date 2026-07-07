@@ -40,7 +40,7 @@ const FAQ = [
   },
   {
     question: 'Como funciona o cashback do APP Delivery?',
-    answer: 'A cada pedido realizado, uma porcentagem do valor volta para sua carteira digital no APP Delivery. Você pode usar esse saldo para pagar novos pedidos ou sacar via PIX se for um afiliado.'
+    answer: 'A cada pedido realizado, uma porcentagem do valor volta para sua carteira digital no APP Delivery. Você pode usar esse saldo para pagar novos pedidos.'
   },
   {
     question: 'Quais as formas de pagamento aceitas?',
@@ -114,26 +114,11 @@ export default function Support() {
             )}
 
             <nav className="space-y-1">
-              {profile?.plan === 'empreendedor' || profile?.plan === 'visionario' ? (
-                <>
-                  <SidebarLink icon={LayoutDashboard} label="Dashboard" isLink to="/dashboard" />
-                  <SidebarLink icon={Users} label="Minha Rede" isLink to="/dashboard/network" />
-                  <SidebarLink icon={Wallet} label="Financeiro" isLink to="/dashboard/financial" />
-                  <SidebarLink icon={ShoppingCart} label="Delivery" isLink to="/" />
-                  <SidebarLink icon={Ticket} label="Cupons" isLink to="/coupons" />
-                  <SidebarLink icon={PieChart} label="Relatórios" isLink to="/dashboard/reports" />
-                  <SidebarLink icon={Settings} label="Configurações" isLink to="/dashboard/settings" />
-                </>
-              ) : (
-                <>
-                  <SidebarLink icon={User} label="Minha Conta" isLink to="/profile" />
-                  <SidebarLink icon={History} label="Meus Pedidos" isLink to="/" />
-                  <SidebarLink icon={Heart} label="Favoritos" isLink to="/favorites" />
-                  <SidebarLink icon={Ticket} label="Cupons" isLink to="/coupons" />
-                  <SidebarLink icon={TrendingUp} label="Clube" isLink to="/clube" />
-                  <SidebarLink icon={HelpCircle} label="Suporte" active />
-                </>
-              )}
+              <SidebarLink icon={User} label="Minha Conta" isLink to="/profile" />
+              <SidebarLink icon={History} label="Meus Pedidos" isLink to="/orders" />
+              <SidebarLink icon={Heart} label="Favoritos" isLink to="/favorites" />
+              <SidebarLink icon={Ticket} label="Cupons" isLink to="/coupons" />
+              <SidebarLink icon={HelpCircle} label="Suporte" active />
             </nav>
           </div>
 
@@ -179,14 +164,11 @@ export default function Support() {
           </div>
 
           <div className="flex items-center gap-2 md:gap-4">
-             <Link to="/clube" className="hidden lg:flex items-center gap-2 px-4 py-2 rounded-full bg-secondary/10 border border-secondary/20 text-secondary text-xs font-black uppercase hover:bg-secondary/20 transition-all">
-                <TrendingUp size={14} /> Clube
-             </Link>
             {user ? (
-              <div className="flex items-center gap-3 pl-4 md:pl-6 border-l border-surface-border">
+              <div className="flex items-center gap-3 pl-4 md:pl-6">
                 <div className="text-right hidden sm:block">
                   <p className="text-xs font-black uppercase text-text-main leading-tight">{profile?.full_name}</p>
-                  <p className="text-[10px] text-primary font-bold mt-0.5">ID: {profile?.referral_code || 'Cliente'}</p>
+                  <p className="text-[10px] text-primary font-bold mt-0.5">Cliente Casarão</p>
                 </div>
                 <Link to="/profile" className="w-10 h-10 rounded-xl bg-surface border border-surface-border flex items-center justify-center overflow-hidden flex-shrink-0 hover:scale-105 transition-all">
                   <img src={profile?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile?.full_name || 'User')}&background=EA1D2C&color=FFFFFF&bold=true`} alt="Avatar" className="w-full h-full object-cover" />

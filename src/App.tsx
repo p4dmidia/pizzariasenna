@@ -2,8 +2,7 @@ import {
   BrowserRouter as Router,
   Routes,
   Route,
-  Link,
-  useLocation
+  Link
 } from 'react-router-dom';
 import { 
   Search, 
@@ -19,19 +18,15 @@ import {
   Sparkles, 
   IceCream, 
   Plus, 
-  ChevronRight,
-  TrendingUp,
-  Package,
+  Package, 
   PlusCircle,
   Menu,
   X,
   Loader2,
   LayoutDashboard,
-  Users,
-  Wallet,
-  PieChart,
   Settings,
-  LogOut
+  LogOut,
+  Clock
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useState, useEffect } from 'react';
@@ -39,43 +34,29 @@ import CartDrawer from './components/CartDrawer';
 
 import { CartProvider, useCart } from './context/CartContext';
 
-import LandingPage from './pages/LandingPage';
 import Login from './pages/Login';
 import Register from './pages/Register';
-import Dashboard from './pages/Dashboard';
-import Network from './pages/Network';
-import Financial from './pages/Financial';
-import Reports from './pages/Reports';
-import SettingsPage from './pages/Settings';
+import MyOrders from './pages/MyOrders';
 import MyAccount from './pages/MyAccount';
 import Favorites from './pages/Favorites';
 import Coupons from './pages/Coupons';
 import Support from './pages/Support';
 import Checkout from './pages/Checkout';
 import { FavoritesProvider, useFavorites } from './context/FavoritesContext';
-import { MAIS_PEDIDAS, CLASSICAS, BEBIDAS, COMBOS, SOBREMESAS, ALL_PRODUCTS } from './data/products';
+import { MAIS_PEDIDAS, CLASSICAS, BEBIDAS, COMBOS, SOBREMESAS } from './data/products';
 import AppLogo from './components/AppLogo';
 import { supabase } from './lib/supabase';
 import PWAInstallPrompt from './components/PWAInstallPrompt';
 import { Toaster } from 'react-hot-toast';
 import NotificationBell from './components/NotificationBell';
+import ProductCustomizerModal from './components/ProductCustomizerModal';
 
 import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminOrders from './pages/admin/AdminOrders';
-import AdminPayouts from './pages/admin/AdminPayouts';
 import AdminUsers from './pages/admin/AdminUsers';
 import AdminMenu from './pages/admin/AdminMenu';
 import AdminSettings from './pages/admin/AdminSettings';
 import AdminLogin from './pages/admin/AdminLogin';
-
-
-
-
-
-
-
-
-
 
 const CATEGORIES = [
   { id: 'pizzas', name: 'Pizzas', icon: PizzaIcon },
@@ -120,6 +101,19 @@ function DeliveryApp() {
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Estados do Customizer Modal
+  const [selectedProductForCustomization, setSelectedProductForCustomization] = useState<any | null>(null);
+  const [isCustomizerOpen, setIsCustomizerOpen] = useState(false);
+  
+  // Status de funcionamento da loja e infos gerais
+  const [storeSettings, setStoreSettings] = useState({
+    store_open: true,
+    delivery_time_est: '35 - 50 min',
+    store_address: 'Av. Pizzaria Casarão, 1234 - Centro',
+    support_whatsapp: '5511999999999'
+  });
+  const [storeRating, setStoreRating] = useState({ rating: 4.8, count: 42 });
+
   useEffect(() => {
     async function loadData() {
       try {
@@ -152,7 +146,41 @@ function DeliveryApp() {
       }
     }
 
+    async function loadSettings() {
+      try {
+        const [settingsRes, reviewsRes] = await Promise.all([
+          supabase.from('system_settings').select('*'),
+          supabase.from('order_reviews').select('rating')
+        ]);
+
+        if (settingsRes.data) {
+          const settingsMap: any = {};
+          settingsRes.data.forEach(s => {
+            settingsMap[s.key] = s.value;
+          });
+          
+          setStoreSettings({
+            store_open: settingsMap['store_open'] === 'true',
+            delivery_time_est: settingsMap['delivery_time_est'] || '35 - 50 min',
+            store_address: settingsMap['store_address'] || 'Av. Pizzaria Casarão, 1234 - Centro',
+            support_whatsapp: settingsMap['support_whatsapp'] || '5511999999999'
+          });
+        }
+
+        if (reviewsRes.data && reviewsRes.data.length > 0) {
+          const sum = reviewsRes.data.reduce((acc, r) => acc + Number(r.rating), 0);
+          setStoreRating({
+            rating: parseFloat((sum / reviewsRes.data.length).toFixed(1)),
+            count: reviewsRes.data.length
+          });
+        }
+      } catch (err) {
+        console.warn('Error loading settings/reviews:', err);
+      }
+    }
+
     loadData();
+    loadSettings();
   }, []);
 
   const displayedCategories = categories.length > 0 ? categories.map(cat => ({
@@ -184,7 +212,29 @@ function DeliveryApp() {
   const maisPedidas = activeCategory === 'pizzas' ? activeCategoryProducts.slice(0, 3) : [];
   const classicas = activeCategory === 'pizzas' ? activeCategoryProducts.slice(3) : [];
 
+  const handleAddProduct = (product: any) => {
+    const isPizza = activeCategory === 'pizzas' || product.category === 'pizzas' || product.category_id === 1;
+    if (isPizza) {
+      setSelectedProductForCustomization(product);
+      setIsCustomizerOpen(true);
+    } else {
+      addToCart(product);
+    }
+  };
 
+  const handleConfirmCustomization = (customOptions: any) => {
+    if (selectedProductForCustomization) {
+      addToCart(selectedProductForCustomization, customOptions);
+    }
+  };
+
+  // Listar sabores de pizzas disponíveis para opção Meio a Meio
+  const pizzaFlavorsList = products.length > 0 
+    ? products.filter(p => {
+        const cat = categories.find(c => c.id === p.category_id);
+        return cat?.slug === 'pizzas';
+      })
+    : [...MAIS_PEDIDAS, ...CLASSICAS];
 
   return (
     <div className="min-h-screen bg-background text-text-main font-sans flex">
@@ -230,26 +280,11 @@ function DeliveryApp() {
             )}
 
             <nav className="space-y-1">
-              {profile?.plan === 'empreendedor' || profile?.plan === 'visionario' ? (
-                <>
-                  <SidebarLink icon={LayoutDashboard} label="Dashboard" isLink to="/dashboard" />
-                  <SidebarLink icon={Users} label="Minha Rede" isLink to="/dashboard/network" />
-                  <SidebarLink icon={Wallet} label="Financeiro" isLink to="/dashboard/financial" />
-                  <SidebarLink icon={ShoppingCart} label="Delivery" active />
-                  <SidebarLink icon={Ticket} label="Cupons" isLink to="/coupons" />
-                  <SidebarLink icon={PieChart} label="Relatórios" isLink to="/dashboard/reports" />
-                  <SidebarLink icon={Settings} label="Configurações" isLink to="/dashboard/settings" />
-                </>
-              ) : (
-                <>
-                  <SidebarLink icon={User} label="Minha Conta" isLink to="/profile" />
-                  <SidebarLink icon={History} label="Meus Pedidos" active />
-                  <SidebarLink icon={Heart} label="Favoritos" isLink to="/favorites" />
-                  <SidebarLink icon={Ticket} label="Cupons" isLink to="/coupons" />
-                  <SidebarLink icon={TrendingUp} label="Clube Delivery" isLink to="/clube" />
-                  <SidebarLink icon={HelpCircle} label="Suporte" isLink to="/support" />
-                </>
-              )}
+              <SidebarLink icon={User} label="Minha Conta" isLink to="/profile" />
+              <SidebarLink icon={History} label="Meus Pedidos" isLink to="/orders" />
+              <SidebarLink icon={Heart} label="Favoritos" isLink to="/favorites" />
+              <SidebarLink icon={Ticket} label="Cupons" isLink to="/coupons" />
+              <SidebarLink icon={HelpCircle} label="Suporte" isLink to="/support" />
             </nav>
           </div>
 
@@ -295,21 +330,18 @@ function DeliveryApp() {
           </div>
 
           <div className="flex items-center gap-2 md:gap-4">
-            <Link to="/clube" className="hidden lg:flex items-center gap-2 px-4 py-2 rounded-full bg-secondary/10 border border-secondary/20 text-secondary text-xs font-black uppercase hover:bg-secondary/20 transition-all">
-               <TrendingUp size={14} /> Clube Delivery
-            </Link>
             {user ? (
-              <div className="flex items-center gap-3 pl-4 md:pl-6 border-l border-surface-border">
+              <div className="flex items-center gap-3 pl-4 md:pl-6">
                 <div className="text-right hidden sm:block">
                   <p className="text-xs font-black uppercase text-text-main leading-tight">{profile?.full_name}</p>
-                  <p className="text-[10px] text-primary font-bold mt-0.5">ID: {profile?.referral_code || 'Cliente'}</p>
+                  <p className="text-[10px] text-primary font-bold mt-0.5">Cliente Casarão</p>
                 </div>
                 <Link to="/profile" className="w-10 h-10 rounded-xl bg-surface border border-surface-border flex items-center justify-center overflow-hidden flex-shrink-0 hover:scale-105 transition-all">
                   <img src={profile?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile?.full_name || 'User')}&background=EA1D2C&color=FFFFFF&bold=true`} alt="Avatar" className="w-full h-full object-cover" />
                 </Link>
               </div>
             ) : (
-              <Link to="/login" className="p-2.5 text-text-muted hover:text-primary hover:bg-primary/10 rounded-full transition-all flex items-center justify-center overflow-hidden w-10 h-10 rounded-full border border-surface-border">
+              <Link to="/login" className="p-2.5 text-text-muted hover:text-primary hover:bg-primary/10 rounded-full transition-all flex items-center justify-center overflow-hidden w-10 h-10 border border-surface-border">
                 <User size={22} />
               </Link>
             )}
@@ -328,14 +360,59 @@ function DeliveryApp() {
           </div>
         </header>
 
+        {/* Location & Store Info Bar */}
+        <div className="mx-6 mt-4 p-4 glass-card border border-white/5 flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-[280px]">
+            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+              <MapPin size={20} />
+            </div>
+            <div>
+              <p className="text-[10px] text-text-muted uppercase font-black tracking-widest leading-none">Entregar em</p>
+              <p className="font-bold text-sm text-text-main mt-1 leading-tight">
+                {profile?.address 
+                  ? `${profile.address}, ${profile.number} - ${profile.neighborhood}` 
+                  : 'Endereço não cadastrado (Preencha em "Minha Conta")'}
+              </p>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-3 ml-auto">
+            <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
+              storeSettings.store_open 
+                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
+                : 'bg-red-500/10 text-red-400 border border-red-500/20'
+            }`}>
+              {storeSettings.store_open ? 'Aberto' : 'Fechado'}
+            </div>
+            <div className="px-3 py-1 rounded-full bg-secondary/10 text-secondary text-[10px] font-black uppercase tracking-wider border border-secondary/20 flex items-center gap-1">
+              <Clock size={10} /> {storeSettings.delivery_time_est}
+            </div>
+            {storeRating.count > 0 && (
+              <div className="px-3 py-1 rounded-full bg-amber-500/10 text-amber-400 text-[10px] font-black uppercase tracking-wider border border-amber-500/20 flex items-center gap-1">
+                ⭐ {storeRating.rating} ({storeRating.count})
+              </div>
+            )}
+            <Link to="/profile" className="text-primary text-xs font-black uppercase tracking-widest hover:underline ml-2">
+              Alterar
+            </Link>
+          </div>
+        </div>
+
+        {/* Loja Fechada Banner */}
+        {!storeSettings.store_open && (
+          <div className="mx-6 mt-4 p-4 bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-bold uppercase tracking-wider rounded-2xl text-center">
+            A pizzaria está fechada no momento. Você pode visualizar o cardápio, mas pedidos não podem ser finalizados.
+          </div>
+        )}
+
         {/* Inner Content */}
         <div className="flex-1 overflow-x-hidden">
           {/* Hero Section */}
-          <section className="relative h-[300px] md:h-[400px] flex items-center overflow-hidden">
+          <section className="relative h-[250px] md:h-[350px] flex items-center overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-r from-background via-background/60 to-transparent z-10" />
             <img 
               src="https://images.unsplash.com/photo-1541745537411-b8046dc6d66c?auto=format&fit=crop&q=80&w=1500" 
-              alt="APP Delivery"
+              alt="Pizzaria Casarão"
               className="absolute inset-0 w-full h-full object-cover"
             />
             <div className="relative z-20 px-6 md:px-12 max-w-2xl">
@@ -369,7 +446,7 @@ function DeliveryApp() {
           </section>
 
           {/* Category Bar */}
-          <section id="cardapio-section" className="sticky top-20 z-40 glass py-4 px-4 md:px-8 overflow-x-auto hide-scrollbar scroll-mt-24">
+          <section id="cardapio-section" className="sticky top-0 z-40 glass py-4 px-4 md:px-8 overflow-x-auto hide-scrollbar scroll-mt-24 border-b border-surface-border/20">
             <div className="flex gap-4">
               {displayedCategories.map((category) => (
                 <button
@@ -407,7 +484,7 @@ function DeliveryApp() {
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                           {maisPedidas.map((pizza) => (
-                            <ProductCard key={pizza.id} pizza={pizza} onAdd={() => addToCart(pizza)} />
+                            <ProductCard key={pizza.id} pizza={pizza} onAdd={() => handleAddProduct(pizza)} />
                           ))}
                         </div>
                       </section>
@@ -421,7 +498,7 @@ function DeliveryApp() {
                         </h3>
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                           {classicas.map((pizza) => (
-                            <ListItem key={pizza.id} pizza={pizza} onAdd={() => addToCart(pizza)} />
+                            <ListItem key={pizza.id} pizza={pizza} onAdd={() => handleAddProduct(pizza)} />
                           ))}
                         </div>
                       </section>
@@ -436,7 +513,7 @@ function DeliveryApp() {
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                       {activeCategoryProducts.map((item) => (
-                        <ProductCard key={item.id} pizza={item} onAdd={() => addToCart(item)} />
+                        <ProductCard key={item.id} pizza={item} onAdd={() => handleAddProduct(item)} />
                       ))}
                     </div>
                   </section>
@@ -450,10 +527,19 @@ function DeliveryApp() {
       {/* Mobile Bottom Nav */}
       <nav className="lg:hidden fixed bottom-0 left-0 w-full glass z-50 flex items-center justify-around py-3 px-4">
         <MobileNavLink icon={PizzaIcon} label="Delivery" active />
-        <MobileNavLink icon={TrendingUp} label="Clube" to="/clube" />
+        <MobileNavLink icon={History} label="Pedidos" to="/orders" />
         <MobileNavLink icon={ShoppingCart} label="Carrinho" onClick={() => setIsCartOpen(true)} />
         <MobileNavLink icon={User} label="Perfil" to="/profile" />
       </nav>
+
+      {/* Product Customizer Modal */}
+      <ProductCustomizerModal 
+        isOpen={isCustomizerOpen}
+        onClose={() => setIsCustomizerOpen(false)}
+        product={selectedProductForCustomization}
+        onConfirm={handleConfirmCustomization}
+        pizzaFlavors={pizzaFlavorsList}
+      />
 
       <CartDrawer isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} />
     </div>
@@ -507,7 +593,7 @@ function ProductCard({ pizza, onAdd }: any) {
         <h4 className="text-xl font-black mb-2 group-hover:text-primary transition-colors">{pizza.name}</h4>
         <p className="text-xs text-text-muted line-clamp-2 mb-6 flex-1">{pizza.description}</p>
         <div className="flex justify-between items-center mt-auto">
-          <span className="font-display text-2xl font-black text-secondary">R$ {pizza.price.toFixed(2)}</span>
+          <span className="font-display text-2xl font-black text-secondary">R$ {Number(pizza.price).toFixed(2)}</span>
           <button 
             onClick={onAdd}
             className="bg-primary text-background p-3 rounded-2xl hover:scale-110 active:scale-95 transition-all shadow-lg glow-primary"
@@ -558,7 +644,7 @@ function ListItem({ pizza, onAdd }: any) {
         <h5 className="text-sm font-black mb-1 group-hover:text-primary transition-colors">{pizza.name}</h5>
         <p className="text-[10px] text-text-muted leading-tight mb-2 line-clamp-1">{pizza.description}</p>
         <div className="flex justify-between items-center mt-auto">
-          <span className="text-sm font-black text-secondary">R$ {pizza.price.toFixed(2)}</span>
+          <span className="text-sm font-black text-secondary">R$ {Number(pizza.price).toFixed(2)}</span>
           {!pizza.soldOut && (
             <button onClick={onAdd} className="hover:scale-125 transition-all">
               <PlusCircle size={18} className="text-primary cursor-pointer" />
@@ -569,7 +655,6 @@ function ListItem({ pizza, onAdd }: any) {
     </div>
   );
 }
-
 
 function MobileNavLink({ icon: Icon, label, active = false, to = "", onClick }: any) {
   const content = (
@@ -583,7 +668,6 @@ function MobileNavLink({ icon: Icon, label, active = false, to = "", onClick }: 
   if (to) return <Link to={to}>{content}</Link>;
   return <button onClick={onClick}>{content}</button>;
 }
-
 
 import { AuthProvider, useAuth } from './context/AuthContext';
 
@@ -614,20 +698,14 @@ export default function App() {
           <Router>
             <Routes>
               <Route path="/" element={<DeliveryApp />} />
-              <Route path="/clube" element={<LandingPage />} />
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/dashboard/network" element={<Network />} />
-              <Route path="/dashboard/financial" element={<Financial />} />
-              <Route path="/dashboard/reports" element={<Reports />} />
-              <Route path="/dashboard/settings" element={<SettingsPage />} />
+              <Route path="/orders" element={<MyOrders />} />
               
               {/* Admin Routes */}
               <Route path="/admin/login" element={<AdminLogin />} />
               <Route path="/admin" element={<AdminDashboard />} />
               <Route path="/admin/orders" element={<AdminOrders />} />
-              <Route path="/admin/payouts" element={<AdminPayouts />} />
               <Route path="/admin/users" element={<AdminUsers />} />
               <Route path="/admin/menu" element={<AdminMenu />} />
               <Route path="/admin/settings" element={<AdminSettings />} />
@@ -644,5 +722,3 @@ export default function App() {
     </AuthProvider>
   );
 }
-
-

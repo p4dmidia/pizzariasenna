@@ -7,14 +7,10 @@ import {
   Eye, 
   EyeOff, 
   ArrowRight, 
-  Zap, 
-  User, 
-  TrendingUp,
   ChevronLeft,
   Loader2
 } from 'lucide-react';
 import AppLogo from '../components/AppLogo';
-
 import { supabase } from '../lib/supabase';
 import { toast } from 'react-hot-toast';
 
@@ -23,7 +19,6 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [role, setRole] = useState<'cliente' | 'afiliado'>('cliente');
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -31,7 +26,7 @@ export default function Login() {
     try {
       setLoading(true);
       
-      // Limpar bypass do admin se estiver fazendo login como cliente/afiliado
+      // Limpar bypass do admin
       localStorage.removeItem('admin_auth');
 
       // Verificação em perfis locais (mock profiles criados via registro local)
@@ -39,10 +34,6 @@ export default function Login() {
       const foundLocalProfile = mockProfiles.find((p: any) => p.email.toLowerCase() === email.toLowerCase());
 
       if (foundLocalProfile) {
-        if (role === 'afiliado' && foundLocalProfile.plan === 'cliente') {
-          throw new Error('Usuários com nível Cliente não possuem acesso à área de afiliados.');
-        }
-
         const mockUser = {
           id: foundLocalProfile.mocha_user_id,
           email: foundLocalProfile.email,
@@ -59,12 +50,12 @@ export default function Login() {
         };
         localStorage.setItem('supabase.auth.mock-session', JSON.stringify(mockSession));
         window.dispatchEvent(new Event('mock-auth-change'));
-        toast.success('Login realizado com sucesso (Bypass de Confirmação)!', { duration: 3000 });
-        navigate(role === 'afiliado' ? '/dashboard' : '/');
+        toast.success('Login realizado com sucesso (Bypass de Confirmação)!');
+        navigate('/');
         return;
       }
 
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
@@ -86,10 +77,6 @@ export default function Login() {
             .single();
 
           if (!profileError && profileData) {
-            if (role === 'afiliado' && profileData.plan === 'cliente') {
-              throw new Error('Usuários com nível Cliente não possuem acesso à área de afiliados.');
-            }
-
             const mockUser = {
               id: profileData.mocha_user_id,
               email: profileData.email,
@@ -106,30 +93,16 @@ export default function Login() {
             };
             localStorage.setItem('supabase.auth.mock-session', JSON.stringify(mockSession));
             window.dispatchEvent(new Event('mock-auth-change'));
-            toast.success('Login realizado com sucesso (Bypass de Confirmação)!', { duration: 3000 });
-            navigate(role === 'afiliado' ? '/dashboard' : '/');
+            toast.success('Login realizado com sucesso (Bypass de Confirmação)!');
+            navigate('/');
             return;
           }
         }
         throw error;
       }
 
-      // Se logou com sucesso via Supabase Real, verificar plano do perfil
-      if (data && data.user) {
-        const { data: profileData } = await supabase
-          .from('user_profiles')
-          .select('plan')
-          .eq('mocha_user_id', data.user.id)
-          .single();
-
-        if (role === 'afiliado' && (!profileData || profileData.plan === 'cliente')) {
-          await supabase.auth.signOut().catch(() => {});
-          throw new Error('Usuários com nível Cliente não possuem acesso à área de afiliados.');
-        }
-      }
-
-      toast.success('Login realizado com sucesso!', { duration: 3000 });
-      navigate(role === 'afiliado' ? '/dashboard' : '/');
+      toast.success('Login realizado com sucesso!');
+      navigate('/');
     } catch (error: any) {
       toast.error(error.message || 'Erro ao fazer login.');
     } finally {
@@ -158,7 +131,7 @@ export default function Login() {
             transition={{ delay: 0.1 }}
             className="font-display text-4xl font-black mb-6"
           >
-            Sua jornada para a <br/> <span className="text-primary text-glow italic">Liberdade</span> começa aqui.
+            O Sabor Original do <br/> <span className="text-primary text-glow italic">Delivery</span> na sua Casa.
           </motion.h2>
           <motion.p 
             initial={{ opacity: 0, y: 20 }}
@@ -166,7 +139,7 @@ export default function Login() {
             transition={{ delay: 0.2 }}
             className="text-text-muted text-lg"
           >
-            Acesse sua conta para pedir pizzas deliciosas ou gerenciar sua rede de ganhos vitalícios.
+            Acesse sua conta para pedir pizzas deliciosas com entrega rápida e quentinha direto do Casarão.
           </motion.p>
         </div>
       </div>
@@ -199,26 +172,6 @@ export default function Login() {
           <div className="mb-10">
             <h1 className="text-3xl font-black mb-2">Bem-vindo de volta!</h1>
             <p className="text-text-muted">Acesse sua conta para continuar.</p>
-          </div>
-
-          {/* Role Selector */}
-          <div className="flex p-1 bg-surface-hover rounded-2xl mb-8 border border-surface-border">
-            <button 
-              onClick={() => setRole('cliente')}
-              className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-all ${
-                role === 'cliente' ? 'bg-primary text-background shadow-lg' : 'text-text-muted hover:text-white'
-              }`}
-            >
-              <User size={18} /> Cliente
-            </button>
-            <button 
-              onClick={() => setRole('afiliado')}
-              className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-all ${
-                role === 'afiliado' ? 'bg-secondary text-background shadow-lg' : 'text-text-muted hover:text-white'
-              }`}
-            >
-              <TrendingUp size={18} /> Afiliado
-            </button>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -269,9 +222,7 @@ export default function Login() {
             <button 
               type="submit"
               disabled={loading}
-              className={`w-full py-4 rounded-2xl font-black uppercase tracking-widest text-sm flex items-center justify-center gap-2 transition-all hover:scale-[1.02] active:scale-[0.98] shadow-xl disabled:opacity-50 ${
-                role === 'cliente' ? 'bg-primary text-background glow-primary' : 'bg-secondary text-background glow-secondary'
-              }`}
+              className="w-full py-4 rounded-2xl font-black uppercase tracking-widest text-sm flex items-center justify-center gap-2 transition-all hover:scale-[1.02] active:scale-[0.98] shadow-xl disabled:opacity-50 bg-primary text-background glow-primary"
             >
               {loading ? (
                 <>Processando... <Loader2 className="animate-spin" size={18} /></>

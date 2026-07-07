@@ -37,8 +37,6 @@ interface Product {
   main_image_url: string;
   is_active: boolean;
   stock_quantity: number;
-  points: number;
-  affiliate_price: number;
 }
 
 interface Category {
@@ -259,8 +257,6 @@ export default function AdminMenu() {
         main_image_url: editingProduct.main_image_url,
         is_active: editingProduct.is_active ?? true,
         stock_quantity: Number(editingProduct.stock_quantity || 0),
-        points: Number(editingProduct.points || 0),
-        affiliate_price: Number(editingProduct.affiliate_price || editingProduct.price),
         updated_at: new Date().toISOString()
       };
 
@@ -412,12 +408,8 @@ export default function AdminMenu() {
 
                 <div className="flex justify-between items-end">
                    <div>
-                      <p className="text-[10px] text-text-muted font-black uppercase tracking-widest mb-1">Preço Público</p>
+                      <p className="text-[10px] text-text-muted font-black uppercase tracking-widest mb-1">Preço do Delivery</p>
                       <p className="text-xl font-black text-secondary">R$ {product.price.toFixed(2)}</p>
-                   </div>
-                   <div className="text-right">
-                      <p className="text-[10px] text-primary font-black uppercase tracking-widest mb-1">Pontos</p>
-                      <p className="text-lg font-black text-text-main">{product.points} pts</p>
                    </div>
                 </div>
 
@@ -582,52 +574,19 @@ export default function AdminMenu() {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-black uppercase text-text-muted ml-1">Preço Público (R$)</label>
-                        <div className="relative">
-                          <input 
-                            type="number" 
-                            step="0.01"
-                            required
-                            value={editingProduct?.price || ''}
-                            onChange={(e) => setEditingProduct({ ...editingProduct!, price: Number(e.target.value) })}
-                            className="w-full bg-background border border-surface-border rounded-xl py-3 pl-10 pr-4 outline-none focus:border-primary/50 text-sm font-black"
-                          />
-                          <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 text-primary" size={16} />
-                        </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase text-text-muted ml-1">Preço do Produto (R$)</label>
+                      <div className="relative">
+                        <input 
+                          type="number" 
+                          step="0.01"
+                          required
+                          value={editingProduct?.price || ''}
+                          onChange={(e) => setEditingProduct({ ...editingProduct!, price: Number(e.target.value) })}
+                          className="w-full bg-background border border-surface-border rounded-xl py-3 pl-10 pr-4 outline-none focus:border-primary/50 text-sm font-black"
+                        />
+                        <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 text-primary" size={16} />
                       </div>
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-black uppercase text-text-muted ml-1">Preço Afiliado (R$)</label>
-                        <div className="relative">
-                          <input 
-                            type="number" 
-                            step="0.01"
-                            value={editingProduct?.affiliate_price || ''}
-                            onChange={(e) => setEditingProduct({ ...editingProduct!, affiliate_price: Number(e.target.value) })}
-                            className="w-full bg-background border border-surface-border rounded-xl py-3 pl-10 pr-4 outline-none focus:border-primary/50 text-sm font-black"
-                          />
-                          <Tag className="absolute left-4 top-1/2 -translate-y-1/2 text-secondary" size={16} />
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="p-6 rounded-2xl bg-primary/5 border border-primary/10 space-y-4">
-                       <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                             <TrendingUp className="text-primary" size={20} />
-                             <p className="text-xs font-black uppercase tracking-widest">Recompensa em Pontos</p>
-                          </div>
-                          <input 
-                            type="number" 
-                            value={editingProduct?.points || 0}
-                            onChange={(e) => setEditingProduct({ ...editingProduct!, points: Number(e.target.value) })}
-                            className="w-20 bg-background border border-primary/20 rounded-xl py-2 px-3 text-center text-sm font-black text-primary outline-none focus:border-primary"
-                          />
-                       </div>
-                       <p className="text-[10px] text-text-muted font-bold leading-relaxed">
-                          Estes pontos serão creditados ao afiliado e sua rede após a conclusão do pedido.
-                       </p>
                     </div>
 
                     <div className="flex items-center justify-between p-6 rounded-2xl bg-surface-hover border border-white/5">

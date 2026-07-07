@@ -8,12 +8,16 @@ interface UserProfile {
   email: string;
   full_name: string;
   role: string;
-  plan: string;
-  referral_code: string;
-  balance: number;
-  points: number;
+  cashback_balance: number;
   phone?: string;
   avatar_url?: string;
+  address?: string;
+  number?: string;
+  complement?: string;
+  neighborhood?: string;
+  city?: string;
+  state?: string;
+  zipcode?: string;
 }
 
 interface AuthContextType {
@@ -51,11 +55,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           mocha_user_id: userId,
           email: 'mock@email.com',
           full_name: 'Usuário Simulador',
-          role: 'afiliado',
-          plan: 'empreendedor',
-          referral_code: 'DELIVERYMOCK',
-          balance: 0,
-          points: 0
+          role: 'user',
+          cashback_balance: 0
         });
         return;
       }

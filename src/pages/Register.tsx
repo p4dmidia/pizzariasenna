@@ -6,14 +6,9 @@ import {
   Mail, 
   Lock, 
   Phone, 
-  Users, 
   ChevronRight, 
   ChevronLeft,
   CheckCircle2,
-  Zap,
-  TrendingUp,
-  Award,
-  ShoppingCart,
   Loader2,
   Eye,
   EyeOff
@@ -30,24 +25,19 @@ export default function Register() {
     name: '',
     email: '',
     password: '',
-    phone: '',
-    sponsorId: '',
-    plan: 'cliente'
+    phone: ''
   });
   const navigate = useNavigate();
-
-  const handleNext = () => setStep(step + 1);
-  const handleBack = () => setStep(step - 1);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       setLoading(true);
       
-      // Limpar bypass do admin se estiver registrando um novo cliente/afiliado
+      // Limpar bypass do admin se estiver registrando um novo cliente
       localStorage.removeItem('admin_auth');
       
-      // UUID v4 generator to bypass database UUID constraints on mock users
+      // UUID v4 generator para simulações
       const generateUUID = () => {
         return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
           const r = Math.random() * 16 | 0;
@@ -73,7 +63,7 @@ export default function Register() {
         });
 
         if (authError) {
-          // If rate limited, bypass auth step and allow mock registration locally and in DB
+          // Se houver limite de taxa, ignorar erro de autenticação para fins locais e simulação
           if (authError.status === 429 || authError.message.includes('rate limit')) {
             console.warn('Supabase rate limit reached. Using development auth bypass.');
             bypassAuth = true;
@@ -90,60 +80,39 @@ export default function Register() {
         bypassAuth = true;
       }
 
-      // 2. Tentar buscar patrocinador se houver
-      let sponsorIdNumeric = null;
-      if (formData.sponsorId) {
-        try {
-          const { data: sponsorData } = await supabase
-            .from('user_profiles')
-            .select('id')
-            .eq('referral_code', formData.sponsorId.toUpperCase())
-            .single();
-          
-          if (sponsorData) {
-            sponsorIdNumeric = sponsorData.id;
-          }
-        } catch (err) {
-          console.warn('Erro ao buscar patrocinador:', err);
-        }
-      }
-
-      const generatedReferralCode = `DELIVERY${Math.floor(1000 + Math.random() * 9000)}`;
       const profilePayload = {
         mocha_user_id: authUser ? authUser.id : mochaUserId,
         email: formData.email,
         full_name: formData.name,
         phone: formData.phone,
-        plan: formData.plan,
-        sponsor_id: sponsorIdNumeric,
-        referral_code: generatedReferralCode,
-        balance: 0
+        cashback_balance: 0,
+        role: 'user'
       };
 
-      // 3. Criar perfil no banco se possível
+      // 2. Criar perfil no banco se possível
       try {
         const { error: profileError } = await supabase
           .from('user_profiles')
           .insert(profilePayload);
 
-        if (profileError && profileError.code !== '23505') { // Ignorar erro de código duplicado se houver trigger
+        if (profileError && profileError.code !== '23505') { 
           console.error('Erro ao criar perfil:', profileError);
         }
       } catch (err) {
         console.warn('Erro de conexão ao banco de dados:', err);
       }
 
-      // Salvar nos perfis locais (mock-profiles) para garantir login imediato em qualquer circunstância
+      // Salvar nos perfis locais (mock-profiles) para testes e desenvolvimento
       const existingMockProfiles = JSON.parse(localStorage.getItem('supabase.mock-profiles') || '[]');
       existingMockProfiles.push(profilePayload);
       localStorage.setItem('supabase.mock-profiles', JSON.stringify(existingMockProfiles));
 
       if (bypassAuth) {
-        toast.success('Cadastro realizado com sucesso (Modo de Teste - Limite de IP)!');
+        toast.success('Cadastro realizado com sucesso (Modo de Teste)!');
       } else {
         toast.success('Cadastro realizado com sucesso!');
       }
-      setStep(4);
+      setStep(2);
     } catch (error: any) {
       toast.error(error.message || 'Erro ao realizar cadastro.');
     } finally {
@@ -171,13 +140,13 @@ export default function Register() {
 
       <main className="pt-32 pb-20 px-6 flex flex-col items-center">
         {/* Progress Bar */}
-        <div className="w-full max-w-xl mb-12 flex items-center justify-between relative px-2">
+        <div className="w-full max-w-md mb-12 flex items-center justify-between relative px-2">
           <div className="absolute top-1/2 left-0 w-full h-0.5 bg-surface-border -translate-y-1/2 z-0" />
           <div 
             className="absolute top-1/2 left-0 h-0.5 bg-primary -translate-y-1/2 z-0 transition-all duration-500" 
-            style={{ width: `${((step - 1) / 3) * 100}%` }}
+            style={{ width: `${((step - 1) / 1) * 100}%` }}
           />
-          {[1, 2, 3, 4].map((i) => (
+          {[1, 2].map((i) => (
             <div 
               key={i} 
               className={`w-10 h-10 rounded-full flex items-center justify-center z-10 font-black text-xs transition-all duration-500 ${
@@ -197,11 +166,11 @@ export default function Register() {
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
               className="w-full max-w-md space-y-8"
-              onSubmit={(e) => { e.preventDefault(); handleNext(); }}
+              onSubmit={handleSubmit}
             >
               <div className="text-center">
                 <h2 className="text-3xl font-black mb-2">Crie sua Conta</h2>
-                <p className="text-text-muted">Vamos começar com suas informações básicas.</p>
+                <p className="text-text-muted">Preencha os campos abaixo para começar a pedir no Casarão.</p>
               </div>
 
               <div className="space-y-4">
@@ -213,9 +182,14 @@ export default function Register() {
 
               <button 
                 type="submit"
-                className="w-full py-4 bg-primary text-background rounded-2xl font-black uppercase tracking-widest text-sm flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98] transition-all glow-primary shadow-xl"
+                disabled={loading}
+                className="w-full py-4 bg-primary text-background rounded-2xl font-black uppercase tracking-widest text-sm flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98] transition-all glow-primary shadow-xl disabled:opacity-50"
               >
-                Continuar <ChevronRight size={18} />
+                {loading ? (
+                  <>Sincronizando... <Loader2 className="animate-spin" size={18} /></>
+                ) : (
+                  <>Criar Conta <ChevronRight size={18} /></>
+                )}
               </button>
             </motion.form>
           )}
@@ -223,100 +197,6 @@ export default function Register() {
           {step === 2 && (
             <motion.div 
               key="step2"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              className="w-full max-w-md space-y-8"
-            >
-              <div className="text-center">
-                <h2 className="text-3xl font-black mb-2">Quem te indicou?</h2>
-                <p className="text-text-muted">Se você foi convidado por alguém, insira o ID de indicação abaixo.</p>
-              </div>
-
-              <div className="space-y-6">
-                <div className="p-6 rounded-3xl bg-surface/50 border border-surface-border">
-                  <div className="flex items-center gap-4 mb-6">
-                    <div className="w-12 h-12 rounded-2xl bg-secondary/10 flex items-center justify-center text-secondary">
-                      <Users size={24} />
-                    </div>
-                    <div>
-                      <p className="text-sm font-bold">Convite Especial</p>
-                      <p className="text-xs text-text-muted">Fazendo parte de uma rede, você cresce mais rápido.</p>
-                    </div>
-                  </div>
-                  <Input icon={Zap} label="ID do Patrocinador ( opcional )" placeholder="Ex: DELIVERY007" value={formData.sponsorId} onChange={(e: any) => setFormData({...formData, sponsorId: e.target.value})} />
-                </div>
-
-                <div className="flex gap-4">
-                  <button onClick={handleBack} className="flex-1 py-4 glass rounded-2xl font-black uppercase tracking-widest text-sm flex items-center justify-center gap-2">
-                    <ChevronLeft size={18} /> Voltar
-                  </button>
-                  <button onClick={handleNext} className="flex-[2] py-4 bg-primary text-background rounded-2xl font-black uppercase tracking-widest text-sm flex items-center justify-center gap-2 glow-primary shadow-xl">
-                    Continuar <ChevronRight size={18} />
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          )}
-
-          {step === 3 && (
-            <motion.div 
-              key="step3"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              className="w-full max-w-3xl space-y-8"
-            >
-              <div className="text-center">
-                <h2 className="text-3xl font-black mb-2">Escolha seu Perfil</h2>
-                <p className="text-text-muted">Como você deseja começar no APP Delivery?</p>
-              </div>
-
-              <div className="grid md:grid-cols-3 gap-6">
-                <PlanCard 
-                  active={formData.plan === 'cliente'} 
-                  onClick={() => setFormData({...formData, plan: 'cliente'})}
-                  icon={ShoppingCart}
-                  title="Cliente"
-                  desc="Consumo & Cashback"
-                  color="primary"
-                />
-                <PlanCard 
-                  active={formData.plan === 'empreendedor'} 
-                  onClick={() => setFormData({...formData, plan: 'empreendedor'})}
-                  icon={TrendingUp}
-                  title="Empreendedor"
-                  desc="Renda Extra (3 níveis)"
-                  color="secondary"
-                />
-                <PlanCard 
-                  active={formData.plan === 'visionario'} 
-                  onClick={() => setFormData({...formData, plan: 'visionario'})}
-                  icon={Award}
-                  title="Visionário"
-                  desc="Independência (7 níveis)"
-                  color="primary"
-                />
-              </div>
-
-              <div className="flex gap-4 max-w-md mx-auto">
-                <button onClick={handleBack} disabled={loading} className="flex-1 py-4 glass rounded-2xl font-black uppercase tracking-widest text-sm flex items-center justify-center gap-2 disabled:opacity-50">
-                  <ChevronLeft size={18} /> Voltar
-                </button>
-                <button onClick={handleSubmit} disabled={loading} className="flex-[2] py-4 bg-primary text-background rounded-2xl font-black uppercase tracking-widest text-sm flex items-center justify-center gap-2 glow-primary shadow-xl disabled:opacity-50">
-                  {loading ? (
-                    <>Sincronizando... <Loader2 className="animate-spin" size={18} /></>
-                  ) : (
-                    <>Finalizar Cadastro <ChevronRight size={18} /></>
-                  )}
-                </button>
-              </div>
-            </motion.div>
-          )}
-
-          {step === 4 && (
-            <motion.div 
-              key="step4"
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               className="w-full max-w-md text-center space-y-8"
@@ -326,7 +206,7 @@ export default function Register() {
               </div>
               <div>
                 <h2 className="text-4xl font-black mb-4">Parabéns!</h2>
-                <p className="text-text-muted mb-8 text-lg">Seu cadastro foi realizado com sucesso. Você agora faz parte da nossa rede de afiliados.</p>
+                <p className="text-text-muted mb-8 text-lg">Seu cadastro foi realizado com sucesso. Agora você pode fazer o login para fazer pedidos.</p>
               </div>
               <button 
                 onClick={() => navigate('/login')}
@@ -367,33 +247,5 @@ function Input({ icon: Icon, label, ...props }: any) {
         )}
       </div>
     </div>
-  );
-}
-
-function PlanCard({ active, onClick, icon: Icon, title, desc, color }: any) {
-  return (
-    <button 
-      onClick={onClick}
-      className={`p-8 rounded-[2.5rem] border-2 transition-all flex flex-col items-center text-center gap-4 ${
-        active 
-          ? `border-${color} bg-${color}/5 shadow-lg scale-105` 
-          : 'border-surface-border bg-surface/30 hover:bg-surface/50 grayscale'
-      }`}
-    >
-      <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-2 ${
-        color === 'primary' ? 'bg-primary/10 text-primary' : 'bg-secondary/10 text-secondary'
-      }`}>
-        <Icon size={28} />
-      </div>
-      <div>
-        <h4 className="text-xl font-black mb-1">{title}</h4>
-        <p className="text-[10px] text-text-muted uppercase font-black tracking-widest">{desc}</p>
-      </div>
-      {active && (
-         <div className={`w-6 h-6 rounded-full bg-${color} flex items-center justify-center text-background`}>
-            <CheckCircle2 size={14} />
-         </div>
-      )}
-    </button>
   );
 }

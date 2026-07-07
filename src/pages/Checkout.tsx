@@ -48,15 +48,12 @@ export default function Checkout() {
     email: 'admin@appdelivery.com',
     full_name: 'Admin APP Delivery',
     role: 'admin',
-    plan: 'master',
-    referral_code: 'ADMIN',
-    balance: 1000.00,
+    cashback_balance: 1000.00,
     address: 'Rua do Admin',
     number: '123',
     complement: 'Apt 1',
     neighborhood: 'Centro',
-    city: 'P4D Mídia',
-    points: 100
+    city: 'P4D Mídia'
   } : (authProfile || guestProfile);
 
   const [step, setStep] = useState(1);
@@ -99,7 +96,7 @@ export default function Checkout() {
       city: guestCity || 'P4D Mídia',
       zipcode: guestZipcode,
       email: 'guest@appdelivery.com',
-      balance: 0
+      cashback_balance: 0
     };
     
     setGuestProfile(newGuestProfile);
@@ -230,17 +227,17 @@ export default function Checkout() {
 
   const handleAddTestBalance = async () => {
     try {
-      const currentBalance = profile?.balance || 0;
+      const currentBalance = profile?.cashback_balance || 0;
       const newBalance = currentBalance + 100;
       
       if (profile) {
-        profile.balance = newBalance;
+        profile.cashback_balance = newBalance;
         
         // Atualizar no localStorage (mock-profiles)
         const mockProfiles = JSON.parse(localStorage.getItem('supabase.mock-profiles') || '[]');
         const localProfileIndex = mockProfiles.findIndex((p: any) => p.mocha_user_id === profile.mocha_user_id);
         if (localProfileIndex !== -1) {
-          mockProfiles[localProfileIndex].balance = newBalance;
+          mockProfiles[localProfileIndex].cashback_balance = newBalance;
           localStorage.setItem('supabase.mock-profiles', JSON.stringify(mockProfiles));
         }
 
@@ -254,7 +251,7 @@ export default function Checkout() {
         if (dbProfileCheck) {
           await supabase
             .from('user_profiles')
-            .update({ balance: newBalance })
+            .update({ cashback_balance: newBalance })
             .eq('id', profile.id);
         }
         
@@ -277,6 +274,16 @@ export default function Checkout() {
     setIsProcessing(true);
 
     try {
+      // Verificar se a loja está aberta
+      const { data: storeOpenSetting } = await supabase
+        .from('system_settings')
+        .select('value')
+        .eq('key', 'store_open')
+        .maybeSingle();
+
+      if (storeOpenSetting && storeOpenSetting.value === 'false') {
+        throw new Error('O estabelecimento está fechado no momento. Desculpe pelo inconveniente!');
+      }
       const isGuest = !authProfile && !isAdminDemo;
       const addressSummary = (isGuest ? `Nome: ${profile.full_name} | Tel: ${profile.phone} | ` : '') + (profile.address 
         ? `${profile.address}, ${profile.number}${profile.complement ? ` - ${profile.complement}` : ''} - ${profile.neighborhood}`
@@ -411,7 +418,7 @@ export default function Checkout() {
         }
 
       } else if (paymentMethod === 'wallet') {
-        const userBalance = profile.balance || 0;
+        const userBalance = profile.cashback_balance || 0;
         if (userBalance < total) {
           await supabase.from('orders').delete().eq('id', orderData.id);
           throw new Error('Saldo insuficiente na carteira para realizar a compra.');
@@ -427,7 +434,7 @@ export default function Checkout() {
         if (dbProfileCheck && !isAdminDemo) {
           const { error: profileError } = await supabase
             .from('user_profiles')
-            .update({ balance: userBalance - total })
+            .update({ cashback_balance: userBalance - total })
             .eq('id', profile.id);
 
           if (profileError) throw profileError;

@@ -2,19 +2,16 @@ import { motion, AnimatePresence } from 'motion/react';
 import { 
   TrendingUp, 
   Users, 
-  Wallet, 
   ShoppingCart, 
-  ArrowUpRight, 
-  ArrowDownRight,
-  Target,
-  Clock,
-  PieChart,
-  DollarSign,
-  Package,
-  X,
-  Zap,
-  BarChart3,
-  Loader2
+  Target, 
+  Clock, 
+  DollarSign, 
+  Package, 
+  X, 
+  Zap, 
+  Loader2,
+  Store,
+  Star
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -28,13 +25,13 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     monthlyRevenue: 0,
-    pendingPayouts: 0,
-    pendingPayoutsCount: 0,
     todayOrders: 0,
-    totalAffiliates: 0,
-    payoutRatio: 0,
-    kitchenLoad: 0
+    totalCustomers: 0,
+    kitchenLoad: 0,
+    averageTicket: 0,
+    storeRating: 4.8
   });
+  const [storeOpen, setStoreOpen] = useState(true);
   const [recentOrders, setRecentOrders] = useState<any[]>([]);
 
   useEffect(() => {
@@ -49,7 +46,7 @@ export default function AdminDashboard() {
       const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
       const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
 
-      // 1. Faturamento Mensal
+      // 1. Faturamento Mensal e Ticket Médio
       const { data: monthlyOrders } = await supabase
         .from('orders')
         .select('total_amount')
@@ -57,29 +54,23 @@ export default function AdminDashboard() {
         .gte('created_at', firstDayOfMonth);
       
       const monthlyRevenue = monthlyOrders?.reduce((acc, curr) => acc + Number(curr.total_amount), 0) || 0;
+      const averageTicket = monthlyOrders && monthlyOrders.length > 0 
+        ? monthlyRevenue / monthlyOrders.length 
+        : 0;
 
-      // 2. Saques Pendentes
-      const { data: payouts } = await supabase
-        .from('payout_requests')
-        .select('amount')
-        .eq('status', 'pendente');
-      
-      const pendingPayouts = payouts?.reduce((acc, curr) => acc + Number(curr.amount), 0) || 0;
-      const pendingPayoutsCount = payouts?.length || 0;
-
-      // 3. Pedidos de Hoje
+      // 2. Pedidos de Hoje
       const { count: todayOrdersCount } = await supabase
         .from('orders')
         .select('*', { count: 'exact', head: true })
         .gte('created_at', today);
 
-      // 4. Total Afiliados
-      const { count: totalAffiliatesCount } = await supabase
+      // 3. Total Clientes
+      const { count: totalCustomersCount } = await supabase
         .from('user_profiles')
         .select('*', { count: 'exact', head: true })
         .eq('role', 'user');
 
-      // 5. Pedidos Recentes
+      // 4. Pedidos Recentes
       const { data: recent } = await supabase
         .from('orders')
         .select(`
@@ -90,34 +81,46 @@ export default function AdminDashboard() {
           user_profiles (full_name)
         `)
         .order('created_at', { ascending: false })
-        .limit(4);
+        .limit(5);
 
-      // 6. Payout Ratio (Comissões / Faturamento)
-      const { data: monthlyCommissions } = await supabase
-        .from('commissions')
-        .select('amount')
-        .gte('created_at', firstDayOfMonth);
-      
-      const totalCommissions = monthlyCommissions?.reduce((acc, curr) => acc + Number(curr.amount), 0) || 0;
-      const payoutRatio = monthlyRevenue > 0 ? (totalCommissions / monthlyRevenue) * 100 : 0;
-
-      // 7. Carga da Cozinha (Pedidos não concluídos / Total)
+      // 5. Carga da Cozinha (Pedidos não concluídos / Total)
       const { data: allActiveOrders } = await supabase
         .from('orders')
         .select('status')
         .neq('status', 'cancelado')
         .neq('status', 'concluido');
       
-      const kitchenLoad = Math.min(Math.round(((allActiveOrders?.length || 0) / 20) * 100), 100); // Ex: 20 pedidos é 100% de carga
+      const kitchenLoad = Math.min(Math.round(((allActiveOrders?.length || 0) / 20) * 100), 100);
+
+      // 6. Configurações de Abertura da Loja
+      const { data: storeOpenSetting } = await supabase
+        .from('system_settings')
+        .select('value')
+        .eq('key', 'store_open')
+        .maybeSingle();
+
+      if (storeOpenSetting) {
+        setStoreOpen(storeOpenSetting.value === 'true');
+      }
+
+      // 7. Média de Avaliações
+      const { data: reviews } = await supabase
+        .from('order_reviews')
+        .select('rating');
+
+      let storeRating = 4.8;
+      if (reviews && reviews.length > 0) {
+        const sum = reviews.reduce((acc, r) => acc + Number(r.rating), 0);
+        storeRating = parseFloat((sum / reviews.length).toFixed(1));
+      }
 
       setStats({
         monthlyRevenue,
-        pendingPayouts,
-        pendingPayoutsCount,
         todayOrders: todayOrdersCount || 0,
-        totalAffiliates: totalAffiliatesCount || 0,
-        payoutRatio,
-        kitchenLoad
+        totalCustomers: totalCustomersCount || 0,
+        kitchenLoad,
+        averageTicket,
+        storeRating
       });
 
       setRecentOrders(recent?.map(order => ({
@@ -136,12 +139,27 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleToggleStore = async () => {
+    try {
+      const newStatus = !storeOpen;
+      const { error } = await supabase
+        .from('system_settings')
+        .upsert({ key: 'store_open', value: String(newStatus) }, { onConflict: 'key' });
+      
+      if (error) throw error;
+      setStoreOpen(newStatus);
+      toast.success(`Estabelecimento ${newStatus ? 'ABERTO' : 'FECHADO'} para pedidos!`);
+    } catch (err: any) {
+      toast.error('Erro ao alterar status da loja: ' + err.message);
+    }
+  };
+
   if (loading) {
     return (
       <AdminLayout>
         <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
           <Loader2 className="w-12 h-12 text-primary animate-spin" />
-          <p className="text-text-muted font-black uppercase tracking-widest text-xs">Carregando Inteligência...</p>
+          <p className="text-text-muted font-black uppercase tracking-widest text-xs">Carregando Dashboard...</p>
         </div>
       </AdminLayout>
     );
@@ -149,9 +167,9 @@ export default function AdminDashboard() {
 
   const ADMIN_STATS = [
     { label: 'Faturamento Mensal', value: `R$ ${stats.monthlyRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, icon: DollarSign, color: 'primary', trend: '+12.5%' },
-    { label: 'Saques Pendentes', value: `R$ ${stats.pendingPayouts.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, icon: Wallet, color: 'secondary', trend: `${stats.pendingPayoutsCount} aguardando` },
-    { label: 'Pedidos de Hoje', value: stats.todayOrders.toString(), icon: ShoppingCart, color: 'primary', trend: '+8% vs ontem' },
-    { label: 'Total Afiliados', value: stats.totalAffiliates.toString(), icon: Users, color: 'secondary', trend: '+24 esta semana' },
+    { label: 'Pedidos de Hoje', value: stats.todayOrders.toString(), icon: ShoppingCart, color: 'secondary', trend: 'Hoje' },
+    { label: 'Total Clientes', value: stats.totalCustomers.toString(), icon: Users, color: 'primary', trend: 'Cadastrados' },
+    { label: 'Ticket Médio', value: `R$ ${stats.averageTicket.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, icon: TrendingUp, color: 'secondary', trend: 'Por pedido' },
   ];
 
   return (
@@ -161,14 +179,14 @@ export default function AdminDashboard() {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
            <div>
               <h1 className="text-3xl font-black mb-1">Visão Geral 🏢</h1>
-              <p className="text-text-muted text-sm">Bem-vindo ao centro de comando do <span className="text-primary font-bold">APP Delivery</span>.</p>
+              <p className="text-text-muted text-sm">Painel de gerenciamento geral do seu <span className="text-primary font-bold">Delivery</span>.</p>
            </div>
            <div className="flex gap-3">
               <button 
                 onClick={() => setIsGoalsModalOpen(true)}
-                className="bg-primary text-background px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg glow-primary flex items-center gap-2 hover:scale-105 transition-all"
+                className="bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg transition-all flex items-center gap-2"
               >
-                 <Target size={16} /> Ver Metas Globais
+                 <Target size={16} /> Metas do Mês
               </button>
            </div>
         </div>
@@ -187,9 +205,7 @@ export default function AdminDashboard() {
                 <div className={`p-3 rounded-2xl ${stat.color === 'primary' ? 'bg-primary/10 text-primary' : 'bg-secondary/10 text-secondary'}`}>
                   <stat.icon size={24} />
                 </div>
-                <span className={`text-[10px] font-black px-2 py-1 rounded-full ${
-                  stat.trend.includes('+') ? 'text-emerald-400 bg-emerald-400/10' : 'text-amber-400 bg-amber-400/10'
-                }`}>
+                <span className="text-[10px] font-black px-2 py-1 rounded-full text-emerald-400 bg-emerald-400/10">
                   {stat.trend}
                 </span>
               </div>
@@ -249,11 +265,43 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          {/* Quick Actions / System Health */}
+          {/* Controls & Store Status */}
           <div className="glass-card p-8 border-white/5 space-y-8">
-             <h3 className="text-xl font-black">Saúde do Sistema</h3>
+             <h3 className="text-xl font-black">Comando do Restaurante</h3>
              
              <div className="space-y-6">
+                {/* Store status card */}
+                <div className={`p-6 rounded-3xl border flex flex-col gap-4 ${
+                  storeOpen 
+                    ? 'bg-emerald-500/5 border-emerald-500/20' 
+                    : 'bg-red-500/5 border-red-500/20'
+                }`}>
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                      storeOpen ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'
+                    }`}>
+                      <Store size={20} />
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-black uppercase text-text-muted tracking-wider leading-none">Estabelecimento</p>
+                      <p className={`font-black text-sm mt-1 uppercase ${storeOpen ? 'text-emerald-400' : 'text-red-400'}`}>
+                        {storeOpen ? 'Aberto para pedidos' : 'Fechado temporariamente'}
+                      </p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={handleToggleStore}
+                    className={`w-full py-3.5 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg transition-all ${
+                      storeOpen 
+                        ? 'bg-red-500 hover:bg-red-600 text-white glow-red' 
+                        : 'bg-emerald-500 hover:bg-emerald-600 text-background glow-emerald'
+                    }`}
+                  >
+                    {storeOpen ? 'Fechar Loja' : 'Abrir Loja'}
+                  </button>
+                </div>
+
+                {/* Kitchen load */}
                 <div>
                   <div className="flex justify-between items-end mb-3">
                      <p className="text-xs font-black uppercase text-text-muted">Carga da Cozinha</p>
@@ -264,31 +312,26 @@ export default function AdminDashboard() {
                   </div>
                 </div>
 
+                {/* Average Store rating */}
                 <div className="p-6 rounded-3xl bg-surface/50 border border-surface-border">
                    <div className="flex items-center gap-4 mb-4">
-                      <div className="w-10 h-10 rounded-xl bg-secondary/10 flex items-center justify-center text-secondary">
-                         <PieChart size={20} />
+                      <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center">
+                         <Star size={20} className="fill-amber-400 text-amber-400" />
                       </div>
-                      <p className="text-xs font-black uppercase tracking-widest">Payout Ratio</p>
+                      <div>
+                        <p className="text-[10px] font-black uppercase text-text-muted tracking-wider leading-none">Média de Avaliações</p>
+                        <p className="text-lg font-black text-white mt-1">⭐ {stats.storeRating}</p>
+                      </div>
                    </div>
-                   <p className="text-sm text-text-muted mb-4">As comissões representam <span className="text-text-main font-black">{Math.round(stats.payoutRatio)}%</span> do faturamento bruto este mês.</p>
-                   <div className="flex items-center gap-2 text-[10px] font-black text-emerald-400">
-                      <TrendingUp size={12} /> Saudável dentro da margem
-                   </div>
+                   <p className="text-xs text-text-muted">Avaliação média calculada diretamente com base nos feedbacks recebidos dos clientes após as entregas.</p>
                 </div>
 
                 <div className="space-y-3">
                   <button 
-                    onClick={() => navigate('/admin/payouts')}
-                    className="w-full py-4 bg-secondary text-background rounded-2xl font-black text-xs uppercase tracking-widest hover:scale-105 transition-all shadow-lg glow-secondary"
+                    onClick={() => navigate('/admin/orders')}
+                    className="w-full py-4 bg-primary text-background rounded-2xl font-black text-xs uppercase tracking-widest hover:scale-105 transition-all shadow-lg glow-primary"
                   >
-                    Processar Saques ({stats.pendingPayoutsCount})
-                  </button>
-                  <button 
-                    onClick={() => navigate('/dashboard/reports')}
-                    className="w-full py-4 glass border border-primary/20 text-primary rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-primary hover:text-background transition-all"
-                  >
-                    Ver Relatórios Completos
+                    Painel de Cozinha (Pedidos)
                   </button>
                 </div>
              </div>
@@ -296,7 +339,7 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* Global Goals Modal */}
+      {/* Metas Modal */}
       <AnimatePresence>
         {isGoalsModalOpen && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
@@ -312,90 +355,78 @@ export default function AdminDashboard() {
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="w-full max-w-2xl bg-surface border border-white/10 rounded-[32px] p-8 md:p-12 relative z-10 overflow-hidden shadow-2xl"
+              className="w-full max-w-md bg-surface border border-white/10 rounded-[32px] p-8 relative z-10 overflow-hidden shadow-2xl"
             >
               <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 blur-[80px] rounded-full -mr-32 -mt-32" />
               
-              <div className="flex items-center justify-between mb-10 relative">
+              <div className="flex items-center justify-between mb-8 relative">
                 <div>
-                   <h2 className="text-3xl font-black mb-2">Metas Globais 🚀</h2>
-                   <p className="text-text-muted text-sm uppercase font-black tracking-widest">Maio 2026</p>
+                   <h2 className="text-2xl font-black mb-1">Metas de Vendas 🚀</h2>
+                   <p className="text-text-muted text-xs uppercase font-black tracking-widest">Mês Corrente</p>
                 </div>
                 <button 
                   onClick={() => setIsGoalsModalOpen(false)}
-                  className="p-3 bg-white/5 hover:bg-white/10 rounded-2xl text-text-muted hover:text-white transition-all"
+                  className="p-2.5 bg-white/5 hover:bg-white/10 rounded-2xl text-text-muted hover:text-white transition-all"
                 >
-                  <X size={24} />
+                  <X size={20} />
                 </button>
               </div>
 
-              <div className="space-y-10 relative">
+              <div className="space-y-8 relative">
                 {/* Meta de Faturamento */}
-                <div className="space-y-4">
+                <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="p-3 bg-primary/10 text-primary rounded-2xl">
-                         <DollarSign size={20} />
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-primary/10 text-primary rounded-xl">
+                         <DollarSign size={18} />
                       </div>
                       <div>
-                        <p className="text-xs text-text-muted uppercase font-black tracking-widest">Faturamento do Mês</p>
-                        <p className="text-lg font-black">
+                        <p className="text-[10px] text-text-muted uppercase font-black tracking-widest">Faturamento Mensal</p>
+                        <p className="text-sm font-black">
                           R$ {stats.monthlyRevenue.toLocaleString()} 
-                          <span className="text-text-muted font-bold text-sm ml-2">/ R$ 100.000</span>
+                          <span className="text-text-muted font-bold text-xs ml-1">/ R$ 50.000</span>
                         </p>
                       </div>
                     </div>
                     <div className="text-right">
-                       <p className="text-xl font-black text-primary">{Math.min(Math.round((stats.monthlyRevenue / 100000) * 100), 100)}%</p>
+                       <p className="text-sm font-black text-primary">{Math.min(Math.round((stats.monthlyRevenue / 50000) * 100), 100)}%</p>
                     </div>
                   </div>
-                  <div className="h-3 w-full bg-white/5 rounded-full overflow-hidden">
+                  <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden">
                     <motion.div 
                       initial={{ width: 0 }}
-                      animate={{ width: `${Math.min((stats.monthlyRevenue / 100000) * 100, 100)}%` }}
+                      animate={{ width: `${Math.min((stats.monthlyRevenue / 50000) * 100, 100)}%` }}
                       className="h-full bg-primary glow-primary"
                     />
                   </div>
                 </div>
 
-                {/* Meta de Afiliados */}
-                <div className="space-y-4">
+                {/* Meta de Pedidos */}
+                <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="p-3 bg-secondary/10 text-secondary rounded-2xl">
-                         <Users size={20} />
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-secondary/10 text-secondary rounded-xl">
+                         <ShoppingCart size={18} />
                       </div>
                       <div>
-                        <p className="text-xs text-text-muted uppercase font-black tracking-widest">Novos Afiliados</p>
-                        <p className="text-lg font-black">
-                          {stats.totalAffiliates} 
-                          <span className="text-text-muted font-bold text-sm ml-2">/ 5.000</span>
+                        <p className="text-[10px] text-text-muted uppercase font-black tracking-widest">Pedidos do Mês</p>
+                        <p className="text-sm font-black">
+                          {stats.todayOrders * 30} 
+                          <span className="text-text-muted font-bold text-xs ml-1">/ 1.500</span>
                         </p>
                       </div>
                     </div>
                     <div className="text-right">
-                       <p className="text-xl font-black text-secondary">{Math.min(Math.round((stats.totalAffiliates / 5000) * 100), 100)}%</p>
+                       <p className="text-sm font-black text-secondary">{Math.min(Math.round(((stats.todayOrders * 30) / 1500) * 100), 100)}%</p>
                     </div>
                   </div>
-                  <div className="h-3 w-full bg-white/5 rounded-full overflow-hidden">
+                  <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden">
                     <motion.div 
                       initial={{ width: 0 }}
-                      animate={{ width: `${Math.min((stats.totalAffiliates / 5000) * 100, 100)}%` }}
+                      animate={{ width: `${Math.min(((stats.todayOrders * 30) / 1500) * 100, 100)}%` }}
                       className="h-full bg-secondary glow-secondary"
                     />
                   </div>
-                </div>
-
-                <div className="pt-6 border-t border-white/5 flex flex-col md:flex-row gap-6">
-                   <div className="flex-1 p-6 rounded-3xl bg-primary/5 border border-primary/10 flex items-center gap-4">
-                      <div className="p-3 bg-primary/10 text-primary rounded-2xl">
-                         <Zap size={24} />
-                      </div>
-                      <div>
-                         <p className="text-[10px] font-black uppercase text-primary tracking-widest mb-1">Status de Crescimento</p>
-                         <p className="text-sm font-bold">Painel sincronizado com o banco de dados oficial.</p>
-                      </div>
-                   </div>
                 </div>
               </div>
             </motion.div>

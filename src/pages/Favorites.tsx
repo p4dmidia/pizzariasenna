@@ -92,31 +92,16 @@ export default function Favorites() {
               </div>
               <div>
                 <p className="font-bold text-sm line-clamp-1">{profile?.full_name || 'Visitante'}</p>
-                <p className="text-[10px] text-text-muted uppercase font-black tracking-widest">{profile?.plan || 'Cliente'}</p>
+                <p className="text-[10px] text-text-muted uppercase font-black tracking-widest">Cliente</p>
               </div>
             </div>
 
             <nav className="space-y-1">
-              {profile?.plan === 'empreendedor' || profile?.plan === 'visionario' ? (
-                <>
-                  <SidebarLink icon={LayoutDashboard} label="Dashboard" isLink to="/dashboard" />
-                  <SidebarLink icon={Users} label="Minha Rede" isLink to="/dashboard/network" />
-                  <SidebarLink icon={Wallet} label="Financeiro" isLink to="/dashboard/financial" />
-                  <SidebarLink icon={ShoppingCart} label="Delivery" isLink to="/" />
-                  <SidebarLink icon={Ticket} label="Cupons" isLink to="/coupons" />
-                  <SidebarLink icon={PieChart} label="Relatórios" isLink to="/dashboard/reports" />
-                  <SidebarLink icon={Settings} label="Configurações" isLink to="/dashboard/settings" />
-                </>
-              ) : (
-                <>
-                  <SidebarLink icon={User} label="Minha Conta" isLink to="/profile" />
-                  <SidebarLink icon={History} label="Meus Pedidos" isLink to="/" />
-                  <SidebarLink icon={Heart} label="Favoritos" active />
-                  <SidebarLink icon={Ticket} label="Cupons" isLink to="/coupons" />
-                  <SidebarLink icon={TrendingUp} label="Clube" isLink to="/clube" />
-                  <SidebarLink icon={HelpCircle} label="Suporte" isLink to="/support" />
-                </>
-              )}
+              <SidebarLink icon={User} label="Minha Conta" isLink to="/profile" />
+              <SidebarLink icon={History} label="Meus Pedidos" isLink to="/orders" />
+              <SidebarLink icon={Heart} label="Favoritos" active />
+              <SidebarLink icon={Ticket} label="Cupons" isLink to="/coupons" />
+              <SidebarLink icon={HelpCircle} label="Suporte" isLink to="/support" />
             </nav>
           </div>
 
@@ -156,9 +141,6 @@ export default function Favorites() {
           </div>
 
           <div className="flex items-center gap-2 md:gap-4">
-            <Link to="/clube" className="hidden lg:flex items-center gap-2 px-4 py-2 rounded-full bg-secondary/10 border border-secondary/20 text-secondary text-xs font-black uppercase hover:bg-secondary/20 transition-all">
-               <TrendingUp size={14} /> Clube
-            </Link>
             <NotificationBell />
             <button 
               onClick={() => setIsCartOpen(true)}
