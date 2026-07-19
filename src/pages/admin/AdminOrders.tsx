@@ -143,6 +143,36 @@ export default function AdminOrders() {
   const [activeMenuOrderId, setActiveMenuOrderId] = useState<number | null>(null);
   const [selectedOrderDetails, setSelectedOrderDetails] = useState<any | null>(null);
 
+  const [selectedOrderItems, setSelectedOrderItems] = useState<any[]>([]);
+  const [loadingItems, setLoadingItems] = useState(false);
+
+  useEffect(() => {
+    if (selectedOrderDetails) {
+      const fetchOrderItems = async () => {
+        try {
+          setLoadingItems(true);
+          const { data, error } = await supabase
+            .from('order_items')
+            .select(`
+              *,
+              products (name)
+            `)
+            .eq('order_id', selectedOrderDetails.id);
+          if (error) throw error;
+          setSelectedOrderItems(data || []);
+        } catch (err) {
+          console.error('Erro ao carregar itens do pedido:', err);
+          setSelectedOrderItems([]);
+        } finally {
+          setLoadingItems(false);
+        }
+      };
+      fetchOrderItems();
+    } else {
+      setSelectedOrderItems([]);
+    }
+  }, [selectedOrderDetails]);
+
   const getStatusSelectClass = (status: string) => {
     switch (status) {
       case 'pendente': return 'border-amber-500/30 text-amber-500 bg-amber-500/5 focus:border-amber-500';
@@ -249,87 +279,6 @@ export default function AdminOrders() {
     }
   };
 
-  const distributeOrderRewards = async (orderId: number) => {
-    try {
-      // Evitar duplicar recompensas usando cache local no localStorage
-      const distributedOrders = JSON.parse(localStorage.getItem('appdelivery.rewards-distributed') || '[]');
-      if (distributedOrders.includes(orderId)) {
-        return;
-      }
-
-      // 1. Buscar o pedido
-      const { data: order, error: orderErr } = await supabase
-        .from('orders')
-        .select('*')
-        .eq('id', orderId)
-        .single();
-
-      if (orderErr || !order) {
-        console.error('Erro ao buscar dados do pedido para recompensas:', orderErr);
-        return;
-      }
-
-      const buyerId = order.user_id;
-      const amountToCalculate = Math.max(0, order.total_amount - (order.delivery_fee || 0));
-
-      if (amountToCalculate <= 0) return;
-
-      // 2. Buscar perfil do comprador
-      const { data: buyerProfile, error: buyerErr } = await supabase
-        .from('user_profiles')
-        .select('*')
-        .eq('id', buyerId)
-        .single();
-
-      if (buyerErr || !buyerProfile) {
-        console.error('Erro ao buscar perfil do comprador:', buyerErr);
-        return;
-      }
-
-      // 3. Obter porcentagem de cashback de fidelidade
-      let personalCashbackPercent = 10; // 10% padrão de cashback do restaurante
-      
-      const { data: settingsData } = await supabase
-        .from('system_settings')
-        .select('key, value');
-
-      const cashbackSetting = settingsData?.find(s => s.key === 'commission_cliente_l1');
-      if (cashbackSetting) {
-        personalCashbackPercent = parseFloat(cashbackSetting.value) || 10;
-      }
-
-      // O cashback pessoal deve ser calculado sobre o subtotal do pedido (descontando a taxa de entrega)
-      const personalCashbackAmount = amountToCalculate * (personalCashbackPercent / 100);
-      
-      // Creditar cashback ao comprador no banco
-      const { error: buyerUpdateErr } = await supabase
-        .from('user_profiles')
-        .update({ cashback_balance: (buyerProfile.cashback_balance || 0) + personalCashbackAmount })
-        .eq('id', buyerId);
-
-      if (buyerUpdateErr) {
-        console.error('Erro ao atualizar saldo de cashback do comprador:', buyerUpdateErr);
-      } else {
-        console.log(`Cashback pessoal de R$ ${personalCashbackAmount.toFixed(2)} creditado para ${buyerProfile.full_name}`);
-      }
-
-      // Atualizar também no mock-profiles do localStorage para testes locais
-      const mockProfiles = JSON.parse(localStorage.getItem('supabase.mock-profiles') || '[]');
-      const buyerMockIndex = mockProfiles.findIndex((p: any) => p.mocha_user_id === buyerProfile.mocha_user_id);
-      if (buyerMockIndex !== -1) {
-        mockProfiles[buyerMockIndex].cashback_balance = (mockProfiles[buyerMockIndex].cashback_balance || 0) + personalCashbackAmount;
-        localStorage.setItem('supabase.mock-profiles', JSON.stringify(mockProfiles));
-      }
-
-      // Registrar que já foi distribuído para evitar duplicidade
-      distributedOrders.push(orderId);
-      localStorage.setItem('appdelivery.rewards-distributed', JSON.stringify(distributedOrders));
-
-    } catch (err) {
-      console.error('Erro na distribuição de recompensas do pedido:', err);
-    }
-  };
-
   const updateOrderStatus = async (orderId: number, nextStatus: string) => {
     try {
       setUpdatingId(orderId);
@@ -339,11 +288,6 @@ export default function AdminOrders() {
         .eq('id', orderId);
 
       if (error) throw error;
-
-      // Se o status foi alterado para concluído, distribuir cashback e comissões da rede
-      if (nextStatus === 'concluido') {
-        await distributeOrderRewards(orderId);
-      }
 
       toast.success(`Pedido #${orderId} atualizado para ${STATUS_CONFIG[nextStatus]?.label || nextStatus}`);
       fetchOrders();
@@ -453,7 +397,7 @@ export default function AdminOrders() {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
            <div>
               <h1 className="text-3xl font-black mb-1">Pedidos 🍕</h1>
-              <p className="text-text-muted text-sm">Gerencie o fluxo de pedidos do <span className="text-primary font-bold">APP Delivery</span>.</p>
+              <p className="text-text-muted text-sm">Gerencie o fluxo de pedidos do <span className="text-primary font-bold">Pizza Senna</span>.</p>
            </div>
            <div className="flex bg-surface rounded-2xl p-1 border border-surface-border overflow-x-auto hide-scrollbar">
               {['aberto', 'todos', 'pendente', 'preparando', 'entrega', 'concluido'].map((tab) => (
@@ -764,6 +708,67 @@ export default function AdminOrders() {
                       </div>
                     );
                   })()}
+                </div>
+
+                {/* Itens do Pedido */}
+                <div className="space-y-3">
+                  <h3 className="text-xs font-black uppercase tracking-widest text-text-muted border-b border-white/5 pb-2">Itens do Pedido</h3>
+                  {loadingItems ? (
+                    <div className="flex justify-center py-4">
+                      <Loader2 size={16} className="animate-spin text-primary" />
+                    </div>
+                  ) : selectedOrderItems.length > 0 ? (
+                    <div className="space-y-3 max-h-48 overflow-y-auto pr-1">
+                      {selectedOrderItems.map((item) => {
+                        const name = item.products?.name || 'Item do Cardápio';
+                        const cust = item.customizations || {};
+                        const extras = cust.extras || [];
+                        const halfAndHalf = cust.halfAndHalf;
+                        
+                        return (
+                          <div key={item.id} className="bg-white/5 p-4 rounded-xl space-y-1">
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <span className="text-xs font-black text-white">{item.quantity}x {name}</span>
+                                {cust.size && (
+                                  <span className="text-[9px] uppercase font-black tracking-wider text-primary ml-2">
+                                    ({cust.size === 'brotinho' ? 'Brotinho' : cust.size === 'media' ? 'Média' : 'Grande'})
+                                  </span>
+                                )}
+                              </div>
+                              <span className="text-xs font-black text-secondary">R$ {(Number(item.price) * item.quantity).toFixed(2)}</span>
+                            </div>
+                            
+                            {halfAndHalf && (
+                              <p className="text-[10px] text-text-muted font-bold">
+                                Metade 2: <span className="text-white">{halfAndHalf.secondFlavorName}</span>
+                              </p>
+                            )}
+                            
+                            {cust.border && cust.border !== 'none' && (
+                              <p className="text-[9px] text-text-muted uppercase tracking-wider font-bold">
+                                Borda: <span className="text-white">{cust.border === 'catupiry' ? 'Catupiry' : 'Cheddar'}</span>
+                              </p>
+                            )}
+
+                            {extras.length > 0 && (
+                              <p className="text-[9px] text-text-muted uppercase tracking-wider font-bold">
+                                Extras: <span className="text-white">{extras.map((e: any) => e.name).join(', ')}</span>
+                              </p>
+                            )}
+
+                            {cust.observation && (
+                              <p className="text-[9px] text-amber-500 font-bold bg-amber-500/5 px-2 py-1 rounded border border-amber-500/10 mt-1">
+                                Obs: {cust.observation}
+                              </p>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-text-muted">Nenhum item encontrado.</p>
+                  )}
                 </div>
 
                 {/* Pagamento e Valores */}

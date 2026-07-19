@@ -17,8 +17,8 @@ export default defineConfig(({mode}) => {
         },
         includeAssets: ['pwa-icon.jpeg', 'favicon.ico', 'robots.txt', 'apple-touch-icon.png'],
         manifest: {
-          name: 'APP Delivery P4D Mídia',
-          short_name: 'APP Delivery',
+          name: 'Pizzaria Senna',
+          short_name: 'Pizzaria Senna',
           description: 'A plataforma de delivery e consumo recorrente do seu negócio.',
           theme_color: '#0B0E14',
           background_color: '#0B0E14',

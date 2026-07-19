@@ -1,5 +1,5 @@
 -- ==========================================
--- SQL de Inicialização do Banco de Dados
+-- SQL de Inicialização do Banco de Dados (Sem Produtos)
 -- Pizza Senna (Formato iFood Premium)
 -- ==========================================
 
@@ -147,33 +147,6 @@ INSERT INTO public.product_categories (id, name, slug, icon, display_order) VALU
 (4, 'Sobremesas', 'sobremesas', 'IceCream', 4)
 ON CONFLICT (id) DO NOTHING;
 
--- 3. Inserção de Produtos
-INSERT INTO public.products (id, name, description, price, category_id, main_image_url, is_active, stock_quantity) VALUES
--- Pizzas
-(1, 'Margherita Especial', 'Molho de tomate italiano, mussarela de búfala artesanal, manjericão fresco e azeite extra virgem.', 45.00, 1, 'https://images.unsplash.com/photo-1574071318508-1cdbad80ad38?auto=format&fit=crop&q=80&w=1000', TRUE, 99),
-(2, 'Double Pepperoni', 'Dose dupla de pepperoni crocante sobre generosa camada de mussarela e molho especial.', 49.00, 1, 'https://images.unsplash.com/photo-1628840042765-356cda07504e?auto=format&fit=crop&q=80&w=1000', TRUE, 99),
-(3, 'Portuguesa da Casa', 'Presunto, ovos, cebola roxa, ervilhas, azeitonas pretas e o toque secreto do chef.', 47.00, 1, 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?auto=format&fit=crop&q=80&w=1000', TRUE, 99),
-(4, 'Calabresa', 'Calabresa fatiada e cebola.', 38.00, 1, 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&q=80&w=1000', TRUE, 99),
-(5, 'Quatro Queijos', 'Mussarela, provolone, gorgonzola e catupiry.', 42.00, 1, 'https://images.unsplash.com/photo-1571407970349-bc81e7e96d47?auto=format&fit=crop&q=80&w=1000', TRUE, 99),
-(6, 'Frango com Catupiry', 'Frango desfiado com o original catupiry.', 40.00, 1, NULL, TRUE, 99),
-(7, 'Camarão Premium', 'Camarões selecionados e cream cheese.', 62.00, 1, NULL, FALSE, 0),
--- Bebidas
-(101, 'Coca-Cola 2L', 'Refrigerante Coca-Cola garrafa PET de 2 litros gelada.', 12.00, 2, 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?auto=format&fit=crop&q=80&w=1000', TRUE, 150),
-(102, 'Coca-Cola Lata', 'Refrigerante Coca-Cola lata 350ml trincando de gelada.', 6.00, 2, 'https://images.unsplash.com/photo-1527960656366-ee2a999e32e6?auto=format&fit=crop&q=80&w=1000', TRUE, 200),
-(103, 'Guaraná Antarctica 2L', 'Refrigerante Guaraná Antarctica garrafa PET de 2 litros gelado.', 11.00, 2, 'https://images.unsplash.com/photo-1527960656366-ee2a999e32e6?auto=format&fit=crop&q=80&w=1000', TRUE, 150),
-(104, 'Suco de Laranja Natural', 'Suco natural de laranja espremida na hora 500ml.', 8.50, 2, 'https://images.unsplash.com/photo-1621506289937-a8e4df240d0b?auto=format&fit=crop&q=80&w=1000', TRUE, 50),
-(105, 'Cerveja Heineken Long Neck', 'Cerveja Heineken Long Neck 330ml gelada.', 9.00, 2, 'https://images.unsplash.com/photo-1608270586620-248524c67de9?auto=format&fit=crop&q=80&w=1000', TRUE, 100),
-(106, 'Água Mineral sem Gás', 'Garrafa de água mineral sem gás 500ml.', 4.00, 2, 'https://images.unsplash.com/photo-1548839140-29a749e1cf4d?auto=format&fit=crop&q=80&w=1000', TRUE, 300),
--- Combos
-(201, 'Combo Master', '1 Pizza Grande (Calabresa, Margherita ou Quatro Queijos) + 1 Refrigerante 2L de sua escolha.', 55.00, 3, 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&q=80&w=1000', TRUE, 99),
-(202, 'Combo Casal', '1 Pizza Média + 2 Latas de Refrigerante + 1 Pizza Doce de Chocolate broto para sobremesa.', 69.00, 3, 'https://images.unsplash.com/photo-1615557960901-b458b82bc7b2?auto=format&fit=crop&q=80&w=1000', TRUE, 99),
-(203, 'Combo Família', '2 Pizzas Grandes + 1 Refrigerante 2L + 1 Porção generosa de Batata Frita.', 99.00, 3, 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?auto=format&fit=crop&q=80&w=1000', TRUE, 99),
-(204, 'Combo Individual', '1 Pizza Brotinho + 1 Lata de Refrigerante de sua escolha.', 35.00, 3, 'https://images.unsplash.com/photo-1628840042765-356cda07504e?auto=format&fit=crop&q=80&w=1000', TRUE, 99),
--- Sobremesas
-(301, 'Pizza Doce de Chocolate', 'Deliciosa pizza broto coberta com chocolate ao leite Nestlé e morangos frescos fatiados.', 25.00, 4, 'https://images.unsplash.com/photo-1617343251257-b5d709934bcd?auto=format&fit=crop&q=80&w=1000', TRUE, 99),
-(302, 'Petit Gâteau Clássico', 'Bolo quente de chocolate com recheio cremoso e fluído, acompanhado de sorvete de creme.', 18.00, 4, 'https://images.unsplash.com/photo-1606313564200-e75d5e30476c?auto=format&fit=crop&q=80&w=1000', TRUE, 99)
-ON CONFLICT (id) DO NOTHING;
-
 -- Inserir cupons iniciais
 INSERT INTO public.coupons (code, type, value, description, min_subtotal, is_active) VALUES
 ('BEMVINDO15', 'percentage', 15.00, 'Válido para seu primeiro pedido acima de R$ 50.', 50.00, TRUE),
@@ -181,9 +154,9 @@ INSERT INTO public.coupons (code, type, value, description, min_subtotal, is_act
 ('QUARTALOUCA', 'shipping', 5.00, 'Aproveite entrega gratuita em pedidos feitos às quartas-feiras.', 0.00, TRUE)
 ON CONFLICT (code) DO NOTHING;
 
--- Ajustar sequências de IDs caso necessário
+-- Ajustar sequências de IDs
 SELECT setval('public.product_categories_id_seq', COALESCE((SELECT MAX(id)+1 FROM public.product_categories), 1), false);
-SELECT setval('public.products_id_seq', COALESCE((SELECT MAX(id)+1 FROM public.products), 1), false);
+SELECT setval('public.products_id_seq', 1, false);
 
 
 -- ==========================================

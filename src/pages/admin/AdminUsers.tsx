@@ -161,7 +161,7 @@ export default function AdminUsers() {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
                <h1 className="text-3xl font-black mb-1">Usuários e Clientes 👥</h1>
-               <p className="text-text-muted text-sm">Gerencie todos os clientes, caixas e administradores do <span className="text-primary font-bold">APP Delivery</span>.</p>
+               <p className="text-text-muted text-sm">Gerencie todos os clientes, caixas e administradores do <span className="text-primary font-bold">Pizza Senna</span>.</p>
             </div>
             <Link 
               to="/register"
@@ -207,7 +207,6 @@ export default function AdminUsers() {
                        <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-text-muted">Contato</th>
                        <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-text-muted">Cargo</th>
                        <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-text-muted">Data Cadastro</th>
-                       <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-text-muted">Cashback Acumulado</th>
                        <th className="px-8 py-4"></th>
                     </tr>
                  </thead>
@@ -248,9 +247,6 @@ export default function AdminUsers() {
                              </td>
                              <td className="px-8 py-5">
                                 <p className="text-xs font-bold text-text-muted">{new Date(u.created_at).toLocaleDateString('pt-BR')}</p>
-                             </td>
-                             <td className="px-8 py-5">
-                                <span className="text-sm font-black text-secondary">R$ {Number(u.cashback_balance || 0).toFixed(2)}</span>
                              </td>
                              <td className="px-8 py-5 text-right relative">
                                   <button 

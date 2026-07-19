@@ -122,7 +122,7 @@ export default function PWAInstallPrompt() {
             </div>
             <div>
               <h3 className="font-display font-black text-lg tracking-tighter uppercase leading-none mb-1">
-                Instale o <span className="text-primary">APP Delivery</span>
+                Instale o <span className="text-primary">Pizza Senna</span>
               </h3>
               <p className="text-[10px] text-text-muted uppercase font-black tracking-widest flex items-center gap-2">
                 <Smartphone size={12} className="text-primary" /> Experiência Completa
@@ -131,7 +131,7 @@ export default function PWAInstallPrompt() {
           </div>
 
           <p className="text-xs text-text-muted mb-8 leading-relaxed">
-            Faça seus pedidos com mais agilidade e receba notificações exclusivas de cashback e promoções.
+            Faça seus pedidos com mais agilidade e receba notificações exclusivas de promoções e novidades.
           </p>
 
           <div className="flex gap-4">

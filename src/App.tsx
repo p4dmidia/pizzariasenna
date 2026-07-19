@@ -109,7 +109,7 @@ function DeliveryApp() {
   const [storeSettings, setStoreSettings] = useState({
     store_open: true,
     delivery_time_est: '35 - 50 min',
-    store_address: 'Av. Pizzaria Casarão, 1234 - Centro',
+    store_address: 'Av. Pizzaria Senna, 1234 - Centro',
     support_whatsapp: '5511999999999'
   });
   const [storeRating, setStoreRating] = useState({ rating: 4.8, count: 42 });
@@ -162,7 +162,7 @@ function DeliveryApp() {
           setStoreSettings({
             store_open: settingsMap['store_open'] === 'true',
             delivery_time_est: settingsMap['delivery_time_est'] || '35 - 50 min',
-            store_address: settingsMap['store_address'] || 'Av. Pizzaria Casarão, 1234 - Centro',
+            store_address: settingsMap['store_address'] || 'Av. Pizzaria Senna, 1234 - Centro',
             support_whatsapp: settingsMap['support_whatsapp'] || '5511999999999'
           });
         }
@@ -334,7 +334,7 @@ function DeliveryApp() {
               <div className="flex items-center gap-3 pl-4 md:pl-6">
                 <div className="text-right hidden sm:block">
                   <p className="text-xs font-black uppercase text-text-main leading-tight">{profile?.full_name}</p>
-                  <p className="text-[10px] text-primary font-bold mt-0.5">Cliente Casarão</p>
+                  <p className="text-[10px] text-primary font-bold mt-0.5">Cliente Senna</p>
                 </div>
                 <Link to="/profile" className="w-10 h-10 rounded-xl bg-surface border border-surface-border flex items-center justify-center overflow-hidden flex-shrink-0 hover:scale-105 transition-all">
                   <img src={profile?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile?.full_name || 'User')}&background=EA1D2C&color=FFFFFF&bold=true`} alt="Avatar" className="w-full h-full object-cover" />
@@ -412,7 +412,7 @@ function DeliveryApp() {
             <div className="absolute inset-0 bg-gradient-to-r from-background via-background/60 to-transparent z-10" />
             <img 
               src="https://images.unsplash.com/photo-1541745537411-b8046dc6d66c?auto=format&fit=crop&q=80&w=1500" 
-              alt="Pizzaria Casarão"
+              alt="Pizzaria Senna"
               className="absolute inset-0 w-full h-full object-cover"
             />
             <div className="relative z-20 px-6 md:px-12 max-w-2xl">

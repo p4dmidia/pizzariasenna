@@ -233,7 +233,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <div className="flex items-center gap-3 pl-6 border-l border-surface-border">
               <div className="text-right hidden sm:block">
                 <p className="text-xs font-black uppercase">
-                  {userRole === 'caixa' ? 'Caixa APP Delivery' : 'Admin APP Delivery'}
+                  {userRole === 'caixa' ? 'Caixa Pizza Senna' : 'Admin Pizza Senna'}
                 </p>
                 <p className="text-[10px] text-primary font-bold">
                   {userRole === 'caixa' ? 'Acesso Pedidos' : 'Acesso Total'}

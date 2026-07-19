@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 import { toast } from 'react-hot-toast';
+import { supabase } from '../lib/supabase';
 
 export interface CartItem {
   id: number;
@@ -30,12 +31,6 @@ export interface Coupon {
   minSubtotal?: number;
 }
 
-const AVAILABLE_COUPONS: Coupon[] = [
-  { code: 'BEMVINDO15', type: 'percentage', value: 15, minSubtotal: 50 },
-  { code: 'PIZZAFREE', type: 'fixed', value: 10 },
-  { code: 'QUARTALOUCA', type: 'shipping', value: 5 }
-];
-
 interface CartContextType {
   cartItems: CartItem[];
   addToCart: (product: any, customOptions?: any) => void;
@@ -46,7 +41,7 @@ interface CartContextType {
   cartTotal: number;
   appliedCoupon: Coupon | null;
   discountAmount: number;
-  applyCoupon: (code: string) => boolean;
+  applyCoupon: (code: string) => Promise<boolean>;
   removeCoupon: () => void;
 }
 
@@ -164,19 +159,49 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setAppliedCoupon(null);
   };
 
-  const applyCoupon = (code: string): boolean => {
-    const coupon = AVAILABLE_COUPONS.find(c => c.code.toUpperCase() === code.trim().toUpperCase());
-    if (!coupon) {
-      toast.error('Cupom inválido.');
+  const applyCoupon = async (code: string): Promise<boolean> => {
+    try {
+      const { data: coupon, error } = await supabase
+        .from('coupons')
+        .select('*')
+        .eq('code', code.trim().toUpperCase())
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (!coupon) {
+        toast.error('Cupom inválido ou expirado.');
+        return false;
+      }
+
+      // Validar data de expiração se houver
+      if (coupon.expires_at && new Date(coupon.expires_at) < new Date()) {
+        toast.error('Este cupom já expirou.');
+        return false;
+      }
+
+      // Validar valor mínimo de compra
+      if (coupon.min_subtotal && cartTotal < Number(coupon.min_subtotal)) {
+        toast.error(`Cupom válido apenas para pedidos acima de R$ ${Number(coupon.min_subtotal).toFixed(2)}.`);
+        return false;
+      }
+
+      const adaptedCoupon: Coupon = {
+        code: coupon.code,
+        type: coupon.type as any,
+        value: Number(coupon.value),
+        minSubtotal: coupon.min_subtotal ? Number(coupon.min_subtotal) : undefined
+      };
+
+      setAppliedCoupon(adaptedCoupon);
+      toast.success('Cupom aplicado com sucesso!');
+      return true;
+    } catch (err) {
+      console.error('Erro ao validar cupom:', err);
+      toast.error('Erro ao validar cupom.');
       return false;
     }
-    if (coupon.minSubtotal && cartTotal < coupon.minSubtotal) {
-      toast.error(`Cupom válido apenas para pedidos acima de R$ ${coupon.minSubtotal.toFixed(2)}.`);
-      return false;
-    }
-    setAppliedCoupon(coupon);
-    toast.success('Cupom aplicado com sucesso!');
-    return true;
   };
 
   const removeCoupon = () => {

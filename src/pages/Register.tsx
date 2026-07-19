@@ -85,7 +85,6 @@ export default function Register() {
         email: formData.email,
         full_name: formData.name,
         phone: formData.phone,
-        cashback_balance: 0,
         role: 'user'
       };
 
@@ -170,7 +169,7 @@ export default function Register() {
             >
               <div className="text-center">
                 <h2 className="text-3xl font-black mb-2">Crie sua Conta</h2>
-                <p className="text-text-muted">Preencha os campos abaixo para começar a pedir no Casarão.</p>
+                <p className="text-text-muted">Preencha os campos abaixo para começar a pedir na Pizzaria Senna.</p>
               </div>
 
               <div className="space-y-4">

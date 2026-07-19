@@ -22,54 +22,15 @@ import {
   Wallet,
   PieChart,
   Settings,
-  LogOut
+  LogOut,
+  Loader2
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
 import CartDrawer from '../components/CartDrawer';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
-
-
-
-const COUPONS = [
-  {
-    id: 1,
-    code: 'BEMVINDO15',
-    discount: '15%',
-    description: 'Válido para seu primeiro pedido acima de R$ 50.',
-    expires: '31/05/2026',
-    status: 'ativo',
-    type: 'percentage'
-  },
-  {
-    id: 2,
-    code: 'PIZZAFREE',
-    discount: 'R$ 10,00',
-    description: 'Desconto direto em qualquer pizza clássica.',
-    expires: '20/05/2026',
-    status: 'ativo',
-    type: 'fixed'
-  },
-  {
-    id: 3,
-    code: 'QUARTALOUCA',
-    discount: 'Entrega Grátis',
-    description: 'Aproveite entrega gratuita em pedidos feitos às quartas-feiras.',
-    expires: '15/05/2026',
-    status: 'ativo',
-    type: 'shipping'
-  },
-  {
-    id: 4,
-    code: 'CLIENTEANTIGO',
-    discount: '20%',
-    description: 'Cupom de fidelidade para clientes recorrentes.',
-    expires: '01/05/2026',
-    status: 'expirado',
-    type: 'percentage'
-  }
-];
 
 import AppLogo from '../components/AppLogo';
 import NotificationBell from '../components/NotificationBell';
@@ -81,9 +42,51 @@ export default function Coupons() {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const { cartCount } = useCart();
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  const [coupons, setCoupons] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-  const filteredCoupons = COUPONS.filter(c => c.status === activeTab);
+  useEffect(() => {
+    async function fetchCoupons() {
+      try {
+        setLoading(true);
+        const { data, error } = await supabase
+          .from('coupons')
+          .select('*')
+          .order('id');
+        if (error) throw error;
+        if (data) {
+          const mapped = data.map((c: any) => {
+            const isExpired = c.expires_at && new Date(c.expires_at) < new Date();
+            const status = (c.is_active && !isExpired) ? 'ativo' : 'expirado';
+            
+            let discount = '';
+            if (c.type === 'percentage') discount = `${Number(c.value)}%`;
+            else if (c.type === 'fixed') discount = `R$ ${Number(c.value).toFixed(2)}`;
+            else if (c.type === 'shipping') discount = 'Entrega Grátis';
+
+            return {
+              id: c.id,
+              code: c.code,
+              discount,
+              description: c.description || '',
+              expires: c.expires_at ? new Date(c.expires_at).toLocaleDateString('pt-BR') : 'Sem expiração',
+              status,
+              type: c.type
+            };
+          });
+          setCoupons(mapped);
+        }
+      } catch (err) {
+        console.error('Erro ao buscar cupons:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchCoupons();
+  }, []);
+
+  const filteredCoupons = coupons.filter(c => c.status === activeTab);
 
   const handleCopy = (code: string) => {
     navigator.clipboard.writeText(code);
@@ -196,7 +199,7 @@ export default function Coupons() {
               <div className="flex items-center gap-3 pl-4 md:pl-6">
                 <div className="text-right hidden sm:block">
                   <p className="text-xs font-black uppercase text-text-main leading-tight">{profile?.full_name}</p>
-                  <p className="text-[10px] text-primary font-bold mt-0.5">Cliente Casarão</p>
+                  <p className="text-[10px] text-primary font-bold mt-0.5">Cliente Senna</p>
                 </div>
                 <Link to="/profile" className="w-10 h-10 rounded-xl bg-surface border border-surface-border flex items-center justify-center overflow-hidden flex-shrink-0 hover:scale-105 transition-all">
                   <img src={profile?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile?.full_name || 'User')}&background=EA1D2C&color=FFFFFF&bold=true`} alt="Avatar" className="w-full h-full object-cover" />
@@ -245,71 +248,80 @@ export default function Coupons() {
               </div>
            </div>
 
-           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredCoupons.map((coupon) => (
-                <motion.div 
-                  key={coupon.id}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className={`relative group overflow-hidden ${coupon.status === 'expirado' ? 'opacity-60' : ''}`}
-                >
-                   <div className="glass-card p-6 border-white/5 relative z-10">
-                      <div className="flex justify-between items-start mb-6">
-                         <div className={`p-3 rounded-2xl ${
-                           coupon.type === 'percentage' ? 'bg-primary/10 text-primary' : 
-                           coupon.type === 'fixed' ? 'bg-secondary/10 text-secondary' : 
-                           'bg-emerald-500/10 text-emerald-400'
-                         }`}>
-                            <Ticket size={24} />
-                         </div>
-                         <div className="text-right">
-                            <p className="text-2xl font-black">{coupon.discount}</p>
-                            <p className="text-[10px] text-text-muted font-bold uppercase tracking-widest">DE DESCONTO</p>
-                         </div>
-                      </div>
+           {loading ? (
+              <div className="flex flex-col items-center justify-center py-20 gap-4">
+                <Loader2 className="w-12 h-12 text-primary animate-spin" />
+                <p className="text-text-muted font-black uppercase tracking-widest text-xs">Carregando Cupons...</p>
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {filteredCoupons.map((coupon) => (
+                    <motion.div 
+                      key={coupon.id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className={`relative group overflow-hidden ${coupon.status === 'expirado' ? 'opacity-60' : ''}`}
+                    >
+                       <div className="glass-card p-6 border-white/5 relative z-10">
+                          <div className="flex justify-between items-start mb-6">
+                             <div className={`p-3 rounded-2xl ${
+                               coupon.type === 'percentage' ? 'bg-primary/10 text-primary' : 
+                               coupon.type === 'fixed' ? 'bg-secondary/10 text-secondary' : 
+                               'bg-emerald-500/10 text-emerald-400'
+                             }`}>
+                                <Ticket size={24} />
+                             </div>
+                             <div className="text-right">
+                                <p className="text-2xl font-black">{coupon.discount}</p>
+                                <p className="text-[10px] text-text-muted font-bold uppercase tracking-widest">DE DESCONTO</p>
+                             </div>
+                          </div>
 
-                      <h4 className="text-lg font-black mb-2">{coupon.code}</h4>
-                      <p className="text-xs text-text-muted mb-6 line-clamp-2 leading-relaxed">{coupon.description}</p>
+                          <h4 className="text-lg font-black mb-2">{coupon.code}</h4>
+                          <p className="text-xs text-text-muted mb-6 line-clamp-2 leading-relaxed">{coupon.description}</p>
 
-                      <div className="flex items-center justify-between pt-6 border-t border-surface-border">
-                         <div className="flex items-center gap-2 text-text-muted">
-                            <Clock size={14} />
-                            <span className="text-[10px] font-bold uppercase tracking-widest">
-                               Vence em {coupon.expires}
-                            </span>
-                         </div>
-                         <button 
-                          onClick={() => handleCopy(coupon.code)}
-                          className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest transition-all ${
-                            copiedCode === coupon.code ? 'text-emerald-400' : 'text-primary hover:scale-105'
-                          }`}
-                         >
-                            {copiedCode === coupon.code ? (
-                              <> <CheckCircle2 size={14} /> Copiado! </>
-                            ) : (
-                              <> <Copy size={14} /> Copiar </>
-                            )}
-                         </button>
-                      </div>
-                   </div>
+                          <div className="flex items-center justify-between pt-6 border-t border-surface-border">
+                             <div className="flex items-center gap-2 text-text-muted">
+                                <Clock size={14} />
+                                <span className="text-[10px] font-bold uppercase tracking-widest">
+                                   Vence em {coupon.expires}
+                                </span>
+                             </div>
+                             <button 
+                              onClick={() => handleCopy(coupon.code)}
+                              className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest transition-all ${
+                                copiedCode === coupon.code ? 'text-emerald-400' : 'text-primary hover:scale-105'
+                              }`}
+                             >
+                                {copiedCode === coupon.code ? (
+                                  <> <CheckCircle2 size={14} /> Copiado! </>
+                                ) : (
+                                  <> <Copy size={14} /> Copiar </>
+                                )}
+                             </button>
+                          </div>
+                       </div>
 
-                   {/* Ticket Decorative Elements */}
-                   <div className="absolute top-1/2 -left-3 w-6 h-6 rounded-full bg-background border-r border-white/5 z-20 -translate-y-1/2" />
-                   <div className="absolute top-1/2 -right-3 w-6 h-6 rounded-full bg-background border-l border-white/5 z-20 -translate-y-1/2" />
-                   <div className="absolute top-1/2 left-0 right-0 h-px border-t border-dashed border-white/10 z-0 -translate-y-1/2" />
-                </motion.div>
-              ))}
-           </div>
-
-           {filteredCoupons.length === 0 && (
-             <div className="flex flex-col items-center justify-center py-32 text-center">
-                <div className="w-24 h-24 rounded-full bg-surface border border-surface-border flex items-center justify-center text-text-muted mb-6">
-                   <AlertCircle size={40} />
+                       {/* Ticket Decorative Elements */}
+                       <div className="absolute top-1/2 -left-3 w-6 h-6 rounded-full bg-background border-r border-white/5 z-20 -translate-y-1/2" />
+                       <div className="absolute top-1/2 -right-3 w-6 h-6 rounded-full bg-background border-l border-white/5 z-20 -translate-y-1/2" />
+                       <div className="absolute top-1/2 left-0 right-0 h-px border-t border-dashed border-white/10 z-0 -translate-y-1/2" />
+                    </motion.div>
+                  ))}
                 </div>
-                <h3 className="text-xl font-black mb-2">Nenhum cupom encontrado</h3>
-                <p className="text-text-muted mb-8 max-w-sm">Fique de olho nas nossas redes sociais e no app para novos descontos!</p>
-             </div>
-           )}
+
+                {filteredCoupons.length === 0 && (
+                  <div className="flex flex-col items-center justify-center py-32 text-center">
+                     <div className="w-24 h-24 rounded-full bg-surface border border-surface-border flex items-center justify-center text-text-muted mb-6">
+                        <AlertCircle size={40} />
+                     </div>
+                     <h3 className="text-xl font-black mb-2">Nenhum cupom encontrado</h3>
+                     <p className="text-text-muted mb-8 max-w-sm">Fique de olho nas nossas redes sociais e no app para novos descontos!</p>
+                  </div>
+                )}
+              </>
+            )}
         </div>
       </main>
 

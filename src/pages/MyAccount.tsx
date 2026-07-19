@@ -284,7 +284,7 @@ export default function MyAccount() {
               <div className="flex items-center gap-3 pl-4 md:pl-6">
                 <div className="text-right hidden sm:block">
                   <p className="text-xs font-black uppercase text-text-main leading-tight">{profile?.full_name}</p>
-                  <p className="text-[10px] text-primary font-bold mt-0.5">Cliente Casarão</p>
+                  <p className="text-[10px] text-primary font-bold mt-0.5">Cliente Senna</p>
                 </div>
                 <Link to="/profile" className="w-10 h-10 rounded-xl bg-surface border border-surface-border flex items-center justify-center overflow-hidden flex-shrink-0 hover:scale-105 transition-all">
                   <img src={profile?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile?.full_name || 'User')}&background=EA1D2C&color=FFFFFF&bold=true`} alt="Avatar" className="w-full h-full object-cover" />
@@ -339,9 +339,6 @@ export default function MyAccount() {
                        <div className="flex flex-wrap justify-center md:justify-start gap-3">
                           <span className="px-4 py-1.5 rounded-full bg-emerald-500/10 text-emerald-400 text-[10px] font-black uppercase tracking-widest border border-emerald-500/20">
                              Cliente Ativo
-                          </span>
-                          <span className="px-4 py-1.5 rounded-full bg-secondary/10 text-secondary text-[10px] font-black uppercase tracking-widest border border-secondary/20">
-                             Saldo Cashback: R$ {profile?.cashback_balance?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) || '0,00'}
                           </span>
                        </div>
                     </div>

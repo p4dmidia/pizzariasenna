@@ -58,17 +58,24 @@ export default function MyOrders() {
   const fetchOrders = async () => {
     try {
       setLoadingOrders(true);
-      // Buscar pedidos
       const { data: ordersData, error } = await supabase
         .from('orders')
-        .select('*')
+        .select(`
+          *,
+          order_items (
+            quantity,
+            price,
+            product_id,
+            customizations,
+            products (name, main_image_url)
+          )
+        `)
         .eq('user_id', profile?.id)
         .order('id', { ascending: false });
 
       if (error) throw error;
       setOrders(ordersData || []);
 
-      // Buscar quais pedidos já foram avaliados
       if (ordersData && ordersData.length > 0) {
         const orderIds = ordersData.map(o => o.id);
         const { data: reviewsData } = await supabase
@@ -124,18 +131,30 @@ export default function MyOrders() {
     }
   };
 
-  const handleReorder = (orderId: number) => {
+  const handleReorder = (order: any) => {
     try {
-      const savedItems = localStorage.getItem(`order_items_${orderId}`);
-      if (!savedItems) {
-        toast.error('Não foi possível recuperar os itens deste pedido para reordenar.');
-        return;
-      }
+      let items: any[] = [];
       
-      const items = JSON.parse(savedItems);
+      if (order.order_items && order.order_items.length > 0) {
+        items = order.order_items.map((item: any) => ({
+          id: item.product_id,
+          name: item.products?.name || 'Pizza',
+          price: Number(item.price),
+          quantity: item.quantity,
+          image: item.products?.main_image_url || '',
+          ...item.customizations
+        }));
+      } else {
+        const savedItems = localStorage.getItem(`order_items_${order.id}`);
+        if (!savedItems) {
+          toast.error('Não foi possível recuperar os itens deste pedido para reordenar.');
+          return;
+        }
+        items = JSON.parse(savedItems);
+      }
+
       if (items && Array.isArray(items)) {
         items.forEach(item => {
-          // Adiciona ao carrinho mantendo customizações se houver
           addToCart(item, {
             size: item.size,
             border: item.border,
@@ -208,9 +227,12 @@ export default function MyOrders() {
     }
   };
 
-  const getOrderItemsList = (orderId: number) => {
+  const getOrderItemsList = (order: any) => {
+    if (order.order_items && order.order_items.length > 0) {
+      return order.order_items.map((item: any) => `${item.quantity}x ${item.products?.name || 'Pizza'}`).join(', ');
+    }
     try {
-      const savedItems = localStorage.getItem(`order_items_${orderId}`);
+      const savedItems = localStorage.getItem(`order_items_${order.id}`);
       if (savedItems) {
         const items = JSON.parse(savedItems);
         return items.map((item: any) => `${item.quantity}x ${item.name}`).join(', ');
@@ -289,7 +311,7 @@ export default function MyOrders() {
             <div className="flex items-center gap-3 pl-4 md:pl-6">
               <div className="text-right hidden sm:block">
                 <p className="text-xs font-black uppercase text-text-main leading-tight">{profile?.full_name}</p>
-                <p className="text-[10px] text-primary font-bold mt-0.5">Cliente Casarão</p>
+                <p className="text-[10px] text-primary font-bold mt-0.5">Cliente Senna</p>
               </div>
               <Link to="/profile" className="w-10 h-10 rounded-xl bg-surface border border-surface-border flex items-center justify-center overflow-hidden flex-shrink-0 hover:scale-105 transition-all">
                 <img src={profile?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile?.full_name || 'User')}&background=EA1D2C&color=FFFFFF&bold=true`} alt="Avatar" className="w-full h-full object-cover" />
@@ -342,7 +364,7 @@ export default function MyOrders() {
                           Pedido #{order.id} • {new Date(order.created_at).toLocaleDateString('pt-BR')}
                         </span>
                         <h3 className="text-lg font-black group-hover:text-primary transition-colors">
-                          {getOrderItemsList(order.id)}
+                          {getOrderItemsList(order)}
                         </h3>
                       </div>
                       <div className="flex items-center gap-3">
@@ -384,7 +406,7 @@ export default function MyOrders() {
                         )}
 
                         <button 
-                          onClick={() => handleReorder(order.id)}
+                          onClick={() => handleReorder(order)}
                           className="px-5 py-2.5 bg-surface hover:bg-surface-hover text-text-muted hover:text-white rounded-xl font-bold text-xs uppercase tracking-wider border border-surface-border transition-all"
                         >
                           Repetir Pedido

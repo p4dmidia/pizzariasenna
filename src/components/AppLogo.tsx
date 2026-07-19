@@ -7,7 +7,7 @@ export default function AppLogo({ className = "" }: { className?: string }) {
         <ShoppingCart className="w-5 h-5 text-background" />
       </div>
       <span className="font-display font-black text-xl italic tracking-wider text-text-main">
-        APP <span className="text-primary">Delivery</span>
+        PIZZARIA <span className="text-primary">Senna</span>
       </span>
     </div>
   );

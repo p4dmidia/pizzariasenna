@@ -139,7 +139,7 @@ export default function Login() {
             transition={{ delay: 0.2 }}
             className="text-text-muted text-lg"
           >
-            Acesse sua conta para pedir pizzas deliciosas com entrega rápida e quentinha direto do Casarão.
+            Acesse sua conta para pedir pizzas deliciosas com entrega rápida e quentinha direto da Pizzaria Senna.
           </motion.p>
         </div>
       </div>

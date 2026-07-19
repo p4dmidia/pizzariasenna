@@ -8,7 +8,6 @@ interface UserProfile {
   email: string;
   full_name: string;
   role: string;
-  cashback_balance: number;
   phone?: string;
   avatar_url?: string;
   address?: string;
@@ -55,8 +54,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           mocha_user_id: userId,
           email: 'mock@email.com',
           full_name: 'Usuário Simulador',
-          role: 'user',
-          cashback_balance: 0
+          role: 'user'
         });
         return;
       }

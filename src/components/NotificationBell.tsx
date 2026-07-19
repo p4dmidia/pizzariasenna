@@ -32,13 +32,13 @@ export default function NotificationBell() {
       {
         id: '2',
         title: '🔥 Pontos em Dobro!',
-        description: 'Todos os pedidos de hoje no APP Delivery ganham pontuação em dobro!',
+        description: 'Todos os pedidos de hoje no Pizza Senna ganham pontuação em dobro!',
         time: '1 hora atrás',
         read: false,
       },
       {
         id: '3',
-        title: '🎉 Bem-vindo ao APP Delivery!',
+        title: '🎉 Bem-vindo ao Pizza Senna!',
         description: 'Aproveite as melhores pizzas artesanais da região direto na sua casa.',
         time: '1 dia atrás',
         read: true,
@@ -204,13 +204,13 @@ export default function NotificationBell() {
                       {
                         id: '2',
                         title: '🔥 Pontos em Dobro!',
-                        description: 'Todos os pedidos de hoje no APP Delivery ganham pontuação em dobro!',
+                        description: 'Todos os pedidos de hoje no Pizza Senna ganham pontuação em dobro!',
                         time: '1 hora atrás',
                         read: false,
                       },
                       {
                         id: '3',
-                        title: '🎉 Bem-vindo ao APP Delivery!',
+                        title: '🎉 Bem-vindo ao Pizza Senna!',
                         description: 'Aproveite as melhores pizzas artesanais da região direto na sua casa.',
                         time: '1 dia atrás',
                         read: true,

@@ -38,10 +38,7 @@ const FAQ = [
     question: 'Qual o prazo de entrega médio?',
     answer: 'Nossa entrega média é de 30 a 45 minutos, dependendo da sua localização e do horário do pedido. Você pode acompanhar o status em tempo real na tela "Meus Pedidos".'
   },
-  {
-    question: 'Como funciona o cashback do APP Delivery?',
-    answer: 'A cada pedido realizado, uma porcentagem do valor volta para sua carteira digital no APP Delivery. Você pode usar esse saldo para pagar novos pedidos.'
-  },
+
   {
     question: 'Quais as formas de pagamento aceitas?',
     answer: 'Aceitamos PIX direto pelo app, Cartão de Crédito e Débito (Online ou na entrega) e Dinheiro.'
@@ -168,7 +165,7 @@ export default function Support() {
               <div className="flex items-center gap-3 pl-4 md:pl-6">
                 <div className="text-right hidden sm:block">
                   <p className="text-xs font-black uppercase text-text-main leading-tight">{profile?.full_name}</p>
-                  <p className="text-[10px] text-primary font-bold mt-0.5">Cliente Casarão</p>
+                  <p className="text-[10px] text-primary font-bold mt-0.5">Cliente Senna</p>
                 </div>
                 <Link to="/profile" className="w-10 h-10 rounded-xl bg-surface border border-surface-border flex items-center justify-center overflow-hidden flex-shrink-0 hover:scale-105 transition-all">
                   <img src={profile?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile?.full_name || 'User')}&background=EA1D2C&color=FFFFFF&bold=true`} alt="Avatar" className="w-full h-full object-cover" />

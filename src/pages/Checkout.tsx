@@ -46,9 +46,8 @@ export default function Checkout() {
     id: 0,
     mocha_user_id: 'admin',
     email: 'admin@appdelivery.com',
-    full_name: 'Admin APP Delivery',
+    full_name: 'Admin Pizza Senna',
     role: 'admin',
-    cashback_balance: 1000.00,
     address: 'Rua do Admin',
     number: '123',
     complement: 'Apt 1',
@@ -63,6 +62,23 @@ export default function Checkout() {
   const [isSuccess, setIsSuccess] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
   const [isAddressSelected, setIsAddressSelected] = useState(false);
+
+  // Geoloc e Taxa de Entrega Dinâmica
+  const [calculatedDeliveryFee, setCalculatedDeliveryFee] = useState<number | null>(null);
+  const [calculatingFee, setCalculatingFee] = useState(false);
+  const [deliveryDistance, setDeliveryDistance] = useState<number | null>(null);
+  const [storeOpen, setStoreOpen] = useState(true);
+  const [deliverySettings, setDeliverySettings] = useState<{
+    storeLat: number | null;
+    storeLng: number | null;
+    baseFee: number;
+    rules: any[];
+  }>({
+    storeLat: null,
+    storeLng: null,
+    baseFee: 5.00,
+    rules: []
+  });
 
   const handleOpenGuestModal = () => {
     if (guestProfile) {
@@ -95,8 +111,7 @@ export default function Checkout() {
       neighborhood: guestNeighborhood,
       city: guestCity || 'P4D Mídia',
       zipcode: guestZipcode,
-      email: 'guest@appdelivery.com',
-      cashback_balance: 0
+      email: 'guest@appdelivery.com'
     };
     
     setGuestProfile(newGuestProfile);
@@ -110,8 +125,180 @@ export default function Checkout() {
   const [supportWhatsapp, setSupportWhatsapp] = useState('');
   const [loadingOrder, setLoadingOrder] = useState(false);
 
-  const deliveryFee = cartItems.length > 0 ? 5.00 : 0;
-  const total = Math.max(0, cartTotal + deliveryFee - discountAmount);
+  // Carregar configurações de entrega
+  useEffect(() => {
+    async function loadDeliverySettings() {
+      try {
+        const { data, error } = await supabase
+          .from('system_settings')
+          .select('key, value');
+
+        if (error) throw error;
+        if (data) {
+          const latSetting = data.find(s => s.key === 'store_latitude');
+          const lngSetting = data.find(s => s.key === 'store_longitude');
+          const feeSetting = data.find(s => s.key === 'delivery_base_fee');
+          const rulesSetting = data.find(s => s.key === 'delivery_rules');
+          const openSetting = data.find(s => s.key === 'store_open');
+          const whatsappSetting = data.find(s => s.key === 'support_whatsapp');
+
+          if (whatsappSetting?.value) {
+            setSupportWhatsapp(whatsappSetting.value);
+          }
+
+          let rules = [];
+          if (rulesSetting?.value) {
+            try {
+              rules = JSON.parse(rulesSetting.value);
+            } catch (e) {
+              rules = [];
+            }
+          }
+
+          setDeliverySettings({
+            storeLat: latSetting?.value ? parseFloat(latSetting.value) : null,
+            storeLng: lngSetting?.value ? parseFloat(lngSetting.value) : null,
+            baseFee: feeSetting?.value ? parseFloat(feeSetting.value) : 5.00,
+            rules
+          });
+
+          if (openSetting) {
+            setStoreOpen(openSetting.value === 'true');
+          }
+        }
+      } catch (err) {
+        console.error('Erro ao carregar configurações de entrega:', err);
+      }
+    }
+    loadDeliverySettings();
+  }, []);
+
+  const calculateHaversineDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+    const R = 6371; // Radius of the earth in km
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = 
+      Math.sin(dLat/2) * Math.sin(dLat/2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+      Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    const d = R * c; // Distance in km
+    return d;
+  };
+
+  const calculateDynamicFee = async (addressObj: any) => {
+    if (!addressObj || !addressObj.address) {
+      setCalculatedDeliveryFee(deliverySettings.baseFee);
+      setDeliveryDistance(null);
+      return;
+    }
+
+    if (!deliverySettings.storeLat || !deliverySettings.storeLng) {
+      setCalculatedDeliveryFee(deliverySettings.baseFee);
+      setDeliveryDistance(null);
+      return;
+    }
+
+    setCalculatingFee(true);
+    try {
+      const addressQuery = `${addressObj.address}, ${addressObj.number || ''}, ${addressObj.neighborhood || ''}, ${addressObj.city || ''}, Brasil`;
+      
+      const response = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(addressQuery)}&format=json&limit=1`, {
+        headers: {
+          'User-Agent': 'PizzaSennaApp/1.0'
+        }
+      });
+
+      if (!response.ok) throw new Error('Falha na geocodificação');
+
+      const data = await response.json();
+      if (data && data.length > 0) {
+        const clientLat = parseFloat(data[0].lat);
+        const clientLng = parseFloat(data[0].lon);
+
+        const distance = calculateHaversineDistance(
+          deliverySettings.storeLat,
+          deliverySettings.storeLng,
+          clientLat,
+          clientLng
+        );
+
+        setDeliveryDistance(distance);
+
+        const sortedRules = [...deliverySettings.rules].sort((a, b) => a.maxDistance - b.maxDistance);
+        const matchedRule = sortedRules.find(r => distance <= r.maxDistance);
+
+        if (matchedRule) {
+          setCalculatedDeliveryFee(matchedRule.fee);
+        } else {
+          const maxRule = sortedRules[sortedRules.length - 1];
+          setCalculatedDeliveryFee(maxRule ? maxRule.fee : deliverySettings.baseFee);
+        }
+      } else {
+        // Tentar CEP ou bairro como fallback
+        let fallbackQuery = '';
+        if (addressObj.zipcode) fallbackQuery = `${addressObj.zipcode}, Brasil`;
+        else if (addressObj.neighborhood) fallbackQuery = `${addressObj.neighborhood}, ${addressObj.city || ''}, Brasil`;
+
+        if (fallbackQuery) {
+          const fbResponse = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(fallbackQuery)}&format=json&limit=1`, {
+            headers: {
+              'User-Agent': 'PizzaSennaApp/1.0'
+            }
+          });
+          const fbData = await fbResponse.json();
+          if (fbData && fbData.length > 0) {
+            const clientLat = parseFloat(fbData[0].lat);
+            const clientLng = parseFloat(fbData[0].lon);
+
+            const distance = calculateHaversineDistance(
+              deliverySettings.storeLat,
+              deliverySettings.storeLng,
+              clientLat,
+              clientLng
+            );
+
+            setDeliveryDistance(distance);
+
+            const sortedRules = [...deliverySettings.rules].sort((a, b) => a.maxDistance - b.maxDistance);
+            const matchedRule = sortedRules.find(r => distance <= r.maxDistance);
+
+            if (matchedRule) {
+              setCalculatedDeliveryFee(matchedRule.fee);
+            } else {
+              const maxRule = sortedRules[sortedRules.length - 1];
+              setCalculatedDeliveryFee(maxRule ? maxRule.fee : deliverySettings.baseFee);
+            }
+            return;
+          }
+        }
+        setCalculatedDeliveryFee(deliverySettings.baseFee);
+        setDeliveryDistance(null);
+      }
+    } catch (e) {
+      console.error('Erro ao calcular taxa de entrega:', e);
+      setCalculatedDeliveryFee(deliverySettings.baseFee);
+      setDeliveryDistance(null);
+    } finally {
+      setCalculatingFee(false);
+    }
+  };
+
+  useEffect(() => {
+    if (profile?.address) {
+      calculateDynamicFee(profile);
+    } else {
+      setCalculatedDeliveryFee(null);
+      setDeliveryDistance(null);
+    }
+  }, [profile?.address, deliverySettings.storeLat]);
+
+  const deliveryFee = cartItems.length > 0 
+    ? (calculatedDeliveryFee !== null ? calculatedDeliveryFee : deliverySettings.baseFee) 
+    : 0;
+  
+  const finalDiscountAmount = appliedCoupon?.type === 'shipping' ? deliveryFee : discountAmount;
+  const total = Math.max(0, cartTotal + deliveryFee - finalDiscountAmount);
 
   useEffect(() => {
     if (profile?.address) {
@@ -129,7 +316,6 @@ export default function Checkout() {
       const orderId = parseInt(orderIdStr, 10);
       
       const processPaymentResponse = async () => {
-        // Se for o retorno inicial do pagamento (Mercado Pago), atualizar status no banco
         if (status === 'approved' || status === 'success' && !searchParams.get('processed')) {
           const isReturningFromPayment = status === 'approved' || status === 'success' && searchParams.get('collection_status');
           
@@ -149,7 +335,6 @@ export default function Checkout() {
           }
         }
         
-        // Carregar os dados do pedido para rastreamento
         setLoadingOrder(true);
         try {
           const [orderRes, settingsRes] = await Promise.all([
@@ -160,10 +345,24 @@ export default function Checkout() {
           if (orderRes.data) {
             setOrder(orderRes.data);
             
-            // Carregar itens do localStorage
             const savedItems = localStorage.getItem(`order_items_${orderId}`);
             if (savedItems) {
               setOrderItems(JSON.parse(savedItems));
+            } else {
+              const { data: dbItems } = await supabase
+                .from('order_items')
+                .select('*, products(name, main_image_url)')
+                .eq('order_id', orderId);
+              if (dbItems) {
+                setOrderItems(dbItems.map((item: any) => ({
+                  id: item.product_id,
+                  name: item.products?.name || 'Pizza',
+                  price: Number(item.price),
+                  quantity: item.quantity,
+                  image: item.products?.main_image_url || '',
+                  ...item.customizations
+                })));
+              }
             }
             
             setIsSuccess(true);
@@ -178,7 +377,6 @@ export default function Checkout() {
           setLoadingOrder(false);
         }
 
-        // Limpar parâmetros extras do Mercado Pago e manter apenas status=success e order_id
         if (searchParams.get('collection_status') || searchParams.get('status') === 'approved') {
           setSearchParams({ status: 'success', order_id: orderIdStr }, { replace: true });
         }
@@ -186,7 +384,6 @@ export default function Checkout() {
 
       processPaymentResponse();
 
-      // Assinar atualizações em tempo real do status do pedido
       const channel = supabase
         .channel(`order-tracking:${orderId}`)
         .on('postgres_changes', { 
@@ -225,46 +422,6 @@ export default function Checkout() {
     }
   }, [searchParams, setSearchParams, clearCart]);
 
-  const handleAddTestBalance = async () => {
-    try {
-      const currentBalance = profile?.cashback_balance || 0;
-      const newBalance = currentBalance + 100;
-      
-      if (profile) {
-        profile.cashback_balance = newBalance;
-        
-        // Atualizar no localStorage (mock-profiles)
-        const mockProfiles = JSON.parse(localStorage.getItem('supabase.mock-profiles') || '[]');
-        const localProfileIndex = mockProfiles.findIndex((p: any) => p.mocha_user_id === profile.mocha_user_id);
-        if (localProfileIndex !== -1) {
-          mockProfiles[localProfileIndex].cashback_balance = newBalance;
-          localStorage.setItem('supabase.mock-profiles', JSON.stringify(mockProfiles));
-        }
-
-        // Atualizar no banco de dados se for um usuário persistido
-        const { data: dbProfileCheck } = await supabase
-          .from('user_profiles')
-          .select('id')
-          .eq('id', profile.id)
-          .maybeSingle();
-
-        if (dbProfileCheck) {
-          await supabase
-            .from('user_profiles')
-            .update({ cashback_balance: newBalance })
-            .eq('id', profile.id);
-        }
-        
-        toast.success('R$ 100,00 de saldo de teste adicionados!');
-        // Forçar re-render
-        setSearchParams(searchParams, { replace: true });
-      }
-    } catch (err: any) {
-      console.error(err);
-      toast.error('Erro ao adicionar saldo de teste.');
-    }
-  };
-
   const handleFinish = async () => {
     if (!profile) {
       toast.error('Faça login para finalizar o pedido.');
@@ -274,7 +431,6 @@ export default function Checkout() {
     setIsProcessing(true);
 
     try {
-      // Verificar se a loja está aberta
       const { data: storeOpenSetting } = await supabase
         .from('system_settings')
         .select('value')
@@ -289,10 +445,8 @@ export default function Checkout() {
         ? `${profile.address}, ${profile.number}${profile.complement ? ` - ${profile.complement}` : ''} - ${profile.neighborhood}`
         : 'Não cadastrado') + (observations.trim() ? ` (Obs: ${observations.trim()})` : '');
 
-      // 1. Criar pedido com status pendente no Supabase
       let userId = profile.id;
       
-      // Validar se o ID do perfil realmente existe no banco para evitar violação de FK (comum em perfis locais/mockados)
       const { data: profileCheck } = await supabase
         .from('user_profiles')
         .select('id')
@@ -300,7 +454,6 @@ export default function Checkout() {
         .maybeSingle();
 
       if (!profileCheck) {
-        // Tenta achar pelo email do perfil atual
         const { data: dbProfile } = await supabase
           .from('user_profiles')
           .select('id')
@@ -310,7 +463,6 @@ export default function Checkout() {
         if (dbProfile) {
           userId = dbProfile.id;
         } else {
-          // Se ainda não achar, tenta o perfil do admin
           const { data: adminProfile } = await supabase
             .from('user_profiles')
             .select('id')
@@ -320,7 +472,6 @@ export default function Checkout() {
           if (adminProfile) {
             userId = adminProfile.id;
           } else {
-            // Se não houver nenhum perfil correspondente no banco, pega o primeiro cadastrado para não falhar a FK
             const { data: fallbackProfile } = await supabase
               .from('user_profiles')
               .select('id')
@@ -333,6 +484,7 @@ export default function Checkout() {
         }
       }
 
+      // 1. Criar pedido com status pendente no Supabase
       const { data: orderData, error: orderError } = await supabase
         .from('orders')
         .insert({
@@ -348,7 +500,33 @@ export default function Checkout() {
 
       if (orderError) throw orderError;
 
-      // 2. Tratar caminhos de acordo com a forma de pagamento
+      // 2. Salvar os itens do carrinho na tabela order_items
+      const orderItemsPayload = cartItems.map(item => ({
+        order_id: orderData.id,
+        product_id: item.id,
+        quantity: item.quantity,
+        price: item.price,
+        customizations: {
+          size: item.size || null,
+          border: item.border || null,
+          halfAndHalf: item.halfAndHalf || null,
+          extras: item.extras || null,
+          observation: item.observation || null
+        }
+      }));
+
+      const { error: itemsError } = await supabase
+        .from('order_items')
+        .insert(orderItemsPayload);
+
+      if (itemsError) {
+        console.error('Erro ao salvar itens do pedido:', itemsError);
+        // Deletar o pedido para consistência
+        await supabase.from('orders').delete().eq('id', orderData.id);
+        throw itemsError;
+      }
+
+      // 3. Tratar caminhos de acordo com a forma de pagamento
       if (paymentMethod === 'pix' || paymentMethod === 'card') {
         const mpAccessToken = import.meta.env.VITE_MERCADO_PAGO_ACCESS_TOKEN || 'APP_USR-6467752906550058-052012-042d90ecf23d61bad3d0e5664d588b8b-3404437692';
         
@@ -371,7 +549,7 @@ export default function Checkout() {
               })(),
               payer: {
                 email: profile.email || 'cliente@appdelivery.com',
-                name: profile.full_name || 'Cliente APP Delivery'
+                name: profile.full_name || 'Cliente Pizza Senna'
               },
               back_urls: {
                 success: `${window.location.origin}/checkout?status=success&order_id=${orderData.id}`,
@@ -402,7 +580,6 @@ export default function Checkout() {
             throw new Error(errData.message || 'Erro ao criar preferência de pagamento no Mercado Pago.');
           }
 
-          // Salvar itens do pedido no localStorage antes do redirecionamento
           localStorage.setItem(`order_items_${orderData.id}`, JSON.stringify(cartItems));
 
           const preference = await mpResponse.json();
@@ -412,50 +589,11 @@ export default function Checkout() {
             throw new Error('Link de pagamento inválido retornado.');
           }
         } catch (mpError: any) {
-          // Deletar o pedido criado em caso de falha na criação do pagamento
           await supabase.from('orders').delete().eq('id', orderData.id);
           throw mpError;
         }
 
-      } else if (paymentMethod === 'wallet') {
-        const userBalance = profile.cashback_balance || 0;
-        if (userBalance < total) {
-          await supabase.from('orders').delete().eq('id', orderData.id);
-          throw new Error('Saldo insuficiente na carteira para realizar a compra.');
-        }
-
-        // Somente desconta o saldo no banco de dados se for um usuário real persistido no banco
-        const { data: dbProfileCheck } = await supabase
-          .from('user_profiles')
-          .select('id')
-          .eq('id', profile.id)
-          .maybeSingle();
-
-        if (dbProfileCheck && !isAdminDemo) {
-          const { error: profileError } = await supabase
-            .from('user_profiles')
-            .update({ cashback_balance: userBalance - total })
-            .eq('id', profile.id);
-
-          if (profileError) throw profileError;
-        }
-
-        const { error: updateOrderError } = await supabase
-          .from('orders')
-          .update({ status: 'preparando', updated_at: new Date().toISOString() })
-          .eq('id', orderData.id);
-
-        if (updateOrderError) throw updateOrderError;
-
-        // Salvar itens do pedido no localStorage antes de limpar o carrinho
-        localStorage.setItem(`order_items_${orderData.id}`, JSON.stringify(cartItems));
-
-        toast.success('Pedido pago com saldo da carteira!');
-        clearCart();
-        setSearchParams({ status: 'success', order_id: orderData.id.toString() }, { replace: true });
-
       } else {
-        // Salvar itens do pedido no localStorage antes de limpar o carrinho
         localStorage.setItem(`order_items_${orderData.id}`, JSON.stringify(cartItems));
         toast.success('Pedido realizado com sucesso!');
         clearCart();
@@ -523,7 +661,7 @@ export default function Checkout() {
         cleanAddress = cleanAddress.replace("Nome: ", "*Nome:* ").replace(" | Tel: ", "\n*Tel:* ").replace(" | ", "\n*Endereço:* ");
       }
       
-      const message = `Olá! Gostaria de confirmar meu pedido *#${order.id}* no APP Delivery.\n\n` +
+      const message = `Olá! Gostaria de confirmar meu pedido *#${order.id}* no Pizza Senna.\n\n` +
                       `*Itens do Pedido:*\n${itemsText}\n\n` +
                       `*Taxa de Entrega:* R$ ${Number(order.delivery_fee).toFixed(2)}\n` +
                       `*Total:* R$ ${Number(order.total_amount).toFixed(2)}\n\n` +
@@ -805,20 +943,13 @@ export default function Checkout() {
               <h3 className="text-lg font-black italic uppercase tracking-tighter">Forma de Pagamento</h3>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               <PaymentOption 
                 icon={QrCode} 
                 label="PIX" 
                 selected={paymentMethod === 'pix'} 
                 onClick={() => setPaymentMethod('pix')} 
                 highlight
-              />
-              <PaymentOption 
-                icon={Wallet} 
-                label="Carteira" 
-                selected={paymentMethod === 'wallet'} 
-                onClick={() => setPaymentMethod('wallet')} 
-                badge="Bônus"
               />
               <PaymentOption 
                 icon={CreditCard} 
@@ -839,40 +970,6 @@ export default function Checkout() {
                 onClick={() => setPaymentMethod('delivery')} 
               />
             </div>
-
-            {paymentMethod === 'wallet' && (
-               <div className="space-y-4">
-                 <motion.div 
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="mt-8 p-6 rounded-2xl bg-primary/5 border border-primary/20 flex items-center justify-between"
-                 >
-                    <div className="flex items-center gap-4">
-                       <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
-                          <Wallet size={24} />
-                       </div>
-                       <div>
-                          <p className="text-[10px] text-text-muted font-black uppercase tracking-widest">Saldo Disponível</p>
-                          <p className="text-xl font-black text-primary">R$ {profile?.balance?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) || '0,00'}</p>
-                       </div>
-                    </div>
-                    <div className="text-right">
-                       <p className="text-[10px] text-text-muted font-black uppercase tracking-widest">Valor do Pedido</p>
-                       <p className="text-lg font-black text-text-main">R$ {total.toFixed(2)}</p>
-                    </div>
-                 </motion.div>
-                 
-                 <div className="flex justify-end mt-2">
-                   <button
-                     type="button"
-                     onClick={handleAddTestBalance}
-                     className="bg-primary text-background font-black uppercase tracking-widest text-[9px] px-4 py-2.5 rounded-xl hover:scale-105 transition-all shadow-md"
-                   >
-                     + Adicionar Saldo de Teste (R$ 100)
-                   </button>
-                 </div>
-               </div>
-            )}
 
             {paymentMethod === 'delivery' && (
                <motion.div 
@@ -971,10 +1068,13 @@ export default function Checkout() {
                     <span>- R$ {discountAmount.toFixed(2)}</span>
                   </div>
                 )}
-                <div className="flex justify-between text-xs font-bold text-text-muted uppercase tracking-widest">
-                  <span>Taxa de Entrega</span>
-                  <span>R$ {deliveryFee.toFixed(2)}</span>
-                </div>
+                 <div className="flex justify-between text-xs font-bold text-text-muted uppercase tracking-widest">
+                   <span>Taxa de Entrega {deliveryDistance !== null && `(${deliveryDistance.toFixed(1)} km)`}</span>
+                   <span className="flex items-center gap-2">
+                     {calculatingFee && <Loader2 size={12} className="animate-spin text-primary" />}
+                     R$ {deliveryFee.toFixed(2)}
+                   </span>
+                 </div>
                 <div className="flex justify-between text-2xl font-black pt-4 border-t border-white/5 italic">
                   <span>TOTAL</span>
                   <span className="text-primary text-glow">R$ {total.toFixed(2)}</span>

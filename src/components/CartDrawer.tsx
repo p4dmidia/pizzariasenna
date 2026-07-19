@@ -156,9 +156,9 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
                     </button>
                   ) : (
                     <button 
-                      onClick={() => {
+                      onClick={async () => {
                         if (couponCode.trim()) {
-                          applyCoupon(couponCode);
+                          await applyCoupon(couponCode);
                         }
                       }}
                       className="px-6 bg-surface border border-surface-border rounded-xl text-[10px] font-black uppercase tracking-widest hover:border-primary/50 transition-all cursor-pointer"
