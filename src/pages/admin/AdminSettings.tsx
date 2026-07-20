@@ -116,8 +116,7 @@ export default function AdminSettings() {
       const { error } = await supabase.from('system_settings').upsert(
         itemsToUpdate.map(s => ({
           key: s.key,
-          value: s.value || '',
-          updated_at: new Date().toISOString()
+          value: s.value || ''
         })),
         { onConflict: 'key' }
       );

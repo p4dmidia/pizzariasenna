@@ -180,13 +180,13 @@ export default function AdminDashboard() {
 
   const handleModeChange = async (newMode: 'auto' | 'manual_open' | 'manual_closed') => {
     try {
-      const updates: Array<{ key: string; value: string; updated_at: string }> = [
-        { key: 'operating_mode', value: newMode, updated_at: new Date().toISOString() }
+      const updates: Array<{ key: string; value: string }> = [
+        { key: 'operating_mode', value: newMode }
       ];
       if (newMode === 'manual_open') {
-        updates.push({ key: 'store_open', value: 'true', updated_at: new Date().toISOString() });
+        updates.push({ key: 'store_open', value: 'true' });
       } else if (newMode === 'manual_closed') {
-        updates.push({ key: 'store_open', value: 'false', updated_at: new Date().toISOString() });
+        updates.push({ key: 'store_open', value: 'false' });
       }
 
       const { error } = await supabase.from('system_settings').upsert(updates, { onConflict: 'key' });
