@@ -15,7 +15,7 @@ export default defineConfig(({mode}) => {
         devOptions: {
           enabled: true
         },
-        includeAssets: ['pwa-icon.jpeg', 'favicon.ico', 'robots.txt', 'apple-touch-icon.png'],
+        includeAssets: ['pwa-icon.jpeg', 'logo.jpg', 'favicon.ico', 'robots.txt', 'apple-touch-icon.png'],
         manifest: {
           name: 'Pizzaria Senna',
           short_name: 'Pizzaria Senna',
@@ -27,10 +27,17 @@ export default defineConfig(({mode}) => {
             {
               src: 'pwa-icon.jpeg',
               sizes: '192x192',
-              type: 'image/jpeg'
+              type: 'image/jpeg',
+              purpose: 'any maskable'
             },
             {
               src: 'pwa-icon.jpeg',
+              sizes: '512x512',
+              type: 'image/jpeg',
+              purpose: 'any maskable'
+            },
+            {
+              src: 'logo.jpg',
               sizes: '512x512',
               type: 'image/jpeg'
             }
