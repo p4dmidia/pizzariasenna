@@ -19,7 +19,9 @@ import {
   Edit,
   X,
   CheckCircle2,
-  Copy
+  Copy,
+  Search,
+  Navigation
 } from 'lucide-react';
 import AdminLayout from '../../components/AdminLayout';
 import { supabase } from '../../lib/supabase';
@@ -52,6 +54,115 @@ export default function AdminSettings() {
   const [couponMinSubtotal, setCouponMinSubtotal] = useState(0);
   const [couponExpiresAt, setCouponExpiresAt] = useState('');
   const [couponIsActive, setCouponIsActive] = useState(true);
+
+  // Address lookup & geocoding state
+  const [loadingCep, setLoadingCep] = useState(false);
+  const [loadingGeocode, setLoadingGeocode] = useState(false);
+
+  const formatFullAddress = (street: string, number: string, neighborhood: string, city: string, state: string, cep: string, complement: string) => {
+    let parts: string[] = [];
+    if (street) parts.push(street + (number ? `, ${number}` : ''));
+    if (complement) parts.push(complement);
+    if (neighborhood) parts.push(neighborhood);
+    if (city || state) parts.push(`${city || ''}${city && state ? ' - ' : ''}${state || ''}`);
+    if (cep) parts.push(`CEP ${cep}`);
+    return parts.join(', ');
+  };
+
+  const updateAddressPart = (field: string, val: string) => {
+    updateSetting(field, val);
+
+    const street = field === 'store_street' ? val : getSetting('store_street').value || '';
+    const number = field === 'store_number' ? val : getSetting('store_number').value || '';
+    const neighborhood = field === 'store_neighborhood' ? val : getSetting('store_neighborhood').value || '';
+    const city = field === 'store_city' ? val : getSetting('store_city').value || '';
+    const state = field === 'store_state' ? val : getSetting('store_state').value || '';
+    const cep = field === 'store_cep' ? val : getSetting('store_cep').value || '';
+    const complement = field === 'store_complement' ? val : getSetting('store_complement').value || '';
+
+    const newFull = formatFullAddress(street, number, neighborhood, city, state, cep, complement);
+    updateSetting('store_address', newFull);
+  };
+
+  const handleSearchCep = async (cepInput?: string) => {
+    const rawCep = cepInput || getSetting('store_cep').value || '';
+    const cleanCep = rawCep.replace(/\D/g, '');
+    if (cleanCep.length !== 8) {
+      toast.error('Informe um CEP válido com 8 dígitos (ex: 01001000).');
+      return;
+    }
+
+    try {
+      setLoadingCep(true);
+      const res = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
+      const data = await res.json();
+
+      if (data.erro) {
+        toast.error('CEP não encontrado no ViaCEP.');
+        return;
+      }
+
+      const formattedCep = cleanCep.replace(/^(\d{5})(\d{3})$/, '$1-$2');
+      updateSetting('store_cep', formattedCep);
+      updateSetting('store_street', data.logradouro || '');
+      updateSetting('store_neighborhood', data.bairro || '');
+      updateSetting('store_city', data.localidade || '');
+      updateSetting('store_state', data.uf || '');
+
+      const currentNum = getSetting('store_number').value || '';
+      const currentComp = getSetting('store_complement').value || '';
+
+      const fullAddr = formatFullAddress(
+        data.logradouro || '',
+        currentNum,
+        data.bairro || '',
+        data.localidade || '',
+        data.uf || '',
+        formattedCep,
+        currentComp
+      );
+      updateSetting('store_address', fullAddr);
+      toast.success('Endereço preenchido com sucesso pelo CEP!');
+    } catch (err: any) {
+      toast.error('Erro ao buscar CEP: ' + err.message);
+    } finally {
+      setLoadingCep(false);
+    }
+  };
+
+  const handleGeocode = async () => {
+    const street = getSetting('store_street').value;
+    const number = getSetting('store_number').value;
+    const city = getSetting('store_city').value;
+    const state = getSetting('store_state').value;
+    const fullAddress = getSetting('store_address').value;
+
+    const query = [street, number, city, state, 'Brasil'].filter(Boolean).join(', ') || fullAddress;
+    if (!query || query === 'Brasil') {
+      toast.error('Preencha o endereço ou CEP da pizzaria primeiro.');
+      return;
+    }
+
+    try {
+      setLoadingGeocode(true);
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`);
+      const data = await res.json();
+
+      if (data && data.length > 0) {
+        const lat = parseFloat(data[0].lat).toFixed(6);
+        const lon = parseFloat(data[0].lon).toFixed(6);
+        updateSetting('store_latitude', lat.toString());
+        updateSetting('store_longitude', lon.toString());
+        toast.success(`Coordenadas obtidas: Lat ${lat}, Lng ${lon}`);
+      } else {
+        toast.error('Coordenadas não localizadas automaticamente. Tente preencher Rua, Número e Cidade.');
+      }
+    } catch (err: any) {
+      toast.error('Erro ao buscar coordenadas: ' + err.message);
+    } finally {
+      setLoadingGeocode(false);
+    }
+  };
 
   useEffect(() => {
     fetchData();
@@ -275,7 +386,7 @@ export default function AdminSettings() {
                   <SectionCard 
                     title="Funcionamento & Entrega" 
                     icon={Store} 
-                    onSave={() => saveSettings(['store_open', 'operating_mode', 'opening_time', 'closing_time', 'operating_days', 'delivery_time_est', 'store_address', 'store_latitude', 'store_longitude', 'delivery_base_fee', 'delivery_rules'])}
+                    onSave={() => saveSettings(['store_open', 'operating_mode', 'opening_time', 'closing_time', 'operating_days', 'delivery_time_est', 'store_cep', 'store_street', 'store_number', 'store_neighborhood', 'store_city', 'store_state', 'store_complement', 'store_address', 'store_latitude', 'store_longitude', 'delivery_base_fee', 'delivery_rules'])}
                     saving={saving}
                   >
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -396,29 +507,170 @@ export default function AdminSettings() {
                         </div>
                       </div>
                       
-                      <SettingInput 
-                        label="Tempo Estimado de Entrega" 
-                        value={getSetting('delivery_time_est').value} 
-                        onChange={(val: string) => updateSetting('delivery_time_est', val)} 
-                        icon={Clock}
-                        placeholder="Ex: 35 - 50 min"
-                      />
-                      
                       <div className="md:col-span-2">
                         <SettingInput 
-                          label="Endereço da Pizzaria" 
-                          value={getSetting('store_address').value} 
-                          onChange={(val: string) => updateSetting('store_address', val)} 
-                          icon={MapPin}
-                          placeholder="Ex: Av. Principal, 1234 - Centro"
+                          label="Tempo Estimado de Entrega" 
+                          value={getSetting('delivery_time_est').value} 
+                          onChange={(val: string) => updateSetting('delivery_time_est', val)} 
+                          icon={Clock}
+                          placeholder="Ex: 35 - 50 min"
                         />
+                      </div>
+
+                      {/* Endereço Completo da Pizzaria */}
+                      <div className="md:col-span-2 pt-4 border-t border-surface-border space-y-4">
+                        <h4 className="text-sm font-black uppercase tracking-widest text-primary flex items-center gap-2">
+                          <MapPin size={16} /> Endereço da Pizzaria
+                        </h4>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                          {/* CEP + Botão Buscar CEP */}
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-black uppercase text-text-muted ml-1 flex items-center gap-2">
+                              <MapPin size={12} className="text-primary/50" /> CEP da Pizzaria
+                            </label>
+                            <div className="flex gap-2">
+                              <input 
+                                type="text" 
+                                value={getSetting('store_cep').value} 
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  updateAddressPart('store_cep', val);
+                                  const clean = val.replace(/\D/g, '');
+                                  if (clean.length === 8) {
+                                    handleSearchCep(clean);
+                                  }
+                                }}
+                                placeholder="Ex: 01001-000"
+                                className="w-full bg-background border border-surface-border rounded-xl py-3 px-4 outline-none focus:border-primary/50 text-sm font-bold text-text-main"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => handleSearchCep()}
+                                disabled={loadingCep}
+                                className="px-4 py-3 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all whitespace-nowrap disabled:opacity-50"
+                              >
+                                {loadingCep ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
+                                Buscar CEP
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Logradouro / Rua */}
+                          <div className="sm:col-span-2 space-y-2">
+                            <label className="text-[10px] font-black uppercase text-text-muted ml-1">
+                              Rua / Logradouro
+                            </label>
+                            <input 
+                              type="text" 
+                              value={getSetting('store_street').value} 
+                              onChange={(e) => updateAddressPart('store_street', e.target.value)}
+                              placeholder="Ex: Av. Paulista"
+                              className="w-full bg-background border border-surface-border rounded-xl py-3 px-4 outline-none focus:border-primary/50 text-sm font-bold text-text-main"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                          {/* Número */}
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-black uppercase text-text-muted ml-1">
+                              Número
+                            </label>
+                            <input 
+                              type="text" 
+                              value={getSetting('store_number').value} 
+                              onChange={(e) => updateAddressPart('store_number', e.target.value)}
+                              placeholder="Ex: 1234"
+                              className="w-full bg-background border border-surface-border rounded-xl py-3 px-4 outline-none focus:border-primary/50 text-sm font-bold text-text-main"
+                            />
+                          </div>
+
+                          {/* Complemento */}
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-black uppercase text-text-muted ml-1">
+                              Complemento
+                            </label>
+                            <input 
+                              type="text" 
+                              value={getSetting('store_complement').value} 
+                              onChange={(e) => updateAddressPart('store_complement', e.target.value)}
+                              placeholder="Ex: Loja 01"
+                              className="w-full bg-background border border-surface-border rounded-xl py-3 px-4 outline-none focus:border-primary/50 text-sm font-bold text-text-main"
+                            />
+                          </div>
+
+                          {/* Bairro */}
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-black uppercase text-text-muted ml-1">
+                              Bairro
+                            </label>
+                            <input 
+                              type="text" 
+                              value={getSetting('store_neighborhood').value} 
+                              onChange={(e) => updateAddressPart('store_neighborhood', e.target.value)}
+                              placeholder="Ex: Centro"
+                              className="w-full bg-background border border-surface-border rounded-xl py-3 px-4 outline-none focus:border-primary/50 text-sm font-bold text-text-main"
+                            />
+                          </div>
+
+                          {/* Cidade / UF */}
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-black uppercase text-text-muted ml-1">
+                              Cidade / UF
+                            </label>
+                            <div className="flex gap-2">
+                              <input 
+                                type="text" 
+                                value={getSetting('store_city').value} 
+                                onChange={(e) => updateAddressPart('store_city', e.target.value)}
+                                placeholder="Cidade"
+                                className="flex-1 bg-background border border-surface-border rounded-xl py-3 px-3 outline-none focus:border-primary/50 text-sm font-bold text-text-main"
+                              />
+                              <input 
+                                type="text" 
+                                maxLength={2}
+                                value={getSetting('store_state').value} 
+                                onChange={(e) => updateAddressPart('store_state', e.target.value.toUpperCase())}
+                                placeholder="UF"
+                                className="w-14 bg-background border border-surface-border rounded-xl py-3 text-center outline-none focus:border-primary/50 text-sm font-bold text-text-main uppercase"
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Endereço Completo Formatado */}
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black uppercase text-text-muted ml-1">
+                            Endereço Formatado Completo (Exibido no aplicativo)
+                          </label>
+                          <input 
+                            type="text" 
+                            value={getSetting('store_address').value} 
+                            onChange={(e) => updateSetting('store_address', e.target.value)}
+                            placeholder="Ex: Av. Pizzaria Senna, 1234 - Centro, São Paulo - SP, CEP 01001-000"
+                            className="w-full bg-background border border-surface-border rounded-xl py-3 px-4 outline-none focus:border-primary/50 text-sm font-bold text-text-main"
+                          />
+                        </div>
                       </div>
 
                       {/* Geolocalização e Entrega Dinâmica */}
                       <div className="md:col-span-2 pt-4 border-t border-surface-border space-y-4">
-                        <h4 className="text-sm font-black uppercase tracking-widest text-primary flex items-center gap-2">
-                          <MapPin size={16} /> Geolocalização & Entrega Dinâmica
-                        </h4>
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <h4 className="text-sm font-black uppercase tracking-widest text-primary flex items-center gap-2">
+                            <Navigation size={16} /> Geolocalização & Entrega Dinâmica
+                          </h4>
+                          <button
+                            type="button"
+                            onClick={handleGeocode}
+                            disabled={loadingGeocode}
+                            className="px-4 py-2 bg-secondary/10 hover:bg-secondary/20 text-secondary border border-secondary/20 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 transition-all disabled:opacity-50"
+                          >
+                            {loadingGeocode ? <Loader2 size={14} className="animate-spin" /> : <Navigation size={14} />}
+                            Obter Coordenadas GPS pelo Endereço
+                          </button>
+                        </div>
+
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                           <SettingInput 
                             label="Latitude da Loja" 

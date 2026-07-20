@@ -31,6 +31,7 @@ import { toast } from 'react-hot-toast';
 import AppLogo from '../components/AppLogo';
 import CartDrawer from '../components/CartDrawer';
 import NotificationBell from '../components/NotificationBell';
+import UserHeader from '../components/UserHeader';
 
 export default function MyOrders() {
   const { user, profile, loading: authLoading, signOut } = useAuth();
@@ -244,85 +245,13 @@ export default function MyOrders() {
   };
 
   return (
-    <div className="min-h-screen bg-background text-text-main font-sans flex">
-      {/* Mobile Sidebar Overlay */}
-      {isSidebarOpen && (
-        <div 
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] lg:hidden"
-          onClick={() => setIsSidebarOpen(false)}
-        />
-      )}
-
-      {/* Sidebar */}
-      <aside className={`
-        fixed inset-y-0 left-0 z-[70] w-72 glass border-r border-surface-border flex flex-col transition-transform duration-300 lg:translate-x-0
-        ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"}
-      `}>
-        <div className="p-6 flex items-center justify-between lg:hidden border-b border-surface-border/5">
-          <span className="font-black text-primary uppercase tracking-widest text-sm">Menu</span>
-          <button onClick={() => setIsSidebarOpen(false)} className="text-text-muted hover:text-white">
-            <X size={24} />
-          </button>
-        </div>
-
-        {/* Logo no topo da Sidebar (Desktop) */}
-        <div className="p-8 hidden lg:block border-b border-surface-border/5">
-          <Link to="/" className="flex items-center gap-3">
-             <AppLogo />
-          </Link>
-        </div>
-
-        <div className="p-6 flex-1 flex flex-col justify-between overflow-y-auto">
-          <div>
-            <nav className="space-y-1">
-              <SidebarLink icon={User} label="Minha Conta" isLink to="/profile" />
-              <SidebarLink icon={History} label="Meus Pedidos" active />
-              <SidebarLink icon={Heart} label="Favoritos" isLink to="/favorites" />
-              <SidebarLink icon={Ticket} label="Cupons" isLink to="/coupons" />
-              <SidebarLink icon={HelpCircle} label="Suporte" isLink to="/support" />
-            </nav>
-          </div>
-
-          <div className="mt-8">
-            <button 
-              onClick={signOut}
-              className="flex items-center gap-3 w-full p-4 text-text-muted hover:text-red-400 transition-colors font-black text-xs uppercase tracking-widest"
-            >
-              <LogOut size={18} /> Sair da Conta
-            </button>
-          </div>
-        </div>
-      </aside>
+    <div className="min-h-screen bg-background text-text-main font-sans flex flex-col">
+      <UserHeader />
 
       {/* Main Content */}
-      <main className="flex-1 lg:ml-72 min-h-screen flex flex-col">
-        {/* Header */}
-        <header className="h-20 glass-card mx-6 mt-6 flex items-center justify-between px-8 border border-white/5 shrink-0">
-          <div className="flex items-center gap-4">
-            <button onClick={() => setIsSidebarOpen(true)} className="lg:hidden text-primary">
-              <Menu size={24} />
-            </button>
-            <Link to="/" className="flex items-center gap-3 lg:hidden">
-               <AppLogo />
-            </Link>
-          </div>
-
-          <div className="flex items-center gap-2 md:gap-4 ml-auto">
-            <div className="flex items-center gap-3 pl-4 md:pl-6">
-              <div className="text-right hidden sm:block">
-                <p className="text-xs font-black uppercase text-text-main leading-tight">{profile?.full_name}</p>
-                <p className="text-[10px] text-primary font-bold mt-0.5">Cliente Senna</p>
-              </div>
-              <Link to="/profile" className="w-10 h-10 rounded-xl bg-surface border border-surface-border flex items-center justify-center overflow-hidden flex-shrink-0 hover:scale-105 transition-all">
-                <img src={profile?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile?.full_name || 'User')}&background=EA1D2C&color=FFFFFF&bold=true`} alt="Avatar" className="w-full h-full object-cover" />
-              </Link>
-            </div>
-            <NotificationBell />
-          </div>
-        </header>
-
+      <main className="flex-1 min-h-screen flex flex-col w-full max-w-[1400px] mx-auto px-2 sm:px-4">
         {/* Inner Content */}
-        <div className="flex-1 p-6 md:p-12 max-w-4xl overflow-x-hidden">
+        <div className="flex-1 p-6 md:p-12 max-w-5xl mx-auto w-full overflow-x-hidden">
           <div className="flex items-center gap-4 mb-8">
             <button onClick={() => navigate('/')} className="p-2 hover:bg-surface rounded-xl transition-all text-text-muted hover:text-primary">
               <ArrowLeft size={20} />
