@@ -24,6 +24,7 @@ import {
 import AdminLayout from '../../components/AdminLayout';
 import { supabase } from '../../lib/supabase';
 import { toast } from 'react-hot-toast';
+import { DAYS_OF_WEEK, isStoreCurrentlyOpen } from '../../utils/storeHours';
 
 const TABS = [
   { id: 'geral', label: 'Geral', icon: Globe },
@@ -275,22 +276,125 @@ export default function AdminSettings() {
                   <SectionCard 
                     title="Funcionamento & Entrega" 
                     icon={Store} 
-                    onSave={() => saveSettings(['store_open', 'delivery_time_est', 'store_address', 'store_latitude', 'store_longitude', 'delivery_base_fee', 'delivery_rules'])}
+                    onSave={() => saveSettings(['store_open', 'operating_mode', 'opening_time', 'closing_time', 'operating_days', 'delivery_time_est', 'store_address', 'store_latitude', 'store_longitude', 'delivery_base_fee', 'delivery_rules'])}
                     saving={saving}
                   >
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="space-y-2">
                         <label className="text-[10px] font-black uppercase text-text-muted ml-1 flex items-center gap-2">
-                          <Store size={12} className="text-primary/50" /> Status da Loja
+                          <Store size={12} className="text-primary/50" /> Modo de Funcionamento
                         </label>
                         <select 
-                          value={getSetting('store_open').value} 
-                          onChange={(e) => updateSetting('store_open', e.target.value)}
-                          className="w-full bg-background border border-surface-border rounded-xl py-3 px-4 outline-none focus:border-primary/50 text-sm cursor-pointer font-bold text-white appearance-none"
+                          value={getSetting('operating_mode').value || 'auto'} 
+                          onChange={(e) => {
+                            updateSetting('operating_mode', e.target.value);
+                            if (e.target.value === 'manual_open') updateSetting('store_open', 'true');
+                            if (e.target.value === 'manual_closed') updateSetting('store_open', 'false');
+                          }}
+                          className="w-full bg-background border border-surface-border rounded-xl py-3 px-4 outline-none focus:border-primary/50 text-sm cursor-pointer font-bold text-text-main appearance-none"
                         >
-                          <option value="true">Aberta para pedidos</option>
-                          <option value="false">Fechada temporariamente</option>
+                          <option value="auto">⏱️ Automático (por Horário e Dias)</option>
+                          <option value="manual_open">🟢 Manual: Forçar Loja Aberta</option>
+                          <option value="manual_closed">🔴 Manual: Forçar Loja Fechada</option>
                         </select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase text-text-muted ml-1 flex items-center gap-2">
+                          Status Atual Em Tempo Real
+                        </label>
+                        <div className={`py-3 px-4 rounded-xl border text-xs font-black uppercase tracking-wider flex items-center justify-between ${
+                          isStoreCurrentlyOpen({
+                            operating_mode: getSetting('operating_mode').value || 'auto',
+                            opening_time: getSetting('opening_time').value || '18:00',
+                            closing_time: getSetting('closing_time').value || '23:30',
+                            operating_days: getSetting('operating_days').value || '[0,1,2,3,4,5,6]',
+                            store_open: getSetting('store_open').value === 'true'
+                          }) 
+                            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' 
+                            : 'bg-red-500/10 text-red-400 border-red-500/20'
+                        }`}>
+                          <span>
+                            {isStoreCurrentlyOpen({
+                              operating_mode: getSetting('operating_mode').value || 'auto',
+                              opening_time: getSetting('opening_time').value || '18:00',
+                              closing_time: getSetting('closing_time').value || '23:30',
+                              operating_days: getSetting('operating_days').value || '[0,1,2,3,4,5,6]',
+                              store_open: getSetting('store_open').value === 'true'
+                            }) ? '● Loja Aberta Agora' : '● Loja Fechada Agora'}
+                          </span>
+                          <span className="text-[9px] opacity-70">
+                            {getSetting('operating_mode').value === 'manual_open' ? 'Modo Manual' : getSetting('operating_mode').value === 'manual_closed' ? 'Modo Manual' : 'Modo Automático'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase text-text-muted ml-1 flex items-center gap-2">
+                          <Clock size={12} className="text-primary/50" /> Horário de Abertura
+                        </label>
+                        <input 
+                          type="time" 
+                          value={getSetting('opening_time').value || '18:00'}
+                          onChange={(e) => updateSetting('opening_time', e.target.value)}
+                          className="w-full bg-background border border-surface-border rounded-xl py-3 px-4 outline-none focus:border-primary/50 text-sm font-bold text-text-main"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase text-text-muted ml-1 flex items-center gap-2">
+                          <Clock size={12} className="text-primary/50" /> Horário de Fechamento
+                        </label>
+                        <input 
+                          type="time" 
+                          value={getSetting('closing_time').value || '23:30'}
+                          onChange={(e) => updateSetting('closing_time', e.target.value)}
+                          className="w-full bg-background border border-surface-border rounded-xl py-3 px-4 outline-none focus:border-primary/50 text-sm font-bold text-text-main"
+                        />
+                      </div>
+
+                      <div className="md:col-span-2 space-y-2">
+                        <label className="text-[10px] font-black uppercase text-text-muted ml-1">
+                          Dias da Semana de Funcionamento
+                        </label>
+                        <div className="flex flex-wrap gap-2">
+                          {DAYS_OF_WEEK.map((d) => {
+                            let currentDays: number[] = [0, 1, 2, 3, 4, 5, 6];
+                            try {
+                              const raw = getSetting('operating_days').value;
+                              if (raw) currentDays = typeof raw === 'string' ? JSON.parse(raw) : raw;
+                            } catch (e) {
+                              currentDays = [0, 1, 2, 3, 4, 5, 6];
+                            }
+
+                            const isActive = currentDays.includes(d.id);
+
+                            const toggleDay = () => {
+                              let nextDays = [...currentDays];
+                              if (isActive) {
+                                nextDays = nextDays.filter(id => id !== d.id);
+                              } else {
+                                nextDays.push(d.id);
+                              }
+                              updateSetting('operating_days', JSON.stringify(nextDays));
+                            };
+
+                            return (
+                              <button
+                                key={d.id}
+                                type="button"
+                                onClick={toggleDay}
+                                className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all border ${
+                                  isActive 
+                                    ? 'bg-primary text-background border-primary glow-primary' 
+                                    : 'bg-background hover:bg-surface-hover text-text-muted border-surface-border'
+                                }`}
+                              >
+                                {d.short}
+                              </button>
+                            );
+                          })}
+                        </div>
                       </div>
                       
                       <SettingInput 
@@ -378,7 +482,7 @@ export default function AdminSettings() {
                                           type="number" 
                                           value={rule.maxDistance} 
                                           onChange={(e) => updateRuleField(idx, 'maxDistance', parseFloat(e.target.value) || 0)}
-                                          className="w-full bg-background border border-surface-border rounded-lg py-1.5 px-3 text-xs text-white font-bold outline-none focus:border-primary/50" 
+                                          className="w-full bg-background border border-surface-border rounded-lg py-1.5 px-3 text-xs text-text-main font-bold outline-none focus:border-primary/50" 
                                           placeholder="Distância"
                                         />
                                         <span className="text-xs text-text-muted font-bold">Km</span>
@@ -390,7 +494,7 @@ export default function AdminSettings() {
                                           step="0.01"
                                           value={rule.fee} 
                                           onChange={(e) => updateRuleField(idx, 'fee', parseFloat(e.target.value) || 0)}
-                                          className="w-full bg-background border border-surface-border rounded-lg py-1.5 px-3 text-xs text-white font-bold outline-none focus:border-primary/50" 
+                                          className="w-full bg-background border border-surface-border rounded-lg py-1.5 px-3 text-xs text-text-main font-bold outline-none focus:border-primary/50" 
                                           placeholder="Valor"
                                         />
                                       </div>
@@ -625,7 +729,7 @@ export default function AdminSettings() {
                       value={couponCode}
                       onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
                       placeholder="EX: PIZZA10"
-                      className="w-full bg-background border border-surface-border rounded-xl py-3 px-4 text-sm text-white font-bold outline-none focus:border-primary/50 uppercase"
+                      className="w-full bg-background border border-surface-border rounded-xl py-3 px-4 text-sm text-text-main font-bold outline-none focus:border-primary/50 uppercase"
                     />
                   </div>
 
@@ -634,7 +738,7 @@ export default function AdminSettings() {
                     <select
                       value={couponType}
                       onChange={(e) => setCouponType(e.target.value as any)}
-                      className="w-full bg-background border border-surface-border rounded-xl py-3 px-4 text-sm text-white font-bold outline-none focus:border-primary/50"
+                      className="w-full bg-background border border-surface-border rounded-xl py-3 px-4 text-sm text-text-main font-bold outline-none focus:border-primary/50"
                     >
                       <option value="percentage">Porcentagem (%)</option>
                       <option value="fixed">Valor Fixo (R$)</option>
@@ -651,7 +755,7 @@ export default function AdminSettings() {
                       disabled={couponType === 'shipping'}
                       value={couponType === 'shipping' ? 0 : couponValue}
                       onChange={(e) => setCouponValue(parseFloat(e.target.value) || 0)}
-                      className="w-full bg-background border border-surface-border rounded-xl py-3 px-4 text-sm text-white font-bold outline-none focus:border-primary/50 disabled:opacity-50"
+                      className="w-full bg-background border border-surface-border rounded-xl py-3 px-4 text-sm text-text-main font-bold outline-none focus:border-primary/50 disabled:opacity-50"
                     />
                   </div>
 
@@ -663,7 +767,7 @@ export default function AdminSettings() {
                       min="0"
                       value={couponMinSubtotal}
                       onChange={(e) => setCouponMinSubtotal(parseFloat(e.target.value) || 0)}
-                      className="w-full bg-background border border-surface-border rounded-xl py-3 px-4 text-sm text-white font-bold outline-none focus:border-primary/50"
+                      className="w-full bg-background border border-surface-border rounded-xl py-3 px-4 text-sm text-text-main font-bold outline-none focus:border-primary/50"
                     />
                   </div>
 
@@ -673,7 +777,7 @@ export default function AdminSettings() {
                       type="date"
                       value={couponExpiresAt}
                       onChange={(e) => setCouponExpiresAt(e.target.value)}
-                      className="w-full bg-background border border-surface-border rounded-xl py-3 px-4 text-sm text-white font-bold outline-none focus:border-primary/50"
+                      className="w-full bg-background border border-surface-border rounded-xl py-3 px-4 text-sm text-text-main font-bold outline-none focus:border-primary/50"
                     />
                   </div>
                 </div>
@@ -685,7 +789,7 @@ export default function AdminSettings() {
                     value={couponDescription}
                     onChange={(e) => setCouponDescription(e.target.value)}
                     placeholder="Ex: R$ 10 de desconto nas pizzas clássicas"
-                    className="w-full bg-background border border-surface-border rounded-xl py-3 px-4 text-sm text-white font-bold outline-none focus:border-primary/50"
+                    className="w-full bg-background border border-surface-border rounded-xl py-3 px-4 text-sm text-text-main font-bold outline-none focus:border-primary/50"
                   />
                 </div>
 
@@ -770,7 +874,7 @@ function SettingInput({ label, value, onChange, type = 'text', icon: Icon, place
         value={value} 
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full bg-background border border-surface-border rounded-xl py-3 px-4 outline-none focus:border-primary/50 text-sm transition-all focus:ring-1 focus:ring-primary/20 text-white font-bold" 
+        className="w-full bg-background border border-surface-border rounded-xl py-3 px-4 outline-none focus:border-primary/50 text-sm transition-all focus:ring-1 focus:ring-primary/20 text-text-main font-bold" 
       />
     </div>
   );

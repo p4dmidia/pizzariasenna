@@ -526,7 +526,7 @@ export default function AdminOrders() {
                                                setSelectedOrderDetails(order);
                                                setActiveMenuOrderId(null);
                                              }}
-                                             className="w-full text-left px-4 py-2.5 text-xs font-bold text-white hover:bg-white/5 transition-colors"
+                                             className="w-full text-left px-4 py-2.5 text-xs font-bold text-text-main hover:bg-white/5 transition-colors"
                                            >
                                              Ver Detalhes
                                            </button>
@@ -729,10 +729,10 @@ export default function AdminOrders() {
                           <div key={item.id} className="bg-white/5 p-4 rounded-xl space-y-1">
                             <div className="flex justify-between items-start">
                               <div>
-                                <span className="text-xs font-black text-white">{item.quantity}x {name}</span>
+                                <span className="text-xs font-black text-text-main">{item.quantity}x {name}</span>
                                 {cust.size && (
                                   <span className="text-[9px] uppercase font-black tracking-wider text-primary ml-2">
-                                    ({cust.size === 'brotinho' ? 'Brotinho' : cust.size === 'media' ? 'Média' : 'Grande'})
+                                    ({cust.size === 'pequena' ? 'Pequena (16cm)' : cust.size === 'media' ? 'Média (20cm)' : cust.size === 'grande' ? 'Grande (25cm)' : cust.size === 'familia' ? 'Família (30cm)' : cust.size === 'gigante' ? 'Gigante (35cm)' : cust.size})
                                   </span>
                                 )}
                               </div>
@@ -741,19 +741,19 @@ export default function AdminOrders() {
                             
                             {halfAndHalf && (
                               <p className="text-[10px] text-text-muted font-bold">
-                                Metade 2: <span className="text-white">{halfAndHalf.secondFlavorName}</span>
+                                Metade 2: <span className="text-text-main">{halfAndHalf.secondFlavorName}</span>
                               </p>
                             )}
                             
                             {cust.border && cust.border !== 'none' && (
                               <p className="text-[9px] text-text-muted uppercase tracking-wider font-bold">
-                                Borda: <span className="text-white">{cust.border === 'catupiry' ? 'Catupiry' : 'Cheddar'}</span>
+                                Borda: <span className="text-text-main">{cust.border === 'catupiry' ? 'Catupiry' : 'Cheddar'}</span>
                               </p>
                             )}
 
                             {extras.length > 0 && (
                               <p className="text-[9px] text-text-muted uppercase tracking-wider font-bold">
-                                Extras: <span className="text-white">{extras.map((e: any) => e.name).join(', ')}</span>
+                                Extras: <span className="text-text-main">{extras.map((e: any) => e.name).join(', ')}</span>
                               </p>
                             )}
 

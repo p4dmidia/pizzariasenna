@@ -22,6 +22,7 @@ import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 import { toast } from 'react-hot-toast';
+import { isStoreCurrentlyOpen } from '../utils/storeHours';
 
 import AppLogo from '../components/AppLogo';
 
@@ -431,14 +432,21 @@ export default function Checkout() {
     setIsProcessing(true);
 
     try {
-      const { data: storeOpenSetting } = await supabase
-        .from('system_settings')
-        .select('value')
-        .eq('key', 'store_open')
-        .maybeSingle();
+      const { data: allSettings } = await supabase.from('system_settings').select('*');
+      if (allSettings) {
+        const sMap: any = {};
+        allSettings.forEach(s => sMap[s.key] = s.value);
+        const isOpenNow = isStoreCurrentlyOpen({
+          operating_mode: sMap['operating_mode'] || 'auto',
+          opening_time: sMap['opening_time'] || '18:00',
+          closing_time: sMap['closing_time'] || '23:30',
+          operating_days: sMap['operating_days'] || '[0,1,2,3,4,5,6]',
+          store_open: sMap['store_open'] === 'true'
+        });
 
-      if (storeOpenSetting && storeOpenSetting.value === 'false') {
-        throw new Error('O estabelecimento está fechado no momento. Desculpe pelo inconveniente!');
+        if (!isOpenNow) {
+          throw new Error('O estabelecimento está fechado no momento. Desculpe pelo inconveniente!');
+        }
       }
       const isGuest = !authProfile && !isAdminDemo;
       const addressSummary = (isGuest ? `Nome: ${profile.full_name} | Tel: ${profile.phone} | ` : '') + (profile.address 

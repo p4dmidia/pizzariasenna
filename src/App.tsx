@@ -33,6 +33,7 @@ import { useState, useEffect } from 'react';
 import CartDrawer from './components/CartDrawer';
 
 import { CartProvider, useCart } from './context/CartContext';
+import { isStoreCurrentlyOpen } from './utils/storeHours';
 
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -107,12 +108,25 @@ function DeliveryApp() {
   
   // Status de funcionamento da loja e infos gerais
   const [storeSettings, setStoreSettings] = useState({
+    operating_mode: 'auto',
+    opening_time: '18:00',
+    closing_time: '23:30',
+    operating_days: '[0,1,2,3,4,5,6]',
     store_open: true,
     delivery_time_est: '35 - 50 min',
     store_address: 'Av. Pizzaria Senna, 1234 - Centro',
-    support_whatsapp: '5511999999999'
+    support_whatsapp: '5511999999999',
+    lastCheckTime: Date.now()
   });
   const [storeRating, setStoreRating] = useState({ rating: 4.8, count: 42 });
+
+  const isCurrentlyOpen = isStoreCurrentlyOpen({
+    operating_mode: storeSettings.operating_mode,
+    opening_time: storeSettings.opening_time,
+    closing_time: storeSettings.closing_time,
+    operating_days: storeSettings.operating_days,
+    store_open: storeSettings.store_open
+  });
 
   useEffect(() => {
     async function loadData() {
@@ -159,12 +173,18 @@ function DeliveryApp() {
             settingsMap[s.key] = s.value;
           });
           
-          setStoreSettings({
+          setStoreSettings(prev => ({
+            ...prev,
+            operating_mode: settingsMap['operating_mode'] || 'auto',
+            opening_time: settingsMap['opening_time'] || '18:00',
+            closing_time: settingsMap['closing_time'] || '23:30',
+            operating_days: settingsMap['operating_days'] || '[0,1,2,3,4,5,6]',
             store_open: settingsMap['store_open'] === 'true',
             delivery_time_est: settingsMap['delivery_time_est'] || '35 - 50 min',
             store_address: settingsMap['store_address'] || 'Av. Pizzaria Senna, 1234 - Centro',
-            support_whatsapp: settingsMap['support_whatsapp'] || '5511999999999'
-          });
+            support_whatsapp: settingsMap['support_whatsapp'] || '5511999999999',
+            lastCheckTime: Date.now()
+          }));
         }
 
         if (reviewsRes.data && reviewsRes.data.length > 0) {
@@ -181,6 +201,24 @@ function DeliveryApp() {
 
     loadData();
     loadSettings();
+
+    // Ticker a cada 5 segundos para re-avaliar status do horário sem F5
+    const timer = setInterval(() => {
+      setStoreSettings(prev => ({ ...prev, lastCheckTime: Date.now() }));
+    }, 5000);
+
+    // Inscrição em tempo real no Supabase
+    const channel = supabase
+      .channel('public:system_settings_app')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'system_settings' }, () => {
+        loadSettings();
+      })
+      .subscribe();
+
+    return () => {
+      clearInterval(timer);
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const displayedCategories = categories.length > 0 ? categories.map(cat => ({
@@ -209,12 +247,26 @@ function DeliveryApp() {
   };
 
   const activeCategoryProducts = getProductsByCategory(activeCategory);
-  const maisPedidas = activeCategory === 'pizzas' ? activeCategoryProducts.slice(0, 3) : [];
-  const classicas = activeCategory === 'pizzas' ? activeCategoryProducts.slice(3) : [];
+
+  // Selecionar os destaques
+  let maisPedidas = activeCategory === 'pizzas' 
+    ? activeCategoryProducts.filter(p => p.is_featured === true) 
+    : [];
+  let classicas = activeCategory === 'pizzas' 
+    ? activeCategoryProducts.filter(p => p.is_featured !== true) 
+    : activeCategoryProducts;
+
+  // Fallback caso não haja nenhum produto marcado como destaque no banco
+  if (activeCategory === 'pizzas' && maisPedidas.length === 0) {
+    maisPedidas = activeCategoryProducts.slice(0, 3);
+    classicas = activeCategoryProducts.slice(3);
+  }
 
   const handleAddProduct = (product: any) => {
-    const isPizza = activeCategory === 'pizzas' || product.category === 'pizzas' || product.category_id === 1;
-    if (isPizza) {
+    const isCustomizable = product.allow_customizations === true || 
+      (product.allow_customizations !== false && (activeCategory === 'pizzas' || product.category === 'pizzas' || product.category_id === 1));
+    
+    if (isCustomizable) {
       setSelectedProductForCustomization(product);
       setIsCustomizerOpen(true);
     } else {
@@ -378,11 +430,11 @@ function DeliveryApp() {
           
           <div className="flex items-center gap-3 ml-auto">
             <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
-              storeSettings.store_open 
+              isCurrentlyOpen 
                 ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
                 : 'bg-red-500/10 text-red-400 border border-red-500/20'
             }`}>
-              {storeSettings.store_open ? 'Aberto' : 'Fechado'}
+              {isCurrentlyOpen ? 'Aberto' : 'Fechado'}
             </div>
             <div className="px-3 py-1 rounded-full bg-secondary/10 text-secondary text-[10px] font-black uppercase tracking-wider border border-secondary/20 flex items-center gap-1">
               <Clock size={10} /> {storeSettings.delivery_time_est}
@@ -399,9 +451,9 @@ function DeliveryApp() {
         </div>
 
         {/* Loja Fechada Banner */}
-        {!storeSettings.store_open && (
-          <div className="mx-6 mt-4 p-4 bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-bold uppercase tracking-wider rounded-2xl text-center">
-            A pizzaria está fechada no momento. Você pode visualizar o cardápio, mas pedidos não podem ser finalizados.
+        {!isCurrentlyOpen && (
+          <div className="mx-6 mt-4 p-4 bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-bold uppercase tracking-wider rounded-2xl text-center flex items-center justify-center gap-2">
+            <span>🔒</span> A pizzaria está fechada no momento ({storeSettings.opening_time} às {storeSettings.closing_time}). Você pode navegar pelo cardápio, mas novos pedidos não podem ser finalizados.
           </div>
         )}
 
@@ -575,6 +627,13 @@ function ProductCard({ pizza, onAdd }: any) {
         <img src={pizza.image || pizza.main_image_url} alt={pizza.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
         <div className="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent" />
         
+        {/* Promo Badge */}
+        {pizza.promo_price && (
+          <div className="absolute top-4 left-4 bg-emerald-500 text-white font-black text-[9px] uppercase tracking-widest px-3 py-1.5 rounded-xl border border-emerald-500/20 shadow-lg glow-emerald z-20">
+            🏷️ Oferta
+          </div>
+        )}
+
         {/* Favorite Button */}
         <button 
           onClick={(e) => {
@@ -590,10 +649,27 @@ function ProductCard({ pizza, onAdd }: any) {
         </button>
       </div>
       <div className="p-6 flex-1 flex flex-col">
-        <h4 className="text-xl font-black mb-2 group-hover:text-primary transition-colors">{pizza.name}</h4>
+        <h4 className="text-xl font-black mb-1 group-hover:text-primary transition-colors">{pizza.name}</h4>
+        
+        {(pizza.serves_description || pizza.prep_time) && (
+          <div className="flex items-center gap-3 text-[9px] text-text-muted font-black uppercase tracking-wider mb-2">
+            {pizza.serves_description && <span>👥 {pizza.serves_description}</span>}
+            {pizza.prep_time && <span>⏱️ {pizza.prep_time} min</span>}
+          </div>
+        )}
+
         <p className="text-xs text-text-muted line-clamp-2 mb-6 flex-1">{pizza.description}</p>
         <div className="flex justify-between items-center mt-auto">
-          <span className="font-display text-2xl font-black text-secondary">R$ {Number(pizza.price).toFixed(2)}</span>
+          <div className="flex flex-col">
+            {pizza.promo_price ? (
+              <>
+                <span className="text-[10px] text-text-muted line-through font-bold">R$ {Number(pizza.price).toFixed(2)}</span>
+                <span className="font-display text-2xl font-black text-secondary">R$ {Number(pizza.promo_price).toFixed(2)}</span>
+              </>
+            ) : (
+              <span className="font-display text-2xl font-black text-secondary">R$ {Number(pizza.price).toFixed(2)}</span>
+            )}
+          </div>
           <button 
             onClick={onAdd}
             className="bg-primary text-background p-3 rounded-2xl hover:scale-110 active:scale-95 transition-all shadow-lg glow-primary"
@@ -614,6 +690,13 @@ function ListItem({ pizza, onAdd }: any) {
     <div className="flex gap-4 p-4 glass-card group relative">
       {pizza.soldOut && <div className="absolute top-2 right-2 bg-secondary text-background text-[8px] px-2 py-1 rounded-full font-black z-10 uppercase">Esgotado</div>}
       
+      {/* Promo Badge for ListItem */}
+      {pizza.promo_price && !pizza.soldOut && (
+        <div className="absolute top-2 left-2 bg-emerald-500 text-white font-black text-[7px] uppercase tracking-widest px-2 py-1 rounded-md shadow-md z-10">
+          Oferta
+        </div>
+      )}
+
       {/* Favorite Button for List Item */}
       {!pizza.soldOut && (
         <button 
@@ -630,7 +713,7 @@ function ListItem({ pizza, onAdd }: any) {
         </button>
       )}
 
-      <div className={`w-20 h-20 rounded-2xl overflow-hidden flex-shrink-0 bg-surface border border-surface-border ${pizza.soldOut ? 'grayscale opacity-30' : ''}`}>
+      <div className={`w-20 h-20 rounded-2xl overflow-hidden flex-shrink-0 bg-surface border border-surface-border ${pizza.soldOut ? 'grayscale opacity-30' : ''} ${pizza.promo_price ? 'mt-3' : ''}`}>
         {pizza.image || pizza.main_image_url ? (
           <img src={pizza.image || pizza.main_image_url} alt={pizza.name} className="w-full h-full object-cover" />
         ) : (
@@ -641,10 +724,27 @@ function ListItem({ pizza, onAdd }: any) {
         )}
       </div>
       <div className={`flex-1 flex flex-col justify-center ${pizza.soldOut ? 'opacity-30' : ''}`}>
-        <h5 className="text-sm font-black mb-1 group-hover:text-primary transition-colors">{pizza.name}</h5>
+        <h5 className="text-sm font-black mb-0.5 group-hover:text-primary transition-colors">{pizza.name}</h5>
+        
+        {(pizza.serves_description || pizza.prep_time) && (
+          <div className="flex items-center gap-2 text-[8px] text-text-muted font-bold uppercase tracking-wider mb-1 leading-none">
+            {pizza.serves_description && <span>👥 {pizza.serves_description}</span>}
+            {pizza.prep_time && <span>⏱️ {pizza.prep_time} min</span>}
+          </div>
+        )}
+
         <p className="text-[10px] text-text-muted leading-tight mb-2 line-clamp-1">{pizza.description}</p>
         <div className="flex justify-between items-center mt-auto">
-          <span className="text-sm font-black text-secondary">R$ {Number(pizza.price).toFixed(2)}</span>
+          <div className="flex flex-col">
+            {pizza.promo_price ? (
+              <>
+                <span className="text-[8px] text-text-muted line-through font-bold leading-none">R$ {Number(pizza.price).toFixed(2)}</span>
+                <span className="text-sm font-black text-secondary">R$ {Number(pizza.promo_price).toFixed(2)}</span>
+              </>
+            ) : (
+              <span className="text-sm font-black text-secondary">R$ {Number(pizza.price).toFixed(2)}</span>
+            )}
+          </div>
           {!pizza.soldOut && (
             <button onClick={onAdd} className="hover:scale-125 transition-all">
               <PlusCircle size={18} className="text-primary cursor-pointer" />

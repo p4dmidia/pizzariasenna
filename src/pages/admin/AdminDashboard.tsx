@@ -18,6 +18,7 @@ import { useNavigate } from 'react-router-dom';
 import AdminLayout from '../../components/AdminLayout';
 import { supabase } from '../../lib/supabase';
 import { toast } from 'react-hot-toast';
+import { isStoreCurrentlyOpen } from '../../utils/storeHours';
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
@@ -31,11 +32,44 @@ export default function AdminDashboard() {
     averageTicket: 0,
     storeRating: 4.8
   });
-  const [storeOpen, setStoreOpen] = useState(true);
+  const [storeOperatingSettings, setStoreOperatingSettings] = useState({
+    operating_mode: 'auto',
+    opening_time: '18:00',
+    closing_time: '23:30',
+    operating_days: '[0,1,2,3,4,5,6]',
+    store_open: 'true',
+    lastCheckTime: Date.now()
+  });
   const [recentOrders, setRecentOrders] = useState<any[]>([]);
+
+  const isCurrentlyOpen = isStoreCurrentlyOpen({
+    operating_mode: storeOperatingSettings.operating_mode,
+    opening_time: storeOperatingSettings.opening_time,
+    closing_time: storeOperatingSettings.closing_time,
+    operating_days: storeOperatingSettings.operating_days,
+    store_open: storeOperatingSettings.store_open === 'true'
+  });
 
   useEffect(() => {
     fetchDashboardData();
+
+    // Ticker a cada 5s para atualização do relógio em tempo real sem F5
+    const timer = setInterval(() => {
+      setStoreOperatingSettings(prev => ({ ...prev, lastCheckTime: Date.now() }));
+    }, 5000);
+
+    // Inscrição em Tempo Real no Supabase
+    const channel = supabase
+      .channel('public:system_settings_admin')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'system_settings' }, () => {
+        fetchDashboardData();
+      })
+      .subscribe();
+
+    return () => {
+      clearInterval(timer);
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const fetchDashboardData = async () => {
@@ -93,14 +127,19 @@ export default function AdminDashboard() {
       const kitchenLoad = Math.min(Math.round(((allActiveOrders?.length || 0) / 20) * 100), 100);
 
       // 6. Configurações de Abertura da Loja
-      const { data: storeOpenSetting } = await supabase
-        .from('system_settings')
-        .select('value')
-        .eq('key', 'store_open')
-        .maybeSingle();
-
-      if (storeOpenSetting) {
-        setStoreOpen(storeOpenSetting.value === 'true');
+      const { data: settingsData } = await supabase.from('system_settings').select('*');
+      if (settingsData) {
+        const sMap: any = {};
+        settingsData.forEach(s => sMap[s.key] = s.value);
+        setStoreOperatingSettings(prev => ({
+          ...prev,
+          operating_mode: sMap['operating_mode'] || 'auto',
+          opening_time: sMap['opening_time'] || '18:00',
+          closing_time: sMap['closing_time'] || '23:30',
+          operating_days: sMap['operating_days'] || '[0,1,2,3,4,5,6]',
+          store_open: sMap['store_open'] || 'true',
+          lastCheckTime: Date.now()
+        }));
       }
 
       // 7. Média de Avaliações
@@ -139,18 +178,35 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleToggleStore = async () => {
+  const handleModeChange = async (newMode: 'auto' | 'manual_open' | 'manual_closed') => {
     try {
-      const newStatus = !storeOpen;
-      const { error } = await supabase
-        .from('system_settings')
-        .upsert({ key: 'store_open', value: String(newStatus) }, { onConflict: 'key' });
-      
+      const updates: Array<{ key: string; value: string; updated_at: string }> = [
+        { key: 'operating_mode', value: newMode, updated_at: new Date().toISOString() }
+      ];
+      if (newMode === 'manual_open') {
+        updates.push({ key: 'store_open', value: 'true', updated_at: new Date().toISOString() });
+      } else if (newMode === 'manual_closed') {
+        updates.push({ key: 'store_open', value: 'false', updated_at: new Date().toISOString() });
+      }
+
+      const { error } = await supabase.from('system_settings').upsert(updates, { onConflict: 'key' });
       if (error) throw error;
-      setStoreOpen(newStatus);
-      toast.success(`Estabelecimento ${newStatus ? 'ABERTO' : 'FECHADO'} para pedidos!`);
+
+      setStoreOperatingSettings(prev => ({
+        ...prev,
+        operating_mode: newMode,
+        store_open: newMode === 'manual_open' ? 'true' : newMode === 'manual_closed' ? 'false' : prev.store_open
+      }));
+
+      const labels: Record<string, string> = {
+        auto: 'Modo Automático por Horário Ativado!',
+        manual_open: 'Loja Forçada ABERTA Manualmente!',
+        manual_closed: 'Loja Forçada FECHADA Manualmente!'
+      };
+
+      toast.success(labels[newMode]);
     } catch (err: any) {
-      toast.error('Erro ao alterar status da loja: ' + err.message);
+      toast.error('Erro ao alterar modo de funcionamento: ' + err.message);
     }
   };
 
@@ -272,33 +328,65 @@ export default function AdminDashboard() {
              <div className="space-y-6">
                 {/* Store status card */}
                 <div className={`p-6 rounded-3xl border flex flex-col gap-4 ${
-                  storeOpen 
+                  isCurrentlyOpen 
                     ? 'bg-emerald-500/5 border-emerald-500/20' 
                     : 'bg-red-500/5 border-red-500/20'
                 }`}>
                   <div className="flex items-center gap-3">
                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                      storeOpen ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'
+                      isCurrentlyOpen ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'
                     }`}>
                       <Store size={20} />
                     </div>
                     <div>
-                      <p className="text-[10px] font-black uppercase text-text-muted tracking-wider leading-none">Estabelecimento</p>
-                      <p className={`font-black text-sm mt-1 uppercase ${storeOpen ? 'text-emerald-400' : 'text-red-400'}`}>
-                        {storeOpen ? 'Aberto para pedidos' : 'Fechado temporariamente'}
+                      <p className="text-[10px] font-black uppercase text-text-muted tracking-wider leading-none">Estabelecimento (Tempo Real)</p>
+                      <p className={`font-black text-sm mt-1 uppercase ${isCurrentlyOpen ? 'text-emerald-400' : 'text-red-400'}`}>
+                        {isCurrentlyOpen ? 'Aberto para pedidos' : 'Fechado no momento'}
+                      </p>
+                      <p className="text-[9px] text-text-muted font-bold mt-0.5">
+                        {storeOperatingSettings.operating_mode === 'auto' 
+                          ? `⏱️ Automático: ${storeOperatingSettings.opening_time} às ${storeOperatingSettings.closing_time}` 
+                          : storeOperatingSettings.operating_mode === 'manual_open' 
+                          ? '🟢 Modo Manual: Forçado Aberto' 
+                          : '🔴 Modo Manual: Forçado Fechado'}
                       </p>
                     </div>
                   </div>
-                  <button 
-                    onClick={handleToggleStore}
-                    className={`w-full py-3.5 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg transition-all ${
-                      storeOpen 
-                        ? 'bg-red-500 hover:bg-red-600 text-white glow-red' 
-                        : 'bg-emerald-500 hover:bg-emerald-600 text-background glow-emerald'
-                    }`}
-                  >
-                    {storeOpen ? 'Fechar Loja' : 'Abrir Loja'}
-                  </button>
+
+                  <div className="grid grid-cols-1 gap-2 pt-2 border-t border-white/5">
+                    <button 
+                      onClick={() => handleModeChange('auto')}
+                      className={`w-full py-2.5 rounded-xl font-black text-[10px] uppercase tracking-wider transition-all border ${
+                        storeOperatingSettings.operating_mode === 'auto'
+                          ? 'bg-primary text-background border-primary glow-primary'
+                          : 'bg-surface hover:bg-surface-hover border-surface-border text-text-muted'
+                      }`}
+                    >
+                      ⏱️ Usar Horário Automático
+                    </button>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button 
+                        onClick={() => handleModeChange('manual_open')}
+                        className={`py-2.5 rounded-xl font-black text-[10px] uppercase tracking-wider transition-all border ${
+                          storeOperatingSettings.operating_mode === 'manual_open'
+                            ? 'bg-emerald-500 text-background border-emerald-500 glow-emerald'
+                            : 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+                        }`}
+                      >
+                        🟢 Forçar Aberta
+                      </button>
+                      <button 
+                        onClick={() => handleModeChange('manual_closed')}
+                        className={`py-2.5 rounded-xl font-black text-[10px] uppercase tracking-wider transition-all border ${
+                          storeOperatingSettings.operating_mode === 'manual_closed'
+                            ? 'bg-red-500 text-white border-red-500 glow-red'
+                            : 'bg-red-500/10 hover:bg-red-500/20 text-red-400 border-red-500/30'
+                        }`}
+                      >
+                        🔴 Forçar Fechada
+                      </button>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Kitchen load */}
@@ -320,7 +408,7 @@ export default function AdminDashboard() {
                       </div>
                       <div>
                         <p className="text-[10px] font-black uppercase text-text-muted tracking-wider leading-none">Média de Avaliações</p>
-                        <p className="text-lg font-black text-white mt-1">⭐ {stats.storeRating}</p>
+                        <p className="text-lg font-black text-text-main mt-1">⭐ {stats.storeRating}</p>
                       </div>
                    </div>
                    <p className="text-xs text-text-muted">Avaliação média calculada diretamente com base nos feedbacks recebidos dos clientes após as entregas.</p>

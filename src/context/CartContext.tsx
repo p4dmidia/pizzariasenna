@@ -70,14 +70,22 @@ export function CartProvider({ children }: { children: ReactNode }) {
     const observation = customOptions?.observation || '';
 
     // Calcular preço baseado nas opções
-    let finalPrice = Number(product.price);
+    const baseProductPrice = product.promo_price ? Number(product.promo_price) : Number(product.price);
+    let finalPrice = baseProductPrice;
     
     // Se for Pizza, aplicar fatores de tamanho
-    if (product.category === 'pizzas') {
-      if (size === 'brotinho') {
-        finalPrice = Number(product.price) * 0.7; // Brotinho: 30% desconto
+    const isPizza = product.category === 'pizzas' || product.category_id === 1;
+    if (isPizza) {
+      if (size === 'pequena') {
+        finalPrice = baseProductPrice * (19 / 53);
       } else if (size === 'media') {
-        finalPrice = Number(product.price) * 0.85; // Média: 15% desconto
+        finalPrice = baseProductPrice * (26 / 53);
+      } else if (size === 'grande') {
+        finalPrice = baseProductPrice * 1.0;
+      } else if (size === 'familia') {
+        finalPrice = baseProductPrice * (58 / 53);
+      } else if (size === 'gigante') {
+        finalPrice = baseProductPrice * (61 / 53);
       }
     }
 
@@ -93,13 +101,22 @@ export function CartProvider({ children }: { children: ReactNode }) {
     if (halfAndHalf) {
       displayName = `Meio/Meio: ${product.name} e ${halfAndHalf.secondFlavorName}`;
       // Usar o preço da metade mais cara
-      const secondFlavorPrice = Number(halfAndHalf.secondFlavorPrice) || Number(product.price);
-      let basePrice = Math.max(Number(product.price), secondFlavorPrice);
+      const secondFlavorPrice = halfAndHalf.secondFlavorPromoPrice 
+        ? Number(halfAndHalf.secondFlavorPromoPrice) 
+        : (Number(halfAndHalf.secondFlavorPrice) || baseProductPrice);
       
-      if (size === 'brotinho') {
-        basePrice = basePrice * 0.7;
+      let basePrice = Math.max(baseProductPrice, secondFlavorPrice);
+      
+      if (size === 'pequena') {
+        basePrice = basePrice * (19 / 53);
       } else if (size === 'media') {
-        basePrice = basePrice * 0.85;
+        basePrice = basePrice * (26 / 53);
+      } else if (size === 'grande') {
+        basePrice = basePrice * 1.0;
+      } else if (size === 'familia') {
+        basePrice = basePrice * (58 / 53);
+      } else if (size === 'gigante') {
+        basePrice = basePrice * (61 / 53);
       }
 
       finalPrice = basePrice;
@@ -109,7 +126,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
 
     if (size) {
-      const sizeLabel = size === 'brotinho' ? 'Brotinho' : size === 'media' ? 'Média' : 'Grande';
+      const sizeLabel = size === 'pequena' ? 'Pequena (16cm)'
+        : size === 'media' ? 'Média (20cm)'
+        : size === 'grande' ? 'Grande (25cm)'
+        : size === 'familia' ? 'Família (30cm)'
+        : size === 'gigante' ? 'Gigante (35cm)'
+        : size;
       displayName = `${displayName} (${sizeLabel})`;
     }
 

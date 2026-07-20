@@ -257,6 +257,11 @@ export default function AdminMenu() {
         main_image_url: editingProduct.main_image_url,
         is_active: editingProduct.is_active ?? true,
         stock_quantity: Number(editingProduct.stock_quantity || 0),
+        promo_price: editingProduct.promo_price ? Number(editingProduct.promo_price) : null,
+        is_featured: editingProduct.is_featured ?? false,
+        allow_customizations: editingProduct.allow_customizations !== false,
+        serves_description: editingProduct.serves_description || null,
+        prep_time: editingProduct.prep_time ? Number(editingProduct.prep_time) : null,
         updated_at: new Date().toISOString()
       };
 
@@ -383,10 +388,20 @@ export default function AdminMenu() {
                     <ImageIcon size={48} strokeWidth={1} />
                   </div>
                 )}
-                <div className="absolute top-4 left-4">
-                  <span className="bg-background/80 backdrop-blur-md text-[8px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full border border-white/10">
+                <div className="absolute top-4 left-4 flex flex-col gap-1.5">
+                  <span className="bg-background/80 backdrop-blur-md text-[8px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full border border-white/10 w-fit">
                     {getCategoryName(product.category_id)}
                   </span>
+                  {product.is_featured && (
+                    <span className="bg-amber-500/80 backdrop-blur-md text-white text-[8px] font-black uppercase tracking-widest px-3 py-1 rounded-full border border-amber-500/20 w-fit">
+                      ⭐ Destaque
+                    </span>
+                  )}
+                  {product.promo_price && (
+                    <span className="bg-emerald-500/80 backdrop-blur-md text-white text-[8px] font-black uppercase tracking-widest px-3 py-1 rounded-full border border-emerald-500/20 w-fit">
+                      🏷️ Promoção
+                    </span>
+                  )}
                 </div>
                 <div className="absolute top-4 right-4 flex gap-2">
                   <button 
@@ -409,7 +424,14 @@ export default function AdminMenu() {
                 <div className="flex justify-between items-end">
                    <div>
                       <p className="text-[10px] text-text-muted font-black uppercase tracking-widest mb-1">Preço do Delivery</p>
-                      <p className="text-xl font-black text-secondary">R$ {product.price.toFixed(2)}</p>
+                      {product.promo_price ? (
+                        <div className="flex items-baseline gap-2">
+                          <p className="text-xl font-black text-secondary">R$ {product.promo_price.toFixed(2)}</p>
+                          <p className="text-xs text-text-muted line-through font-bold">R$ {product.price.toFixed(2)}</p>
+                        </div>
+                      ) : (
+                        <p className="text-xl font-black text-secondary">R$ {product.price.toFixed(2)}</p>
+                      )}
                    </div>
                 </div>
 
@@ -574,33 +596,102 @@ export default function AdminMenu() {
                       </div>
                     </div>
 
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black uppercase text-text-muted ml-1">Preço do Produto (R$)</label>
-                      <div className="relative">
-                        <input 
-                          type="number" 
-                          step="0.01"
-                          required
-                          value={editingProduct?.price || ''}
-                          onChange={(e) => setEditingProduct({ ...editingProduct!, price: Number(e.target.value) })}
-                          className="w-full bg-background border border-surface-border rounded-xl py-3 pl-10 pr-4 outline-none focus:border-primary/50 text-sm font-black"
-                        />
-                        <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 text-primary" size={16} />
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase text-text-muted ml-1">Preço Original (R$)</label>
+                        <div className="relative">
+                          <input 
+                            type="number" 
+                            step="0.01"
+                            required
+                            value={editingProduct?.price || ''}
+                            onChange={(e) => setEditingProduct({ ...editingProduct!, price: Number(e.target.value) })}
+                            className="w-full bg-background border border-surface-border rounded-xl py-3 pl-10 pr-4 outline-none focus:border-primary/50 text-sm font-black text-text-main"
+                          />
+                          <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 text-primary" size={16} />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase text-text-muted ml-1">Preço Promocional (R$)</label>
+                        <div className="relative">
+                          <input 
+                            type="number" 
+                            step="0.01"
+                            value={editingProduct?.promo_price || ''}
+                            onChange={(e) => setEditingProduct({ ...editingProduct!, promo_price: e.target.value ? Number(e.target.value) : null })}
+                            className="w-full bg-background border border-surface-border rounded-xl py-3 pl-10 pr-4 outline-none focus:border-primary/50 text-sm font-black text-text-main"
+                            placeholder="Sem desconto"
+                          />
+                          <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 text-primary/50" size={16} />
+                        </div>
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between p-6 rounded-2xl bg-surface-hover border border-white/5">
-                       <div>
-                          <p className="text-sm font-black">Status do Produto</p>
-                          <p className="text-[10px] text-text-muted font-bold uppercase tracking-widest">Visível no cardápio do delivery</p>
-                       </div>
-                       <button 
-                        type="button"
-                        onClick={() => setEditingProduct({ ...editingProduct!, is_active: !editingProduct?.is_active })}
-                        className={`w-14 h-8 rounded-full relative transition-all ${editingProduct?.is_active !== false ? 'bg-primary shadow-[0_0_15px_rgba(0,229,255,0.4)]' : 'bg-surface border border-surface-border'}`}
-                       >
-                          <div className={`absolute top-1.5 w-5 h-5 rounded-full bg-white transition-all ${editingProduct?.is_active !== false ? 'left-7' : 'left-1.5'}`} />
-                       </button>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase text-text-muted ml-1">Serve (Ex: 2 pessoas)</label>
+                        <input 
+                          type="text" 
+                          value={editingProduct?.serves_description || ''}
+                          onChange={(e) => setEditingProduct({ ...editingProduct!, serves_description: e.target.value })}
+                          placeholder="Ex: Serve 1 a 2 pessoas"
+                          className="w-full bg-background border border-surface-border rounded-xl py-3 px-4 outline-none focus:border-primary/50 text-sm font-bold text-text-main"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase text-text-muted ml-1">Tempo de Preparo (min)</label>
+                        <input 
+                          type="number" 
+                          value={editingProduct?.prep_time || ''}
+                          onChange={(e) => setEditingProduct({ ...editingProduct!, prep_time: e.target.value ? Number(e.target.value) : null })}
+                          placeholder="Ex: 25"
+                          className="w-full bg-background border border-surface-border rounded-xl py-3 px-4 outline-none focus:border-primary/50 text-sm font-bold text-text-main"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between p-4 rounded-2xl bg-surface-hover border border-white/5">
+                         <div>
+                            <p className="text-sm font-black text-text-main">Status do Produto</p>
+                            <p className="text-[10px] text-text-muted font-bold uppercase tracking-widest">Visível no cardápio do delivery</p>
+                         </div>
+                         <button 
+                          type="button"
+                          onClick={() => setEditingProduct({ ...editingProduct!, is_active: !editingProduct?.is_active })}
+                          className={`w-14 h-8 rounded-full relative transition-all ${editingProduct?.is_active !== false ? 'bg-primary shadow-[0_0_15px_rgba(0,229,255,0.4)]' : 'bg-surface border border-surface-border'}`}
+                         >
+                            <div className={`absolute top-1.5 w-5 h-5 rounded-full bg-white transition-all ${editingProduct?.is_active !== false ? 'left-7' : 'left-1.5'}`} />
+                         </button>
+                      </div>
+
+                      <div className="flex items-center justify-between p-4 rounded-2xl bg-surface-hover border border-white/5">
+                         <div>
+                            <p className="text-sm font-black text-text-main">Destaque da Loja</p>
+                            <p className="text-[10px] text-text-muted font-bold uppercase tracking-widest">Exibir na seção Mais Pedidos</p>
+                         </div>
+                         <button 
+                          type="button"
+                          onClick={() => setEditingProduct({ ...editingProduct!, is_featured: !editingProduct?.is_featured })}
+                          className={`w-14 h-8 rounded-full relative transition-all ${editingProduct?.is_featured ? 'bg-primary shadow-[0_0_15px_rgba(0,229,255,0.4)]' : 'bg-surface border border-surface-border'}`}
+                         >
+                            <div className={`absolute top-1.5 w-5 h-5 rounded-full bg-white transition-all ${editingProduct?.is_featured ? 'left-7' : 'left-1.5'}`} />
+                         </button>
+                      </div>
+
+                      <div className="flex items-center justify-between p-4 rounded-2xl bg-surface-hover border border-white/5">
+                         <div>
+                            <p className="text-sm font-black text-text-main">Permitir Personalização</p>
+                            <p className="text-[10px] text-text-muted font-bold uppercase tracking-widest">Habilitar tamanhos e meio-a-meio</p>
+                         </div>
+                         <button 
+                          type="button"
+                          onClick={() => setEditingProduct({ ...editingProduct!, allow_customizations: !editingProduct?.allow_customizations })}
+                          className={`w-14 h-8 rounded-full relative transition-all ${editingProduct?.allow_customizations !== false ? 'bg-primary shadow-[0_0_15px_rgba(0,229,255,0.4)]' : 'bg-surface border border-surface-border'}`}
+                         >
+                            <div className={`absolute top-1.5 w-5 h-5 rounded-full bg-white transition-all ${editingProduct?.allow_customizations !== false ? 'left-7' : 'left-1.5'}`} />
+                         </button>
+                      </div>
                     </div>
                   </div>
                 </div>

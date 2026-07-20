@@ -24,7 +24,7 @@ export default function ProductCustomizerModal({
   onConfirm,
   pizzaFlavors
 }: ProductCustomizerModalProps) {
-  const [size, setSize] = useState<'brotinho' | 'media' | 'grande'>('grande');
+  const [size, setSize] = useState<'pequena' | 'media' | 'grande' | 'familia' | 'gigante'>('grande');
   const [border, setBorder] = useState<'none' | 'catupiry' | 'cheddar'>('none');
   
   // Meio a Meio
@@ -55,18 +55,25 @@ export default function ProductCustomizerModal({
 
   // Cálculo de Preço Dinâmico
   const getCalculatedPrice = () => {
-    let basePrice = Number(product.price);
+    let basePrice = product.promo_price ? Number(product.promo_price) : Number(product.price);
     
-    // Se meio a meio, usar o preço da metade mais cara
+    // Se meio a meio, usar o preço da metade mais cara (considerando preços promocionais)
     if (isHalfAndHalf && secondFlavor) {
-      basePrice = Math.max(Number(product.price), Number(secondFlavor.price));
+      const secondFlavorPrice = secondFlavor.promo_price ? Number(secondFlavor.promo_price) : Number(secondFlavor.price);
+      basePrice = Math.max(basePrice, secondFlavorPrice);
     }
     
     // Ajustar pelo tamanho
-    if (size === 'brotinho') {
-      basePrice = basePrice * 0.70; // 30% desconto
+    if (size === 'pequena') {
+      basePrice = basePrice * (19 / 53);
     } else if (size === 'media') {
-      basePrice = basePrice * 0.85; // 15% desconto
+      basePrice = basePrice * (26 / 53);
+    } else if (size === 'grande') {
+      basePrice = basePrice * 1.0;
+    } else if (size === 'familia') {
+      basePrice = basePrice * (58 / 53);
+    } else if (size === 'gigante') {
+      basePrice = basePrice * (61 / 53);
     }
     
     // Borda
@@ -96,7 +103,8 @@ export default function ProductCustomizerModal({
       halfAndHalf: isHalfAndHalf && secondFlavor ? {
         secondFlavorId: secondFlavor.id,
         secondFlavorName: secondFlavor.name,
-        secondFlavorPrice: Number(secondFlavor.price)
+        secondFlavorPrice: Number(secondFlavor.price),
+        secondFlavorPromoPrice: secondFlavor.promo_price ? Number(secondFlavor.promo_price) : null
       } : null,
       extras: selectedExtras,
       observation: observation.trim(),
@@ -139,6 +147,23 @@ export default function ProductCustomizerModal({
               <div className="absolute bottom-4 left-8 right-8">
                 <h2 className="text-2xl md:text-3xl font-black italic">{product.name}</h2>
                 <p className="text-text-muted text-xs line-clamp-2 mt-1">{product.description}</p>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {product.promo_price && (
+                    <span className="bg-emerald-500/10 text-emerald-600 text-[8px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full border border-emerald-500/20">
+                      🏷️ Promoção
+                    </span>
+                  )}
+                  {product.serves_description && (
+                    <span className="bg-surface/80 text-text-main text-[8px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full border border-surface-border">
+                      👥 {product.serves_description}
+                    </span>
+                  )}
+                  {product.prep_time && (
+                    <span className="bg-surface/80 text-text-main text-[8px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full border border-surface-border flex items-center gap-1">
+                      ⏱️ {product.prep_time} min
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -195,25 +220,28 @@ export default function ProductCustomizerModal({
               {/* Tamanho da Pizza */}
               <section className="space-y-3">
                 <h3 className="text-sm font-black uppercase tracking-widest text-text-muted">Escolha o Tamanho</h3>
-                <div className="grid grid-cols-3 gap-4">
-                  {(['brotinho', 'media', 'grande'] as const).map((s) => {
-                    const label = s === 'brotinho' ? 'Brotinho' : s === 'media' ? 'Média' : 'Grande';
-                    const detail = s === 'brotinho' ? '4 Fatias' : s === 'media' ? '6 Fatias' : '8 Fatias';
-                    const factor = s === 'brotinho' ? 0.70 : s === 'media' ? 0.85 : 1.00;
-                    const sizePrice = basePizzaPrice * factor;
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  {[
+                    { id: 'pequena', label: 'Pequena', detail: '16 cm • 4 Fatias', factor: 19 / 53 },
+                    { id: 'media', label: 'Média', detail: '20 cm • 6 Fatias', factor: 26 / 53 },
+                    { id: 'grande', label: 'Grande', detail: '25 cm • 8 Fatias', factor: 1.0 },
+                    { id: 'familia', label: 'Família', detail: '30 cm • 10 Fatias', factor: 58 / 53 },
+                    { id: 'gigante', label: 'Gigante', detail: '35 cm • 12 Fatias', factor: 61 / 53 }
+                  ].map((s) => {
+                    const sizePrice = basePizzaPrice * s.factor;
 
                     return (
                       <button
-                        key={s}
-                        onClick={() => setSize(s)}
-                        className={`p-4 rounded-3xl border-2 text-center transition-all flex flex-col items-center justify-center gap-1 ${
-                          size === s 
-                            ? 'border-primary bg-primary/5 shadow-lg scale-105 text-white' 
+                        key={s.id}
+                        onClick={() => setSize(s.id as any)}
+                        className={`p-3.5 rounded-2xl border-2 text-center transition-all flex flex-col items-center justify-center gap-1 ${
+                          size === s.id 
+                            ? 'border-primary bg-primary/5 shadow-lg scale-105 text-text-main' 
                             : 'border-surface-border bg-background hover:bg-surface-hover text-text-muted'
                         }`}
                       >
-                        <span className="text-sm font-black">{label}</span>
-                        <span className="text-[9px] font-bold uppercase tracking-wider opacity-60">{detail}</span>
+                        <span className="text-xs font-black text-text-main">{s.label}</span>
+                        <span className="text-[9px] font-bold uppercase tracking-wider opacity-70">{s.detail}</span>
                         <span className="text-xs font-black text-secondary mt-1">R$ {sizePrice.toFixed(2)}</span>
                       </button>
                     );
@@ -295,7 +323,7 @@ export default function ProductCustomizerModal({
                   placeholder="Ex: sem cebola, bem assada, cortar em 12 fatias..."
                   maxLength={150}
                   rows={2}
-                  className="w-full bg-background border border-surface-border rounded-2xl py-3.5 px-6 outline-none focus:border-primary/50 transition-all text-sm font-bold text-white resize-none"
+                  className="w-full bg-background border border-surface-border rounded-2xl py-3.5 px-6 outline-none focus:border-primary/50 transition-all text-sm font-bold text-text-main resize-none"
                 />
               </section>
             </div>

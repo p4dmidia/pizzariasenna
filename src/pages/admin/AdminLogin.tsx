@@ -31,7 +31,7 @@ export default function AdminLogin() {
       // Bypass de desenvolvimento para administrador padrão
       if (email === 'admin@appdelivery.com' && password === 'admin123') {
         localStorage.setItem('admin_auth', 'true');
-        toast.success('Acesso autorizado (Modo Demonstração)!', { duration: 3000 });
+        toast.success('Acesso autorizado (Modo Demonstração)!', { id: 'admin-login-success', duration: 3000 });
         navigate('/admin');
         return;
       }
@@ -117,7 +117,7 @@ export default function AdminLogin() {
       window.dispatchEvent(new Event('mock-auth-change'));
 
       localStorage.setItem('admin_auth', 'true');
-      toast.success('Acesso autorizado!', { duration: 3000 });
+      toast.success('Acesso autorizado!', { id: 'admin-login-success', duration: 3000 });
       navigate(userRole === 'caixa' ? '/admin/orders' : '/admin');
     } catch (error: any) {
       toast.error(error.message || 'Erro ao autenticar.');

@@ -225,7 +225,7 @@ export default function AdminUsers() {
                                       <img src={u.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.full_name || 'U')}&background=EA1D2C&color=FFFFFF&bold=true`} alt={u.full_name} />
                                    </div>
                                     <div>
-                                       <p className="text-sm font-black text-white">{u.full_name || 'Usuário'}</p>
+                                       <p className="text-sm font-black text-text-main">{u.full_name || 'Usuário'}</p>
                                        <p className="text-[9px] text-text-muted uppercase font-black tracking-wider mt-0.5">{u.city ? `${u.city} - ${u.state || 'UF'}` : 'Endereço não cadastrado'}</p>
                                     </div>
                                 </div>
