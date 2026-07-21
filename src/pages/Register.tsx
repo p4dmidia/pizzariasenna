@@ -232,7 +232,7 @@ function Input({ icon: Icon, label, ...props }: any) {
         <input 
           {...props}
           type={isPassword ? (showPassword ? 'text' : 'password') : props.type}
-          className="w-full bg-surface/50 border border-surface-border rounded-2xl py-4 px-12 outline-none focus:ring-2 focus:ring-primary/50 transition-all text-sm group-hover:border-primary/30"
+          className="w-full bg-white border border-surface-border rounded-2xl py-4 px-12 outline-none focus:ring-2 focus:ring-primary/50 transition-all text-sm font-bold text-gray-900 placeholder:text-gray-400 group-hover:border-primary/30 shadow-sm"
         />
         <Icon className="absolute left-4 top-1/2 -translate-y-1/2 text-text-muted group-hover:text-primary transition-colors" size={20} />
         {isPassword && (

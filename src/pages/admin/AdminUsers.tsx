@@ -10,7 +10,9 @@ import {
   Phone,
   UserCheck,
   Loader2,
-  Trash2
+  Trash2,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
@@ -24,6 +26,15 @@ export default function AdminUsers() {
   const [loading, setLoading] = useState(true);
   const [users, setUsers] = useState<any[]>([]);
   const [activeDropdownUserId, setActiveDropdownUserId] = useState<string | number | null>(null);
+
+  // Estados de Paginação
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(5);
+
+  // Resetar página quando a busca ou filtro mudar
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, filterRole]);
 
   // Fechar dropdown ao clicar fora
   useEffect(() => {
@@ -61,12 +72,9 @@ export default function AdminUsers() {
 
   const toggleUserStatus = async (user: any) => {
     try {
-      // Nota: assumindo que o banco de dados tem campo is_active ou simulado. 
-      // Se não houver campo is_active no initialize_database.sql, podemos apenas exibir um mock
-      // Mas para manter compatibilidade, vamos tentar atualizar.
       const { error } = await supabase
         .from('user_profiles')
-        .update({ role: user.role }) // apenas atualizando um campo qualquer se der erro ou ignorar se is_active falhar
+        .update({ role: user.role })
         .eq('id', user.id);
 
       if (error) throw error;
@@ -98,7 +106,6 @@ export default function AdminUsers() {
     }
 
     try {
-      // 1. Excluir do banco de dados do Supabase
       const { error } = await supabase
         .from('user_profiles')
         .delete()
@@ -106,7 +113,6 @@ export default function AdminUsers() {
 
       if (error) throw error;
 
-      // 2. Excluir do localStorage (fallback para mock)
       const mockProfiles = JSON.parse(localStorage.getItem('supabase.mock-profiles') || '[]');
       const updatedMockProfiles = mockProfiles.filter((p: any) => 
         p.id !== user.id && 
@@ -132,6 +138,10 @@ export default function AdminUsers() {
     const matchesRole = filterRole === 'todos' || user.role === filterRole;
     return matchesSearch && matchesRole;
   });
+
+  const totalPages = Math.ceil(filteredUsers.length / itemsPerPage) || 1;
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedUsers = filteredUsers.slice(startIndex, startIndex + itemsPerPage);
 
   if (loading && users.length === 0) {
     return (
@@ -211,7 +221,7 @@ export default function AdminUsers() {
                     </tr>
                  </thead>
                  <tbody className="divide-y divide-surface-border">
-                    {filteredUsers.map((u) => {
+                    {paginatedUsers.map((u) => {
                        return (
                           <motion.tr 
                             key={u.id}
@@ -317,6 +327,68 @@ export default function AdminUsers() {
              <div className="p-20 text-center">
                 <Users size={48} className="mx-auto text-surface-border mb-4" />
                 <p className="text-text-muted">Nenhum usuário encontrado para esta busca.</p>
+             </div>
+           )}
+
+           {/* Controles de Paginação */}
+           {filteredUsers.length > 0 && (
+             <div className="p-4 px-8 border-t border-surface-border bg-surface/20 flex flex-col sm:flex-row items-center justify-between gap-4">
+               <div className="flex flex-wrap items-center gap-3 text-xs text-text-muted font-bold">
+                 <span>Exibindo {startIndex + 1} a {Math.min(startIndex + itemsPerPage, filteredUsers.length)} de {filteredUsers.length} usuários</span>
+                 <span className="text-surface-border hidden sm:inline">•</span>
+                 <div className="flex items-center gap-2">
+                   <span>Por página:</span>
+                   <select 
+                     value={itemsPerPage}
+                     onChange={(e) => {
+                       setItemsPerPage(Number(e.target.value));
+                       setCurrentPage(1);
+                     }}
+                     className="bg-background border border-surface-border rounded-lg px-2.5 py-1 text-xs text-text-main font-bold outline-none focus:border-primary/50 cursor-pointer"
+                   >
+                     <option value={5}>5</option>
+                     <option value={10}>10</option>
+                     <option value={20}>20</option>
+                     <option value={50}>50</option>
+                   </select>
+                 </div>
+               </div>
+
+               <div className="flex items-center gap-2">
+                 <button
+                   disabled={currentPage === 1}
+                   onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                   className="p-2 px-3 rounded-xl bg-surface border border-surface-border text-xs font-bold disabled:opacity-40 disabled:cursor-not-allowed hover:bg-surface-hover hover:text-white transition-all flex items-center gap-1 cursor-pointer"
+                 >
+                   <ChevronLeft size={16} />
+                   <span className="hidden sm:inline">Anterior</span>
+                 </button>
+
+                 <div className="flex items-center gap-1">
+                   {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                     <button
+                       key={page}
+                       onClick={() => setCurrentPage(page)}
+                       className={`w-8 h-8 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                         currentPage === page
+                           ? 'bg-primary text-white shadow-lg glow-primary'
+                           : 'bg-surface border border-surface-border text-text-muted hover:text-white hover:bg-surface-hover'
+                       }`}
+                     >
+                       {page}
+                     </button>
+                   ))}
+                 </div>
+
+                 <button
+                   disabled={currentPage === totalPages}
+                   onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                   className="p-2 px-3 rounded-xl bg-surface border border-surface-border text-xs font-bold disabled:opacity-40 disabled:cursor-not-allowed hover:bg-surface-hover hover:text-white transition-all flex items-center gap-1 cursor-pointer"
+                 >
+                   <span className="hidden sm:inline">Próximo</span>
+                   <ChevronRight size={16} />
+                 </button>
+               </div>
              </div>
            )}
         </div>

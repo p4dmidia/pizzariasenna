@@ -165,6 +165,17 @@ export default function MyAccount() {
         }
       }
 
+      // Salvar também no cache do aplicativo para cálculo de taxa de entrega imediato
+      localStorage.setItem('delivery.userAddress', JSON.stringify({
+        address,
+        number,
+        complement,
+        neighborhood,
+        city,
+        state,
+        zipcode
+      }));
+
       await refreshProfile();
       window.dispatchEvent(new Event('mock-auth-change'));
       toast.success('Perfil atualizado com sucesso!');
@@ -205,13 +216,8 @@ export default function MyAccount() {
                  <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 blur-3xl rounded-full" />
                  
                  <div className="flex flex-col md:flex-row items-center gap-8 mb-12">
-                    <div className="relative group">
-                       <div className="w-32 h-32 rounded-[2.5rem] overflow-hidden border-2 border-primary/20 shadow-2xl">
-                          <img src={avatarUrl} alt="Profile" className="w-full h-full object-cover" />
-                       </div>
-                       <button className="absolute -bottom-2 -right-2 p-3 bg-primary text-background rounded-2xl shadow-xl hover:scale-110 transition-all">
-                          <Camera size={18} />
-                       </button>
+                    <div className="w-32 h-32 rounded-[2.5rem] bg-[#00E5FF] border-2 border-primary/20 shadow-2xl flex items-center justify-center text-4xl font-black text-[#0B0E14] shrink-0">
+                       {nameInitials}
                     </div>
                     <div className="text-center md:text-left">
                        <h3 className="text-2xl font-black mb-1">{profile?.full_name || 'Visitante'}</h3>
@@ -231,7 +237,7 @@ export default function MyAccount() {
                          type="text" 
                          value={name} 
                          onChange={(e) => setName(e.target.value)} 
-                         className="w-full bg-background border border-surface-border rounded-2xl py-4 px-6 outline-none focus:border-primary/50 transition-all text-sm font-bold text-white" 
+                         className="w-full bg-white border border-surface-border rounded-2xl py-4 px-6 outline-none focus:border-primary/50 transition-all text-sm font-bold text-gray-900 placeholder:text-gray-400 shadow-sm" 
                        />
                     </div>
                     <div className="space-y-2">
@@ -240,7 +246,7 @@ export default function MyAccount() {
                          type="text" 
                          value={phone} 
                          onChange={(e) => setPhone(e.target.value)} 
-                         className="w-full bg-background border border-surface-border rounded-2xl py-4 px-6 outline-none focus:border-primary/50 transition-all text-sm font-bold text-white" 
+                         className="w-full bg-white border border-surface-border rounded-2xl py-4 px-6 outline-none focus:border-primary/50 transition-all text-sm font-bold text-gray-900 placeholder:text-gray-400 shadow-sm" 
                        />
                     </div>
                     
@@ -251,7 +257,7 @@ export default function MyAccount() {
                          value={zipcode} 
                          onChange={(e) => setZipcode(e.target.value)} 
                          placeholder="Ex: 01000-000"
-                         className="w-full bg-background border border-surface-border rounded-2xl py-4 px-6 outline-none focus:border-primary/50 transition-all text-sm font-bold text-white" 
+                         className="w-full bg-white border border-surface-border rounded-2xl py-4 px-6 outline-none focus:border-primary/50 transition-all text-sm font-bold text-gray-900 placeholder:text-gray-400 shadow-sm" 
                        />
                     </div>
                     <div className="space-y-2">
@@ -261,7 +267,7 @@ export default function MyAccount() {
                          value={address} 
                          onChange={(e) => setAddress(e.target.value)} 
                          placeholder="Ex: Rua das Flores"
-                         className="w-full bg-background border border-surface-border rounded-2xl py-4 px-6 outline-none focus:border-primary/50 transition-all text-sm font-bold text-white" 
+                         className="w-full bg-white border border-surface-border rounded-2xl py-4 px-6 outline-none focus:border-primary/50 transition-all text-sm font-bold text-gray-900 placeholder:text-gray-400 shadow-sm" 
                        />
                     </div>
                     <div className="space-y-2">
@@ -271,7 +277,7 @@ export default function MyAccount() {
                          value={number} 
                          onChange={(e) => setNumber(e.target.value)} 
                          placeholder="Ex: 123"
-                         className="w-full bg-background border border-surface-border rounded-2xl py-4 px-6 outline-none focus:border-primary/50 transition-all text-sm font-bold text-white" 
+                         className="w-full bg-white border border-surface-border rounded-2xl py-4 px-6 outline-none focus:border-primary/50 transition-all text-sm font-bold text-gray-900 placeholder:text-gray-400 shadow-sm" 
                        />
                     </div>
                     <div className="space-y-2">
@@ -281,7 +287,7 @@ export default function MyAccount() {
                          value={complement} 
                          onChange={(e) => setComplement(e.target.value)} 
                          placeholder="Ex: Apto 45, Bloco B"
-                         className="w-full bg-background border border-surface-border rounded-2xl py-4 px-6 outline-none focus:border-primary/50 transition-all text-sm font-bold text-white" 
+                         className="w-full bg-white border border-surface-border rounded-2xl py-4 px-6 outline-none focus:border-primary/50 transition-all text-sm font-bold text-gray-900 placeholder:text-gray-400 shadow-sm" 
                        />
                     </div>
                     <div className="space-y-2">
@@ -291,7 +297,7 @@ export default function MyAccount() {
                          value={neighborhood} 
                          onChange={(e) => setNeighborhood(e.target.value)} 
                          placeholder="Ex: Centro"
-                         className="w-full bg-background border border-surface-border rounded-2xl py-4 px-6 outline-none focus:border-primary/50 transition-all text-sm font-bold text-white" 
+                         className="w-full bg-white border border-surface-border rounded-2xl py-4 px-6 outline-none focus:border-primary/50 transition-all text-sm font-bold text-gray-900 placeholder:text-gray-400 shadow-sm" 
                        />
                     </div>
                     <div className="space-y-2">
@@ -303,7 +309,7 @@ export default function MyAccount() {
                                value={city} 
                                onChange={(e) => setCity(e.target.value)} 
                                placeholder="Ex: São Paulo"
-                               className="w-full bg-background border border-surface-border rounded-2xl py-4 px-4 outline-none focus:border-primary/50 transition-all text-sm font-bold text-white" 
+                               className="w-full bg-white border border-surface-border rounded-2xl py-4 px-4 outline-none focus:border-primary/50 transition-all text-sm font-bold text-gray-900 placeholder:text-gray-400 shadow-sm" 
                              />
                           </div>
                           <div>
@@ -313,7 +319,7 @@ export default function MyAccount() {
                                value={state} 
                                onChange={(e) => setState(e.target.value)} 
                                placeholder="Ex: SP"
-                               className="w-full bg-background border border-surface-border rounded-2xl py-4 px-4 outline-none focus:border-primary/50 transition-all text-sm font-bold text-white" 
+                               className="w-full bg-white border border-surface-border rounded-2xl py-4 px-4 outline-none focus:border-primary/50 transition-all text-sm font-bold text-gray-900 placeholder:text-gray-400 shadow-sm" 
                              />
                           </div>
                        </div>
@@ -357,22 +363,6 @@ export default function MyAccount() {
                        </div>
                     )}
                  </div>
-              </section>
-
-              {/* Security */}
-              <section className="glass-card p-8 border-white/5 flex items-center justify-between">
-                 <div className="flex items-center gap-6">
-                    <div className="w-14 h-14 rounded-2xl bg-surface border border-surface-border flex items-center justify-center text-text-muted">
-                       <ShieldCheck size={28} />
-                    </div>
-                    <div>
-                       <h3 className="text-lg font-black mb-1">Segurança da Conta</h3>
-                       <p className="text-xs text-text-muted uppercase font-bold tracking-widest">Senha e autenticação</p>
-                    </div>
-                 </div>
-                 <button className="p-3 bg-surface hover:bg-surface-hover rounded-xl border border-surface-border transition-all">
-                    <ChevronRight size={20} />
-                 </button>
               </section>
            </div>
         </div>

@@ -1,24 +1,24 @@
-import { 
+import {
   BrowserRouter as Router,
   Routes,
   Route,
   Link
 } from 'react-router-dom';
-import { 
-  Search, 
-  MapPin, 
-  User, 
-  ShoppingCart, 
-  History, 
-  Heart, 
-  Ticket, 
-  HelpCircle, 
-  Pizza as PizzaIcon, 
-  Wine, 
-  Sparkles, 
-  IceCream, 
-  Plus, 
-  Package, 
+import {
+  Search,
+  MapPin,
+  User,
+  ShoppingCart,
+  History,
+  Heart,
+  Ticket,
+  HelpCircle,
+  Pizza as PizzaIcon,
+  Wine,
+  Sparkles,
+  IceCream,
+  Plus,
+  Package,
   PlusCircle,
   Menu,
   X,
@@ -27,7 +27,9 @@ import {
   Settings,
   LogOut,
   Clock,
-  Utensils
+  Utensils,
+  ChevronRight,
+  ShoppingBag
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useState, useEffect } from 'react';
@@ -103,7 +105,7 @@ function DeliveryApp() {
   const [activeCategory, setActiveCategory] = useState('todos');
   const [searchQuery, setSearchQuery] = useState('');
   const [isCartOpen, setIsCartOpen] = useState(false);
-  const { addToCart, cartCount } = useCart();
+  const { addToCart, cartCount, cartTotal } = useCart();
 
   const [categories, setCategories] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
@@ -112,7 +114,7 @@ function DeliveryApp() {
   // Estados do Customizer Modal
   const [selectedProductForCustomization, setSelectedProductForCustomization] = useState<any | null>(null);
   const [isCustomizerOpen, setIsCustomizerOpen] = useState(false);
-  
+
   // Status de funcionamento da loja e infos gerais
   const [storeSettings, setStoreSettings] = useState({
     operating_mode: 'auto',
@@ -179,7 +181,7 @@ function DeliveryApp() {
           settingsRes.data.forEach(s => {
             settingsMap[s.key] = s.value;
           });
-          
+
           setStoreSettings(prev => ({
             ...prev,
             operating_mode: settingsMap['operating_mode'] || 'auto',
@@ -270,18 +272,18 @@ function DeliveryApp() {
   };
 
   const rawCategoryProducts = getProductsByCategory(activeCategory);
-  const activeCategoryProducts = searchQuery.trim() 
+  const activeCategoryProducts = searchQuery.trim()
     ? rawCategoryProducts.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()) || (p.description && p.description.toLowerCase().includes(searchQuery.toLowerCase())))
     : rawCategoryProducts;
 
   // Selecionar os destaques e clássicas
   const isPizzaProduct = (p: any) => p.category === 'pizzas' || p.category_id === 1 || (categories.length > 0 && categories.find(c => c.id === p.category_id)?.slug === 'pizzas');
 
-  let maisPedidas = (activeCategory === 'pizzas' || activeCategory === 'todos') 
-    ? activeCategoryProducts.filter(p => isPizzaProduct(p) && p.is_featured === true) 
+  let maisPedidas = (activeCategory === 'pizzas' || activeCategory === 'todos')
+    ? activeCategoryProducts.filter(p => isPizzaProduct(p) && p.is_featured === true)
     : [];
-  let classicas = (activeCategory === 'pizzas' || activeCategory === 'todos') 
-    ? activeCategoryProducts.filter(p => isPizzaProduct(p) && p.is_featured !== true) 
+  let classicas = (activeCategory === 'pizzas' || activeCategory === 'todos')
+    ? activeCategoryProducts.filter(p => isPizzaProduct(p) && p.is_featured !== true)
     : activeCategoryProducts;
 
   // Fallback caso não haja nenhum produto marcado como destaque no banco
@@ -309,7 +311,7 @@ function DeliveryApp() {
       }
       return {
         ...cat,
-        products: searchQuery.trim() 
+        products: searchQuery.trim()
           ? catProducts.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()) || (p.description && p.description.toLowerCase().includes(searchQuery.toLowerCase())))
           : catProducts
       };
@@ -317,9 +319,9 @@ function DeliveryApp() {
     .filter(catSection => catSection.products.length > 0);
 
   const handleAddProduct = (product: any) => {
-    const isCustomizable = product.allow_customizations === true || 
+    const isCustomizable = product.allow_customizations === true ||
       (product.allow_customizations !== false && (product.category === 'pizzas' || product.category_id === 1 || (categories.length > 0 && categories.find(c => c.id === product.category_id)?.slug === 'pizzas')));
-    
+
     if (isCustomizable) {
       setSelectedProductForCustomization(product);
       setIsCustomizerOpen(true);
@@ -335,11 +337,11 @@ function DeliveryApp() {
   };
 
   // Listar sabores de pizzas disponíveis para opção Meio a Meio
-  const pizzaFlavorsList = products.length > 0 
+  const pizzaFlavorsList = products.length > 0
     ? products.filter(p => {
-        const cat = categories.find(c => c.id === p.category_id);
-        return cat?.slug === 'pizzas';
-      })
+      const cat = categories.find(c => c.id === p.category_id);
+      return cat?.slug === 'pizzas';
+    })
     : [...MAIS_PEDIDAS, ...CLASSICAS];
 
   return (
@@ -358,29 +360,23 @@ function DeliveryApp() {
             <div>
               <p className="text-[10px] text-text-muted uppercase font-black tracking-widest leading-none">Entregar em</p>
               <p className="font-bold text-sm text-text-main mt-1 leading-tight">
-                {profile?.address 
-                  ? `${profile.address}, ${profile.number} - ${profile.neighborhood}` 
+                {profile?.address
+                  ? `${profile.address}, ${profile.number} - ${profile.neighborhood}`
                   : 'Endereço não cadastrado (Preencha em "Minha Conta")'}
               </p>
             </div>
           </div>
-          
+
           <div className="flex items-center gap-3 ml-auto">
-            <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
-              isCurrentlyOpen 
-                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
+            <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${isCurrentlyOpen
+                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
                 : 'bg-red-500/10 text-red-400 border border-red-500/20'
-            }`}>
+              }`}>
               {isCurrentlyOpen ? 'Aberto' : 'Fechado'}
             </div>
-            <div className="px-3 py-1 rounded-full bg-secondary/10 text-secondary text-[10px] font-black uppercase tracking-wider border border-secondary/20 flex items-center gap-1">
-              <Clock size={10} /> {storeSettings.delivery_time_est}
+            <div className="px-3 py-1 rounded-full bg-amber-500/10 text-amber-500 text-[10px] font-black uppercase tracking-wider border border-amber-500/20 flex items-center gap-1.5 font-bold">
+              <Clock size={12} /> {storeSettings.delivery_time_est}
             </div>
-            {storeRating.count > 0 && (
-              <div className="px-3 py-1 rounded-full bg-amber-500/10 text-amber-400 text-[10px] font-black uppercase tracking-wider border border-amber-500/20 flex items-center gap-1">
-                ⭐ {storeRating.rating} ({storeRating.count})
-              </div>
-            )}
             <Link to="/profile" className="text-primary text-xs font-black uppercase tracking-widest hover:underline ml-2">
               Alterar
             </Link>
@@ -399,28 +395,28 @@ function DeliveryApp() {
           {/* Hero Section */}
           <section className="relative h-[280px] sm:h-[360px] md:h-[400px] rounded-3xl mx-2 sm:mx-4 mt-4 flex items-center overflow-hidden shadow-2xl border border-surface-border/20">
             <div className="absolute inset-0 bg-gradient-to-r from-background via-background/70 to-transparent z-10" />
-            <img 
-              src={heroBanner} 
+            <img
+              src={heroBanner}
               alt="Pizzaria Senna - Sabor Original"
               className="absolute inset-0 w-full h-full object-cover object-center"
             />
             <div className="relative z-20 px-6 md:px-12 max-w-2xl">
-              <motion.h2 
+              <motion.h2
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="font-display text-3xl sm:text-4xl md:text-5xl font-black mb-4 leading-tight text-text-main"
               >
-                O Sabor Original do <span className="text-primary text-glow">Delivery</span> na sua Casa.
+                Quem Ama Pizza, <span className="text-primary text-glow">Pede Senna</span>
               </motion.h2>
-              <motion.p 
+              <motion.p
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 }}
                 className="text-text-muted text-sm sm:text-base md:text-lg mb-6 max-w-lg font-medium"
               >
-                Massa artesanal, ingredientes selecionados e entrega rápida em até 30 minutos.
+                Desde 1997 levando pizzas irresistíveis para a mesa da sua família.
               </motion.p>
-              <motion.button 
+              <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={() => {
@@ -429,7 +425,7 @@ function DeliveryApp() {
                 }}
                 className="bg-primary text-white px-8 py-3.5 rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl glow-primary hover:opacity-95 transition-all"
               >
-                PEÇA SUA PIZZA AGORA
+                🍕 PEÇA AGORA
               </motion.button>
             </div>
           </section>
@@ -441,11 +437,10 @@ function DeliveryApp() {
                 <button
                   key={category.id}
                   onClick={() => setActiveCategory(category.id)}
-                  className={`flex items-center gap-2 px-6 py-2.5 rounded-full transition-all whitespace-nowrap font-bold text-sm ${
-                    activeCategory === category.id 
-                      ? 'bg-primary text-background shadow-lg scale-105' 
+                  className={`flex items-center gap-2 px-6 py-2.5 rounded-full transition-all whitespace-nowrap font-bold text-sm ${activeCategory === category.id
+                      ? 'bg-primary text-background shadow-lg scale-105'
                       : 'bg-surface hover:bg-surface-hover text-text-muted hover:text-white border border-surface-border'
-                  }`}
+                    }`}
                 >
                   <category.icon size={18} />
                   {category.name}
@@ -467,9 +462,9 @@ function DeliveryApp() {
                 {activeCategoryProducts.length === 0 ? (
                   <p className="text-text-muted text-center py-10">Nenhum produto encontrado para sua busca.</p>
                 ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
                     {activeCategoryProducts.map((item) => (
-                      <ProductCard key={item.id} pizza={item} onAdd={() => handleAddProduct(item)} />
+                      <ResponsiveProductItem key={item.id} pizza={item} onAdd={() => handleAddProduct(item)} />
                     ))}
                   </div>
                 )}
@@ -484,9 +479,9 @@ function DeliveryApp() {
                         <span className="text-primary text-glow">🔥</span> Mais Pedidas
                       </h3>
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
                       {maisPedidas.map((pizza) => (
-                        <ProductCard key={pizza.id} pizza={pizza} onAdd={() => handleAddProduct(pizza)} />
+                        <ResponsiveProductItem key={pizza.id} pizza={pizza} onAdd={() => handleAddProduct(pizza)} />
                       ))}
                     </div>
                   </section>
@@ -498,9 +493,9 @@ function DeliveryApp() {
                     <h3 className="font-display text-2xl font-black mb-8 border-b border-surface-border pb-4 flex items-center gap-3">
                       <span>🍕</span> Pizzas
                     </h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
                       {classicas.map((pizza) => (
-                        <ListItem key={pizza.id} pizza={pizza} onAdd={() => handleAddProduct(pizza)} />
+                        <ResponsiveProductItem key={pizza.id} pizza={pizza} onAdd={() => handleAddProduct(pizza)} />
                       ))}
                     </div>
                   </section>
@@ -514,9 +509,9 @@ function DeliveryApp() {
                         <catSection.icon size={26} />
                       </span> {catSection.name}
                     </h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
                       {catSection.products.map((item: any) => (
-                        <ProductCard key={item.id} pizza={item} onAdd={() => handleAddProduct(item)} />
+                        <ResponsiveProductItem key={item.id} pizza={item} onAdd={() => handleAddProduct(item)} />
                       ))}
                     </div>
                   </section>
@@ -532,9 +527,9 @@ function DeliveryApp() {
                         <span className="text-primary text-glow">🔥</span> Mais Pedidas
                       </h3>
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
                       {maisPedidas.map((pizza) => (
-                        <ProductCard key={pizza.id} pizza={pizza} onAdd={() => handleAddProduct(pizza)} />
+                        <ResponsiveProductItem key={pizza.id} pizza={pizza} onAdd={() => handleAddProduct(pizza)} />
                       ))}
                     </div>
                   </section>
@@ -546,9 +541,9 @@ function DeliveryApp() {
                     <h3 className="font-display text-2xl font-black mb-8 border-b border-surface-border pb-4 flex items-center gap-3">
                       <span>🍕</span> Cardápio Clássico
                     </h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
                       {classicas.map((pizza) => (
-                        <ListItem key={pizza.id} pizza={pizza} onAdd={() => handleAddProduct(pizza)} />
+                        <ResponsiveProductItem key={pizza.id} pizza={pizza} onAdd={() => handleAddProduct(pizza)} />
                       ))}
                     </div>
                   </section>
@@ -557,13 +552,13 @@ function DeliveryApp() {
             ) : (
               <section>
                 <h3 className="font-display text-3xl font-black mb-8 border-b border-surface-border pb-4 flex items-center gap-3">
-                   <span className="text-primary text-glow">
-                     {activeCategory === 'bebidas' ? '🥤' : activeCategory === 'combos' ? '✨' : activeCategory === 'sobremesas' ? '🍨' : '🍽️'}
-                   </span> {displayedCategories.find(c => c.id === activeCategory)?.name || 'Produtos'}
+                  <span className="text-primary text-glow">
+                    {activeCategory === 'bebidas' ? '🥤' : activeCategory === 'combos' ? '✨' : activeCategory === 'sobremesas' ? '🍨' : '🍽️'}
+                  </span> {displayedCategories.find(c => c.id === activeCategory)?.name || 'Produtos'}
                 </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
                   {activeCategoryProducts.map((item) => (
-                    <ProductCard key={item.id} pizza={item} onAdd={() => handleAddProduct(item)} />
+                    <ResponsiveProductItem key={item.id} pizza={item} onAdd={() => handleAddProduct(item)} />
                   ))}
                 </div>
               </section>
@@ -572,8 +567,36 @@ function DeliveryApp() {
         </div>
       </main>
 
+      {/* Floating Bag Bar (Sacola - Mobile & Desktop Centralizada) */}
+      {cartCount > 0 && (
+        <div className="fixed bottom-20 md:bottom-8 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-md z-50 animate-in fade-in slide-in-from-bottom-4 duration-300">
+          <motion.button
+            initial={{ opacity: 0, y: 20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
+            onClick={() => setIsCartOpen(true)}
+            className="w-full bg-primary text-white p-3.5 px-5 rounded-2xl shadow-[0_10px_30px_rgba(234,29,44,0.45)] flex items-center justify-between font-black border border-white/20 active:scale-98 transition-all glow-primary cursor-pointer"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white text-xs font-black shrink-0">
+                {cartCount}
+              </div>
+              <div className="text-left">
+                <p className="text-[10px] text-white/80 uppercase tracking-widest font-bold leading-none">Minha Sacola</p>
+                <p className="text-base font-black leading-tight mt-0.5">R$ {cartTotal.toFixed(2)}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 text-xs uppercase tracking-widest font-black bg-white/20 px-3.5 py-2 rounded-xl backdrop-blur-md hover:bg-white/30 transition-all">
+              <span>Ver Sacola</span>
+              <ChevronRight size={16} />
+            </div>
+          </motion.button>
+        </div>
+      )}
+
       {/* Mobile Bottom Nav */}
-      <nav className="lg:hidden fixed bottom-0 left-0 w-full glass z-50 flex items-center justify-around py-3 px-4">
+      <nav className="md:hidden fixed bottom-0 left-0 w-full glass z-50 flex items-center justify-around py-2.5 px-4 border-t border-surface-border/30">
         <MobileNavLink icon={PizzaIcon} label="Delivery" active />
         <MobileNavLink icon={History} label="Pedidos" to="/orders" />
         <MobileNavLink icon={ShoppingCart} label="Carrinho" onClick={() => setIsCartOpen(true)} />
@@ -581,7 +604,7 @@ function DeliveryApp() {
       </nav>
 
       {/* Product Customizer Modal */}
-      <ProductCustomizerModal 
+      <ProductCustomizerModal
         isOpen={isCustomizerOpen}
         onClose={() => setIsCustomizerOpen(false)}
         product={selectedProductForCustomization}
@@ -596,11 +619,10 @@ function DeliveryApp() {
 
 function SidebarLink({ icon: Icon, label, active = false, isLink = false, to = "" }: any) {
   const content = (
-    <div className={`flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all group ${
-      active 
-        ? 'bg-primary text-background shadow-lg glow-primary font-bold' 
+    <div className={`flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all group ${active
+        ? 'bg-primary text-background shadow-lg glow-primary font-bold'
         : 'text-text-muted hover:text-white hover:bg-surface-hover'
-    }`}>
+      }`}>
       <Icon size={20} className={active ? '' : 'group-hover:text-primary transition-colors'} />
       <span className="text-sm">{label}</span>
     </div>
@@ -610,52 +632,64 @@ function SidebarLink({ icon: Icon, label, active = false, isLink = false, to = "
   return <button className="w-full text-left">{content}</button>;
 }
 
+function ResponsiveProductItem({ pizza, onAdd }: any) {
+  return (
+    <>
+      <div className="block md:hidden w-full">
+        <ListItem pizza={pizza} onAdd={onAdd} />
+      </div>
+      <div className="hidden md:block h-full w-full">
+        <ProductCard pizza={pizza} onAdd={onAdd} />
+      </div>
+    </>
+  );
+}
+
 function ProductCard({ pizza, onAdd }: any) {
   const { toggleFavorite, isFavorite } = useFavorites();
   const favorite = isFavorite(pizza.id);
 
   return (
-    <motion.div 
-      whileHover={{ y: -8 }}
-      className="glass-card flex flex-col group overflow-hidden"
+    <motion.div
+      whileHover={{ y: -6 }}
+      className="glass-card flex flex-col group overflow-hidden rounded-3xl h-full border border-surface-border/60 hover:border-primary/30 transition-all shadow-sm"
     >
-      <div className="h-56 overflow-hidden relative">
-        <img src={pizza.image || pizza.main_image_url} alt={pizza.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
-        <div className="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent" />
-        
+      <div className="h-48 sm:h-52 overflow-hidden relative">
+        <img src={pizza.image || pizza.main_image_url} alt={pizza.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+        <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-transparent to-transparent" />
+
         {/* Promo Badge */}
         {pizza.promo_price && (
-          <div className="absolute top-4 left-4 bg-emerald-500 text-white font-black text-[9px] uppercase tracking-widest px-3 py-1.5 rounded-xl border border-emerald-500/20 shadow-lg glow-emerald z-20">
+          <div className="absolute top-3 left-3 bg-emerald-500 text-white font-black text-[9px] uppercase tracking-widest px-3 py-1.5 rounded-xl border border-emerald-500/20 shadow-lg glow-emerald z-20">
             🏷️ Oferta
           </div>
         )}
 
         {/* Favorite Button */}
-        <button 
+        <button
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
             toggleFavorite(pizza.id);
           }}
-          className={`absolute top-4 right-4 p-2.5 rounded-xl transition-all shadow-lg backdrop-blur-md z-20 ${
-            favorite ? 'bg-primary text-background' : 'bg-background/80 text-primary hover:bg-primary/20'
-          }`}
+          className={`absolute top-3 right-3 p-2.5 rounded-2xl transition-all shadow-lg backdrop-blur-md z-20 ${favorite ? 'bg-primary text-background' : 'bg-background/80 text-primary hover:bg-primary/20'
+            }`}
         >
           <Heart size={18} fill={favorite ? "currentColor" : "none"} />
         </button>
       </div>
-      <div className="p-6 flex-1 flex flex-col">
-        <h4 className="text-xl font-black mb-1 group-hover:text-primary transition-colors">{pizza.name}</h4>
-        
+      <div className="p-5 sm:p-6 flex-1 flex flex-col">
+        <h4 className="text-xl font-black mb-1 group-hover:text-primary transition-colors text-text-main">{pizza.name}</h4>
+
         {(pizza.serves_description || pizza.prep_time) && (
-          <div className="flex items-center gap-3 text-[9px] text-text-muted font-black uppercase tracking-wider mb-2">
+          <div className="flex items-center gap-3 text-[10px] text-text-muted font-black uppercase tracking-wider mb-2">
             {pizza.serves_description && <span>👥 {pizza.serves_description}</span>}
-            {pizza.prep_time && <span>⏱️ {pizza.prep_time} min</span>}
+            {pizza.prep_time && <span>⏱️ {pizza.prep_time} MIN</span>}
           </div>
         )}
 
-        <p className="text-xs text-text-muted line-clamp-2 mb-6 flex-1">{pizza.description}</p>
-        <div className="flex justify-between items-center mt-auto">
+        <p className="text-xs text-text-muted line-clamp-2 mb-6 flex-1 font-medium">{pizza.description}</p>
+        <div className="flex justify-between items-center mt-auto pt-2">
           <div className="flex flex-col">
             {pizza.promo_price ? (
               <>
@@ -666,9 +700,9 @@ function ProductCard({ pizza, onAdd }: any) {
               <span className="font-display text-2xl font-black text-secondary">R$ {Number(pizza.price).toFixed(2)}</span>
             )}
           </div>
-          <button 
+          <button
             onClick={onAdd}
-            className="bg-primary text-background p-3 rounded-2xl hover:scale-110 active:scale-95 transition-all shadow-lg glow-primary"
+            className="bg-primary text-white p-3 rounded-2xl hover:scale-110 active:scale-95 transition-all shadow-lg glow-primary"
           >
             <Plus size={20} />
           </button>
@@ -683,33 +717,22 @@ function ListItem({ pizza, onAdd }: any) {
   const favorite = isFavorite(pizza.id);
 
   return (
-    <div className="flex gap-4 p-4 glass-card group relative">
-      {pizza.soldOut && <div className="absolute top-2 right-2 bg-secondary text-background text-[8px] px-2 py-1 rounded-full font-black z-10 uppercase">Esgotado</div>}
-      
-      {/* Promo Badge for ListItem */}
-      {pizza.promo_price && !pizza.soldOut && (
-        <div className="absolute top-2 left-2 bg-emerald-500 text-white font-black text-[7px] uppercase tracking-widest px-2 py-1 rounded-md shadow-md z-10">
-          Oferta
+    <div className="glass-card p-3.5 sm:p-4 rounded-3xl flex items-center gap-3.5 relative group hover:border-primary/30 transition-all shadow-sm w-full">
+      {pizza.soldOut && (
+        <div className="absolute top-2 right-2 bg-secondary text-background text-[8px] px-2 py-0.5 rounded-full font-black z-10 uppercase">
+          Esgotado
         </div>
       )}
 
-      {/* Favorite Button for List Item */}
-      {!pizza.soldOut && (
-        <button 
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            toggleFavorite(pizza.id);
-          }}
-          className={`absolute top-2 right-2 p-1.5 rounded-lg transition-all z-20 ${
-            favorite ? 'text-primary' : 'text-text-muted hover:text-primary'
-          }`}
-        >
-          <Heart size={14} fill={favorite ? "currentColor" : "none"} />
-        </button>
+      {/* Promo Badge for ListItem */}
+      {pizza.promo_price && !pizza.soldOut && (
+        <div className="absolute -top-2 left-3 bg-emerald-500 text-white font-black text-[8px] uppercase tracking-widest px-2.5 py-0.5 rounded-md shadow-md z-20">
+          OFERTA
+        </div>
       )}
 
-      <div className={`w-20 h-20 rounded-2xl overflow-hidden flex-shrink-0 bg-surface border border-surface-border ${pizza.soldOut ? 'grayscale opacity-30' : ''} ${pizza.promo_price ? 'mt-3' : ''}`}>
+      {/* Circular Image Thumbnail */}
+      <div className={`w-20 h-20 sm:w-22 sm:h-22 rounded-full overflow-hidden shrink-0 bg-surface border border-surface-border/60 shadow-md ${pizza.soldOut ? 'grayscale opacity-30' : ''}`}>
         {pizza.image || pizza.main_image_url ? (
           <img src={pizza.image || pizza.main_image_url} alt={pizza.name} className="w-full h-full object-cover" />
         ) : (
@@ -719,35 +742,59 @@ function ListItem({ pizza, onAdd }: any) {
           })()
         )}
       </div>
-      <div className={`flex-1 flex flex-col justify-center ${pizza.soldOut ? 'opacity-30' : ''}`}>
-        <h5 className="text-sm font-black mb-0.5 group-hover:text-primary transition-colors">{pizza.name}</h5>
-        
+
+      {/* Product Information */}
+      <div className={`flex-1 min-w-0 flex flex-col justify-center pr-6 ${pizza.soldOut ? 'opacity-30' : ''}`}>
+        <h5 className="text-sm sm:text-base font-black mb-0.5 group-hover:text-primary transition-colors text-text-main truncate">{pizza.name}</h5>
+
         {(pizza.serves_description || pizza.prep_time) && (
-          <div className="flex items-center gap-2 text-[8px] text-text-muted font-bold uppercase tracking-wider mb-1 leading-none">
+          <div className="flex items-center gap-2 text-[9px] text-text-muted font-black uppercase tracking-wider mb-1 leading-tight">
             {pizza.serves_description && <span>👥 {pizza.serves_description}</span>}
-            {pizza.prep_time && <span>⏱️ {pizza.prep_time} min</span>}
+            {pizza.prep_time && <span>⏱️ {pizza.prep_time} MIN</span>}
           </div>
         )}
 
-        <p className="text-[10px] text-text-muted leading-tight mb-2 line-clamp-1">{pizza.description}</p>
+        <p className="text-[11px] text-text-muted leading-tight mb-2 line-clamp-1 font-medium">{pizza.description}</p>
+        
         <div className="flex justify-between items-center mt-auto">
-          <div className="flex flex-col">
+          <div className="flex items-baseline gap-2">
             {pizza.promo_price ? (
               <>
-                <span className="text-[8px] text-text-muted line-through font-bold leading-none">R$ {Number(pizza.price).toFixed(2)}</span>
-                <span className="text-sm font-black text-secondary">R$ {Number(pizza.promo_price).toFixed(2)}</span>
+                <span className="text-[10px] text-text-muted line-through font-bold">R$ {Number(pizza.price).toFixed(2)}</span>
+                <span className="text-base font-black text-secondary">R$ {Number(pizza.promo_price).toFixed(2)}</span>
               </>
             ) : (
-              <span className="text-sm font-black text-secondary">R$ {Number(pizza.price).toFixed(2)}</span>
+              <span className="text-base font-black text-secondary">R$ {Number(pizza.price).toFixed(2)}</span>
             )}
           </div>
-          {!pizza.soldOut && (
-            <button onClick={onAdd} className="hover:scale-125 transition-all">
-              <PlusCircle size={18} className="text-primary cursor-pointer" />
-            </button>
-          )}
         </div>
       </div>
+
+      {/* Favorite Button (Top Right) */}
+      {!pizza.soldOut && (
+        <button
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            toggleFavorite(pizza.id);
+          }}
+          className={`absolute top-3 right-3 p-1 rounded-full transition-all z-20 ${favorite ? 'text-primary' : 'text-text-muted/60 hover:text-primary'}`}
+          title="Favoritar"
+        >
+          <Heart size={16} fill={favorite ? "currentColor" : "none"} />
+        </button>
+      )}
+
+      {/* Add Button (Bottom Right) */}
+      {!pizza.soldOut && (
+        <button
+          onClick={onAdd}
+          className="absolute bottom-3 right-3 p-1 text-primary hover:scale-125 transition-all z-20"
+          title="Adicionar"
+        >
+          <PlusCircle size={24} className="text-primary" />
+        </button>
+      )}
     </div>
   );
 }
@@ -772,8 +819,8 @@ export default function App() {
     <AuthProvider>
       <FavoritesProvider>
         <PWAInstallPrompt />
-        <Toaster 
-          position="top-right" 
+        <Toaster
+          position="top-right"
           toastOptions={{
             duration: 4000,
             style: {
@@ -797,7 +844,7 @@ export default function App() {
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
               <Route path="/orders" element={<MyOrders />} />
-              
+
               {/* Admin Routes */}
               <Route path="/admin/login" element={<AdminLogin />} />
               <Route path="/admin" element={<AdminDashboard />} />

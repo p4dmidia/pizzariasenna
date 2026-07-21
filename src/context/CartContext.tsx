@@ -1,6 +1,8 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { supabase } from '../lib/supabase';
+import { useAuth } from './AuthContext';
+import { calculateFeeForAddressObj } from '../utils/deliveryCalculator';
 
 export interface CartItem {
   id: number;
@@ -39,6 +41,7 @@ interface CartContextType {
   clearCart: () => void;
   cartCount: number;
   cartTotal: number;
+  deliveryFee: number;
   appliedCoupon: Coupon | null;
   discountAmount: number;
   applyCoupon: (code: string) => Promise<boolean>;
@@ -48,6 +51,7 @@ interface CartContextType {
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export function CartProvider({ children }: { children: ReactNode }) {
+  const { profile } = useAuth();
   const [cartItems, setCartItems] = useState<CartItem[]>(() => {
     try {
       const stored = localStorage.getItem('delivery.cart');
@@ -57,6 +61,23 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
   });
   const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
+  const [deliveryFee, setDeliveryFee] = useState<number>(0);
+
+  useEffect(() => {
+    async function updateFee() {
+      if (cartItems.length === 0) {
+        setDeliveryFee(0);
+        return;
+      }
+      try {
+        const { fee } = await calculateFeeForAddressObj(profile);
+        setDeliveryFee(fee);
+      } catch {
+        setDeliveryFee(5.00);
+      }
+    }
+    updateFee();
+  }, [profile, cartItems.length]);
 
   React.useEffect(() => {
     localStorage.setItem('delivery.cart', JSON.stringify(cartItems));
@@ -182,15 +203,36 @@ export function CartProvider({ children }: { children: ReactNode }) {
   };
 
   const applyCoupon = async (code: string): Promise<boolean> => {
-    try {
-      const { data: coupon, error } = await supabase
-        .from('coupons')
-        .select('*')
-        .eq('code', code.trim().toUpperCase())
-        .eq('is_active', true)
-        .maybeSingle();
+    const cleanCode = code.trim().toUpperCase();
+    if (!cleanCode) {
+      toast.error('Digite o código do cupom.');
+      return false;
+    }
 
-      if (error) throw error;
+    try {
+      let coupon: any = null;
+
+      // 1. Tentar buscar no Supabase
+      try {
+        const { data, error } = await supabase
+          .from('coupons')
+          .select('*')
+          .eq('code', cleanCode)
+          .eq('is_active', true)
+          .maybeSingle();
+
+        if (!error && data) {
+          coupon = data;
+        }
+      } catch {
+        coupon = null;
+      }
+
+      // 2. Se não encontrar no banco, buscar no cache local de cupons
+      if (!coupon) {
+        const mockCoupons = JSON.parse(localStorage.getItem('supabase.mock-coupons') || '[]');
+        coupon = mockCoupons.find((c: any) => c.code === cleanCode && c.is_active);
+      }
 
       if (!coupon) {
         toast.error('Cupom inválido ou expirado.');
@@ -253,6 +295,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       clearCart,
       cartCount,
       cartTotal,
+      deliveryFee,
       appliedCoupon,
       discountAmount,
       applyCoupon,

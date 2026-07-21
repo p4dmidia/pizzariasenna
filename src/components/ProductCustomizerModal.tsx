@@ -203,7 +203,7 @@ export default function ProductCustomizerModal({
                         setSecondFlavor(flavor || null);
                       }}
                       value={secondFlavor?.id || ''}
-                      className="w-full bg-surface border border-surface-border rounded-xl py-3 px-4 outline-none text-sm font-bold text-white"
+                      className="w-full bg-white border border-surface-border rounded-xl py-3 px-4 outline-none text-sm font-bold text-gray-900 shadow-sm"
                     >
                       <option value="">-- Escolha um Sabor --</option>
                       {pizzaFlavors.filter(p => p.id !== product.id).map(p => (
@@ -263,17 +263,17 @@ export default function ProductCustomizerModal({
                       onClick={() => setBorder(b.id as any)}
                       className={`w-full p-4 rounded-2xl border flex items-center justify-between transition-all ${
                         border === b.id 
-                          ? 'border-primary bg-primary/5 text-white' 
+                          ? 'border-primary bg-primary/5 text-gray-900 font-bold' 
                           : 'border-surface-border bg-background hover:bg-surface-hover text-text-muted'
                       }`}
                     >
                       <div className="flex items-center gap-3">
                         <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${
-                          border === b.id ? 'border-primary bg-primary text-background' : 'border-surface-border'
+                          border === b.id ? 'border-primary bg-primary text-white' : 'border-surface-border'
                         }`}>
-                          {border === b.id && <Check size={12} strokeWidth={3} />}
+                          {border === b.id && <Check size={12} strokeWidth={3} className="text-white" />}
                         </div>
-                        <span className="text-sm font-bold">{b.label}</span>
+                        <span className="text-sm font-bold text-gray-900">{b.label}</span>
                       </div>
                       {b.price > 0 && (
                         <span className="text-xs font-black text-secondary">+ R$ {b.price.toFixed(2)}</span>
@@ -295,17 +295,17 @@ export default function ProductCustomizerModal({
                         onClick={() => handleToggleExtra(extra)}
                         className={`w-full p-4 rounded-2xl border flex items-center justify-between transition-all ${
                           isSelected 
-                            ? 'border-primary bg-primary/5 text-white' 
+                            ? 'border-primary bg-primary/5 text-gray-900 font-bold' 
                             : 'border-surface-border bg-background hover:bg-surface-hover text-text-muted'
                         }`}
                       >
                         <div className="flex items-center gap-3">
                           <div className={`w-5 h-5 rounded-lg border flex items-center justify-center ${
-                            isSelected ? 'border-primary bg-primary text-background' : 'border-surface-border'
+                            isSelected ? 'border-primary bg-primary text-white' : 'border-surface-border'
                           }`}>
-                            {isSelected && <Check size={12} strokeWidth={3} />}
+                            {isSelected && <Check size={12} strokeWidth={3} className="text-white" />}
                           </div>
-                          <span className="text-sm font-bold">{extra.name}</span>
+                          <span className="text-sm font-bold text-gray-900">{extra.name}</span>
                         </div>
                         <span className="text-xs font-black text-secondary">+ R$ {extra.price.toFixed(2)}</span>
                       </button>

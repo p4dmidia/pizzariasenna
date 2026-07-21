@@ -23,6 +23,7 @@ import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 import { toast } from 'react-hot-toast';
 import { isStoreCurrentlyOpen } from '../utils/storeHours';
+import { calculateFeeForAddressObj } from '../utils/deliveryCalculator';
 
 import AppLogo from '../components/AppLogo';
 
@@ -43,18 +44,38 @@ export default function Checkout() {
   const [guestZipcode, setGuestZipcode] = useState('');
   const [guestProfile, setGuestProfile] = useState<any | null>(null);
 
-  const profile = isAdminDemo ? {
+  // Obter perfil real do usuário ou do visitante, usando fallback do localStorage para endereço
+  const rawProfile = authProfile || guestProfile;
+  
+  let localAddressObj: any = null;
+  try {
+    const saved = localStorage.getItem('delivery.userAddress');
+    if (saved) localAddressObj = JSON.parse(saved);
+  } catch {}
+
+  const profile = rawProfile ? {
+    ...rawProfile,
+    address: rawProfile.address || localAddressObj?.address || 'Rua Maria Estela de Souza',
+    number: rawProfile.number || localAddressObj?.number || '262',
+    complement: rawProfile.complement || localAddressObj?.complement || '',
+    neighborhood: rawProfile.neighborhood || localAddressObj?.neighborhood || 'Bernardo Valadares',
+    city: rawProfile.city || localAddressObj?.city || 'Sete Lagoas',
+    state: rawProfile.state || localAddressObj?.state || 'MG',
+    zipcode: rawProfile.zipcode || localAddressObj?.zipcode || '35702-369'
+  } : (isAdminDemo ? {
     id: 0,
     mocha_user_id: 'admin',
-    email: 'admin@appdelivery.com',
-    full_name: 'Admin Pizza Senna',
+    email: 'weider.07@hotmail.com',
+    full_name: 'WEIDER DE OLIVEIRA',
     role: 'admin',
-    address: 'Rua do Admin',
-    number: '123',
-    complement: 'Apt 1',
-    neighborhood: 'Centro',
-    city: 'P4D Mídia'
-  } : (authProfile || guestProfile);
+    address: localAddressObj?.address || 'Rua Maria Estela de Souza',
+    number: localAddressObj?.number || '262',
+    complement: localAddressObj?.complement || '',
+    neighborhood: localAddressObj?.neighborhood || 'Bernardo Valadares',
+    city: localAddressObj?.city || 'Sete Lagoas',
+    state: localAddressObj?.state || 'MG',
+    zipcode: localAddressObj?.zipcode || '35702-369'
+  } : null);
 
   const [step, setStep] = useState(1);
   const [paymentMethod, setPaymentMethod] = useState('');
@@ -63,6 +84,8 @@ export default function Checkout() {
   const [isSuccess, setIsSuccess] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
   const [isAddressSelected, setIsAddressSelected] = useState(false);
+  const [needsChange, setNeedsChange] = useState<boolean>(false);
+  const [changeForAmount, setChangeForAmount] = useState<string>('');
 
   // Geoloc e Taxa de Entrega Dinâmica
   const [calculatedDeliveryFee, setCalculatedDeliveryFee] = useState<number | null>(null);
@@ -194,88 +217,11 @@ export default function Checkout() {
       return;
     }
 
-    if (!deliverySettings.storeLat || !deliverySettings.storeLng) {
-      setCalculatedDeliveryFee(deliverySettings.baseFee);
-      setDeliveryDistance(null);
-      return;
-    }
-
     setCalculatingFee(true);
     try {
-      const addressQuery = `${addressObj.address}, ${addressObj.number || ''}, ${addressObj.neighborhood || ''}, ${addressObj.city || ''}, Brasil`;
-      
-      const response = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(addressQuery)}&format=json&limit=1`, {
-        headers: {
-          'User-Agent': 'PizzaSennaApp/1.0'
-        }
-      });
-
-      if (!response.ok) throw new Error('Falha na geocodificação');
-
-      const data = await response.json();
-      if (data && data.length > 0) {
-        const clientLat = parseFloat(data[0].lat);
-        const clientLng = parseFloat(data[0].lon);
-
-        const distance = calculateHaversineDistance(
-          deliverySettings.storeLat,
-          deliverySettings.storeLng,
-          clientLat,
-          clientLng
-        );
-
-        setDeliveryDistance(distance);
-
-        const sortedRules = [...deliverySettings.rules].sort((a, b) => a.maxDistance - b.maxDistance);
-        const matchedRule = sortedRules.find(r => distance <= r.maxDistance);
-
-        if (matchedRule) {
-          setCalculatedDeliveryFee(matchedRule.fee);
-        } else {
-          const maxRule = sortedRules[sortedRules.length - 1];
-          setCalculatedDeliveryFee(maxRule ? maxRule.fee : deliverySettings.baseFee);
-        }
-      } else {
-        // Tentar CEP ou bairro como fallback
-        let fallbackQuery = '';
-        if (addressObj.zipcode) fallbackQuery = `${addressObj.zipcode}, Brasil`;
-        else if (addressObj.neighborhood) fallbackQuery = `${addressObj.neighborhood}, ${addressObj.city || ''}, Brasil`;
-
-        if (fallbackQuery) {
-          const fbResponse = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(fallbackQuery)}&format=json&limit=1`, {
-            headers: {
-              'User-Agent': 'PizzaSennaApp/1.0'
-            }
-          });
-          const fbData = await fbResponse.json();
-          if (fbData && fbData.length > 0) {
-            const clientLat = parseFloat(fbData[0].lat);
-            const clientLng = parseFloat(fbData[0].lon);
-
-            const distance = calculateHaversineDistance(
-              deliverySettings.storeLat,
-              deliverySettings.storeLng,
-              clientLat,
-              clientLng
-            );
-
-            setDeliveryDistance(distance);
-
-            const sortedRules = [...deliverySettings.rules].sort((a, b) => a.maxDistance - b.maxDistance);
-            const matchedRule = sortedRules.find(r => distance <= r.maxDistance);
-
-            if (matchedRule) {
-              setCalculatedDeliveryFee(matchedRule.fee);
-            } else {
-              const maxRule = sortedRules[sortedRules.length - 1];
-              setCalculatedDeliveryFee(maxRule ? maxRule.fee : deliverySettings.baseFee);
-            }
-            return;
-          }
-        }
-        setCalculatedDeliveryFee(deliverySettings.baseFee);
-        setDeliveryDistance(null);
-      }
+      const { fee, distanceKm } = await calculateFeeForAddressObj(addressObj, deliverySettings);
+      setCalculatedDeliveryFee(fee);
+      setDeliveryDistance(distanceKm);
     } catch (e) {
       console.error('Erro ao calcular taxa de entrega:', e);
       setCalculatedDeliveryFee(deliverySettings.baseFee);
@@ -429,6 +375,19 @@ export default function Checkout() {
       return;
     }
 
+    if (!paymentMethod) {
+      toast.error('Selecione uma forma de pagamento.');
+      return;
+    }
+
+    if (paymentMethod === 'cash' && needsChange) {
+      const val = parseFloat(changeForAmount);
+      if (isNaN(val) || val < total) {
+        toast.error(`Informe um valor de troco maior ou igual ao total do pedido (R$ ${total.toFixed(2)}).`);
+        return;
+      }
+    }
+
     setIsProcessing(true);
 
     try {
@@ -449,9 +408,25 @@ export default function Checkout() {
         }
       }
       const isGuest = !authProfile && !isAdminDemo;
+
+      let changeObs = '';
+      if (paymentMethod === 'cash') {
+        if (needsChange && changeForAmount) {
+          const val = parseFloat(changeForAmount);
+          const changeVal = val - total;
+          changeObs = ` [Dinheiro: Levar troco para R$ ${val.toFixed(2)} (Troco = R$ ${changeVal.toFixed(2)})]`;
+        } else {
+          changeObs = ` [Dinheiro: Não precisa de troco]`;
+        }
+      } else if (paymentMethod === 'pix') {
+        changeObs = ` [PIX na Entrega]`;
+      } else if (paymentMethod === 'card') {
+        changeObs = ` [Cartão na Entrega]`;
+      }
+
       const addressSummary = (isGuest ? `Nome: ${profile.full_name} | Tel: ${profile.phone} | ` : '') + (profile.address 
         ? `${profile.address}, ${profile.number}${profile.complement ? ` - ${profile.complement}` : ''} - ${profile.neighborhood}`
-        : 'Não cadastrado') + (observations.trim() ? ` (Obs: ${observations.trim()})` : '');
+        : 'Não cadastrado') + changeObs + (observations.trim() ? ` (Obs: ${observations.trim()})` : '');
 
       let userId = profile.id;
       
@@ -529,88 +504,21 @@ export default function Checkout() {
 
       if (itemsError) {
         console.error('Erro ao salvar itens do pedido:', itemsError);
-        // Deletar o pedido para consistência
         await supabase.from('orders').delete().eq('id', orderData.id);
         throw itemsError;
       }
 
-      // 3. Tratar caminhos de acordo com a forma de pagamento
-      if (paymentMethod === 'pix' || paymentMethod === 'card') {
-        const mpAccessToken = import.meta.env.VITE_MERCADO_PAGO_ACCESS_TOKEN || 'APP_USR-6467752906550058-052012-042d90ecf23d61bad3d0e5664d588b8b-3404437692';
-        
-        try {
-          const mpResponse = await fetch('https://api.mercadopago.com/checkout/preferences', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${mpAccessToken}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              items: (() => {
-                const discountFactor = cartTotal > 0 ? (cartTotal - discountAmount) / cartTotal : 1;
-                return cartItems.map(item => ({
-                  title: item.name,
-                  quantity: item.quantity,
-                  unit_price: parseFloat((item.price * discountFactor).toFixed(2)),
-                  currency_id: 'BRL'
-                }));
-              })(),
-              payer: {
-                email: profile.email || 'cliente@appdelivery.com',
-                name: profile.full_name || 'Cliente Pizza Senna'
-              },
-              back_urls: {
-                success: `${window.location.origin}/checkout?status=success&order_id=${orderData.id}`,
-                failure: `${window.location.origin}/checkout?status=failure&order_id=${orderData.id}`,
-                pending: `${window.location.origin}/checkout?status=pending&order_id=${orderData.id}`
-              },
-              ...(window.location.protocol === 'https:' ? { auto_return: 'approved' } : {}),
-              external_reference: orderData.id.toString(),
-              payment_methods: {
-                excluded_payment_methods: [],
-                excluded_payment_types: paymentMethod === 'pix' ? [
-                  { id: 'credit_card' },
-                  { id: 'debit_card' },
-                  { id: 'ticket' },
-                  { id: 'atm' }
-                ] : [
-                  { id: 'ticket' },
-                  { id: 'atm' },
-                  { id: 'bank_transfer' }
-                ],
-                installments: 12
-              }
-            })
-          });
+      // Salvar os itens localmente para a tela de confirmação
+      localStorage.setItem(`order_items_${orderData.id}`, JSON.stringify(cartItems));
 
-          if (!mpResponse.ok) {
-            const errData = await mpResponse.json();
-            throw new Error(errData.message || 'Erro ao criar preferência de pagamento no Mercado Pago.');
-          }
-
-          localStorage.setItem(`order_items_${orderData.id}`, JSON.stringify(cartItems));
-
-          const preference = await mpResponse.json();
-          if (preference.init_point) {
-            window.location.href = preference.init_point;
-          } else {
-            throw new Error('Link de pagamento inválido retornado.');
-          }
-        } catch (mpError: any) {
-          await supabase.from('orders').delete().eq('id', orderData.id);
-          throw mpError;
-        }
-
-      } else {
-        localStorage.setItem(`order_items_${orderData.id}`, JSON.stringify(cartItems));
-        toast.success('Pedido realizado com sucesso!');
-        clearCart();
-        setSearchParams({ status: 'success', order_id: orderData.id.toString() }, { replace: true });
-      }
+      // Limpar carrinho e avançar para confirmação do pedido
+      clearCart();
+      setIsProcessing(false);
+      toast.success('Pedido enviado com sucesso! O motoboy levará o pagamento na entrega.');
+      setSearchParams({ status: 'success', order_id: orderData.id.toString() }, { replace: true });
     } catch (error: any) {
       console.error('Erro ao finalizar pedido:', error);
-      toast.error(error.message || 'Erro ao processar pedido.');
-    } finally {
+      toast.error(error.message || 'Erro ao finalizar pedido.');
       setIsProcessing(false);
     }
   };
@@ -948,20 +856,23 @@ export default function Checkout() {
               <div className="w-10 h-10 rounded-xl bg-secondary/10 flex items-center justify-center text-secondary">
                 <CreditCard size={20} />
               </div>
-              <h3 className="text-lg font-black italic uppercase tracking-tighter">Forma de Pagamento</h3>
+              <div>
+                <h3 className="text-lg font-black italic uppercase tracking-tighter">Forma de Pagamento</h3>
+                <p className="text-xs text-text-muted font-bold">O pagamento é feito diretamente ao nosso motoboy na entrega do seu pedido.</p>
+              </div>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <PaymentOption 
                 icon={QrCode} 
-                label="PIX" 
+                label="PIX na Entrega" 
                 selected={paymentMethod === 'pix'} 
                 onClick={() => setPaymentMethod('pix')} 
                 highlight
               />
               <PaymentOption 
                 icon={CreditCard} 
-                label="Cartão" 
+                label="Cartão na Entrega" 
                 selected={paymentMethod === 'card'} 
                 onClick={() => setPaymentMethod('card')} 
               />
@@ -971,40 +882,19 @@ export default function Checkout() {
                 selected={paymentMethod === 'cash'} 
                 onClick={() => setPaymentMethod('cash')} 
               />
-              <PaymentOption 
-                icon={Truck} 
-                label="Entrega" 
-                selected={paymentMethod === 'delivery'} 
-                onClick={() => setPaymentMethod('delivery')} 
-              />
             </div>
 
-            {paymentMethod === 'delivery' && (
+            {paymentMethod === 'pix' && (
                <motion.div 
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="mt-8 p-6 rounded-2xl bg-amber-500/5 border border-amber-500/20"
+                className="mt-6 p-6 rounded-2xl bg-emerald-500/10 border border-emerald-500/20"
                >
-                  <p className="text-sm font-bold text-amber-500 mb-2 flex items-center gap-2">
-                     <Truck size={18} /> Pagamento na Entrega
+                  <p className="text-sm font-bold text-emerald-400 mb-1 flex items-center gap-2">
+                     <QrCode size={18} /> Pagamento via PIX na Entrega
                   </p>
-                  <p className="text-[10px] text-text-muted uppercase font-black tracking-widest leading-relaxed">
-                     O entregador levará a máquina de cartão ou troco para dinheiro conforme solicitado. Por favor, informe no campo de observações se precisar de troco.
-                  </p>
-               </motion.div>
-            )}
-
-            {paymentMethod === 'cash' && (
-               <motion.div 
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="mt-8 p-6 rounded-2xl bg-amber-500/5 border border-amber-500/20"
-               >
-                  <p className="text-sm font-bold text-amber-500 mb-2 flex items-center gap-2">
-                     <Banknote size={18} /> Pagamento em Dinheiro na Entrega
-                  </p>
-                  <p className="text-[10px] text-text-muted uppercase font-black tracking-widest leading-relaxed">
-                     O pagamento será feito em dinheiro diretamente ao entregador no ato da entrega do pedido.
+                  <p className="text-xs text-text-muted font-bold">
+                     Nosso motoboy levará o QR Code / Chave PIX da pizzaria para você pagar no momento da entrega do pedido.
                   </p>
                </motion.div>
             )}
@@ -1013,14 +903,118 @@ export default function Checkout() {
                <motion.div 
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="mt-8 p-6 rounded-2xl bg-primary/5 border border-primary/20"
+                className="mt-6 p-6 rounded-2xl bg-primary/10 border border-primary/20"
                >
-                  <p className="text-sm font-bold text-primary mb-2 flex items-center gap-2">
-                     <CreditCard size={18} /> Pagamento via Cartão (Mercado Pago)
+                  <p className="text-sm font-bold text-primary mb-1 flex items-center gap-2">
+                     <CreditCard size={18} /> Pagamento no Cartão na Entrega
                   </p>
-                  <p className="text-[10px] text-text-muted uppercase font-black tracking-widest leading-relaxed">
-                     Você será redirecionado com segurança para o Mercado Pago para realizar o pagamento com seu cartão de crédito ou débito.
+                  <p className="text-xs text-text-muted font-bold">
+                     O motoboy levará a maquininha de cartão (Débito ou Crédito) até a sua casa.
                   </p>
+               </motion.div>
+            )}
+
+            {paymentMethod === 'cash' && (
+               <motion.div 
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mt-6 p-6 rounded-2xl bg-amber-500/10 border border-amber-500/20 space-y-4"
+               >
+                  <div className="flex items-center justify-between">
+                     <p className="text-sm font-bold text-amber-400 flex items-center gap-2">
+                        <Banknote size={18} /> Pagamento em Dinheiro na Entrega
+                     </p>
+                  </div>
+
+                  <div className="space-y-3 pt-3 border-t border-amber-500/20">
+                     <label className="text-xs font-black uppercase tracking-wider text-text-main block">
+                        Precisa de troco?
+                     </label>
+                     
+                     <div className="flex items-center gap-4">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setNeedsChange(false);
+                            setChangeForAmount('');
+                          }}
+                          className={`flex-1 py-3 px-4 rounded-xl text-xs font-black uppercase tracking-wider border transition-all cursor-pointer ${
+                            !needsChange 
+                              ? 'bg-amber-500 text-background border-amber-500 shadow-md font-bold' 
+                              : 'bg-background/50 border-surface-border text-text-muted hover:text-white'
+                          }`}
+                        >
+                           Não preciso de troco
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setNeedsChange(true)}
+                          className={`flex-1 py-3 px-4 rounded-xl text-xs font-black uppercase tracking-wider border transition-all cursor-pointer ${
+                            needsChange 
+                              ? 'bg-amber-500 text-background border-amber-500 shadow-md font-bold' 
+                              : 'bg-background/50 border-surface-border text-text-muted hover:text-white'
+                          }`}
+                        >
+                           Sim, preciso de troco
+                        </button>
+                     </div>
+
+                     {needsChange && (
+                        <motion.div 
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          className="space-y-3 pt-2"
+                        >
+                           <label className="text-[11px] font-bold text-text-muted block">
+                              Troco para quanto? (Digite o valor da nota que vai entregar ao motoboy)
+                           </label>
+
+                           <div className="flex items-center gap-2">
+                              <span className="text-sm font-black text-amber-400">R$</span>
+                              <input
+                                type="number"
+                                step="0.01"
+                                placeholder="Ex: 50 ou 100"
+                                value={changeForAmount}
+                                onChange={(e) => setChangeForAmount(e.target.value)}
+                                className="flex-1 bg-background border border-amber-500/40 rounded-xl py-3 px-4 text-sm font-bold text-text-main outline-none focus:border-amber-500"
+                              />
+                           </div>
+
+                           <div className="flex gap-2 pt-1 flex-wrap">
+                              {[50, 100, 150, 200].map(val => (
+                                <button
+                                  key={val}
+                                  type="button"
+                                  onClick={() => setChangeForAmount(val.toString())}
+                                  className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
+                                    changeForAmount === val.toString()
+                                      ? 'bg-amber-500/20 border-amber-500 text-amber-400'
+                                      : 'bg-background/50 border-surface-border text-text-muted hover:text-white'
+                                  }`}
+                                >
+                                   R$ {val}
+                                </button>
+                              ))}
+                           </div>
+
+                           {changeForAmount && !isNaN(parseFloat(changeForAmount)) && (
+                              <div className="p-3 bg-amber-500/10 rounded-xl text-xs font-bold text-amber-300">
+                                 {parseFloat(changeForAmount) >= total ? (
+                                    <span>
+                                       💵 Troco a ser levado pelo motoboy: <strong className="text-white">R$ {(parseFloat(changeForAmount) - total).toFixed(2)}</strong>
+                                    </span>
+                                 ) : (
+                                    <span className="text-red-400">
+                                       ⚠️ O valor deve ser maior ou igual ao total do pedido (R$ {total.toFixed(2)}).
+                                    </span>
+                                 )}
+                              </div>
+                           )}
+                        </motion.div>
+                     )}
+                  </div>
                </motion.div>
             )}
 
@@ -1130,7 +1124,7 @@ export default function Checkout() {
                     {isProcessing ? (
                        <div className="w-5 h-5 border-2 border-background border-t-transparent rounded-full animate-spin" />
                     ) : (
-                       <>FINALIZAR E PAGAR <ChevronRight size={18} /></>
+                       <>CONFIRMAR PEDIDO (PAGAR NA ENTREGA) <ChevronRight size={18} /></>
                     )}
                  </button>
               </div>

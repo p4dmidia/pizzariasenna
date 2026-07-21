@@ -8,9 +8,11 @@ import {
   ArrowRight,
   Ticket
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
+import { useAuth } from '../context/AuthContext';
+import { calculateFeeForAddressObj } from '../utils/deliveryCalculator';
 
 interface CartDrawerProps {
   isOpen: boolean;
@@ -24,14 +26,16 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
     updateQuantity, 
     removeFromCart, 
     cartTotal,
+    deliveryFee,
     appliedCoupon,
     discountAmount,
     applyCoupon,
     removeCoupon
   } = useCart();
   const navigate = useNavigate();
-  const deliveryFee = cartItems.length > 0 ? 5.00 : 0;
-  const total = Math.max(0, cartTotal + deliveryFee - discountAmount);
+
+  const currentDeliveryFee = cartItems.length > 0 ? (deliveryFee || 5.00) : 0;
+  const total = Math.max(0, cartTotal + currentDeliveryFee - discountAmount);
 
   const handleCheckout = () => {
     onClose();
@@ -181,7 +185,7 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
                   )}
                   <div className="flex justify-between text-xs font-bold text-text-muted uppercase tracking-widest">
                      <span>Taxa de Entrega</span>
-                     <span>R$ {deliveryFee.toFixed(2)}</span>
+                     <span>R$ {currentDeliveryFee.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between text-lg font-black pt-2 border-t border-white/5 italic">
                      <span>TOTAL</span>

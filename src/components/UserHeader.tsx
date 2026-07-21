@@ -224,7 +224,7 @@ export default function UserHeader({ searchQuery = '', onSearchChange, showSearc
 
         <button
           onClick={() => setIsCartOpen(true)}
-          className="p-2 sm:p-2.5 text-text-muted hover:text-primary hover:bg-primary/10 rounded-xl transition-all relative border border-transparent hover:border-primary/20"
+          className="hidden md:flex p-2 sm:p-2.5 text-text-muted hover:text-primary hover:bg-primary/10 rounded-xl transition-all relative border border-transparent hover:border-primary/20 items-center justify-center"
           title="Carrinho de Compras"
         >
           <ShoppingCart size={20} />
