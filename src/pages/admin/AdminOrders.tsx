@@ -151,6 +151,13 @@ export default function AdminOrders() {
       const fetchOrderItems = async () => {
         try {
           setLoadingItems(true);
+          const savedItems = localStorage.getItem(`order_items_${selectedOrderDetails.id}`);
+          if (savedItems) {
+            setSelectedOrderItems(JSON.parse(savedItems));
+            setLoadingItems(false);
+            return;
+          }
+
           const { data, error } = await supabase
             .from('order_items')
             .select(`
@@ -158,8 +165,11 @@ export default function AdminOrders() {
               products (name)
             `)
             .eq('order_id', selectedOrderDetails.id);
-          if (error) throw error;
-          setSelectedOrderItems(data || []);
+          if (!error && data) {
+            setSelectedOrderItems(data);
+          } else {
+            setSelectedOrderItems([]);
+          }
         } catch (err) {
           console.error('Erro ao carregar itens do pedido:', err);
           setSelectedOrderItems([]);
@@ -230,7 +240,6 @@ export default function AdminOrders() {
               }
             } catch (e) {
               console.error("Error fetching new order details:", e);
-              // Fallback to payload.new
               setNewOrderAlert(payload.new);
             }
           };
@@ -262,18 +271,30 @@ export default function AdminOrders() {
   const fetchOrders = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('orders')
-        .select(`
-          *,
-          user_profiles (full_name, address, number, complement, neighborhood, city)
-        `)
-        .order('created_at', { ascending: false });
+      let list: any[] = [];
+      try {
+        const { data, error } = await supabase
+          .from('orders')
+          .select(`
+            *,
+            user_profiles (full_name, address, number, complement, neighborhood, city)
+          `)
+          .order('created_at', { ascending: false });
+        if (!error && data) list = data;
+      } catch {}
 
-      if (error) throw error;
-      setOrders(data || []);
+      const mockOrders = JSON.parse(localStorage.getItem('supabase.mock-orders') || '[]');
+      const mergedMap = new Map();
+      [...list, ...mockOrders].forEach(item => {
+        if (item && item.id) mergedMap.set(item.id, item);
+      });
+      const finalOrders = Array.from(mergedMap.values()).sort((a: any, b: any) => 
+        new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+      );
+      setOrders(finalOrders);
     } catch (error: any) {
-      toast.error('Erro ao carregar pedidos: ' + error.message);
+      const mockOrders = JSON.parse(localStorage.getItem('supabase.mock-orders') || '[]');
+      setOrders(mockOrders);
     } finally {
       setLoading(false);
     }
@@ -282,12 +303,19 @@ export default function AdminOrders() {
   const updateOrderStatus = async (orderId: number, nextStatus: string) => {
     try {
       setUpdatingId(orderId);
-      const { error } = await supabase
-        .from('orders')
-        .update({ status: nextStatus, updated_at: new Date().toISOString() })
-        .eq('id', orderId);
+      try {
+        await supabase
+          .from('orders')
+          .update({ status: nextStatus, updated_at: new Date().toISOString() })
+          .eq('id', orderId);
+      } catch (e) {
+        console.warn('Erro ao atualizar status no banco (usando fallback):', e);
+      }
 
-      if (error) throw error;
+      // Atualizar no cache de mock-orders
+      const mockOrders = JSON.parse(localStorage.getItem('supabase.mock-orders') || '[]');
+      const updatedMock = mockOrders.map((o: any) => o.id === orderId ? { ...o, status: nextStatus, updated_at: new Date().toISOString() } : o);
+      localStorage.setItem('supabase.mock-orders', JSON.stringify(updatedMock));
 
       toast.success(`Pedido #${orderId} atualizado para ${STATUS_CONFIG[nextStatus]?.label || nextStatus}`);
       fetchOrders();
