@@ -15,7 +15,9 @@ import {
   Wallet,
   Truck,
   Loader2,
-  X
+  X,
+  FileText,
+  Heart
 } from 'lucide-react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
@@ -24,6 +26,7 @@ import { supabase } from '../lib/supabase';
 import { toast } from 'react-hot-toast';
 import { isStoreCurrentlyOpen } from '../utils/storeHours';
 import { calculateFeeForAddressObj } from '../utils/deliveryCalculator';
+import { printOrderReceipt } from '../lib/printReceipt';
 
 import AppLogo from '../components/AppLogo';
 
@@ -707,6 +710,17 @@ export default function Checkout() {
               </div>
             )}
 
+            {/* Balão de Agradecimento */}
+            <div className="w-full bg-gradient-to-r from-primary/15 via-primary/5 to-secondary/15 border border-primary/30 p-6 rounded-3xl mb-8 text-center relative overflow-hidden">
+              <div className="text-3xl mb-2 animate-bounce">🎉 🍕</div>
+              <h3 className="text-lg font-black text-white uppercase tracking-wider mb-2">
+                Muito Obrigado pelo seu Pedido!
+              </h3>
+              <p className="text-[11px] font-bold text-text-muted max-w-lg mx-auto leading-relaxed">
+                O <strong className="text-primary font-black">Pizza Senna</strong> agradece imensamente a sua preferência! Seu pedido foi registrado com sucesso e já está sendo preparado com muito carinho.
+              </p>
+            </div>
+
             <h2 className="text-3xl font-black italic uppercase tracking-tighter mb-2 text-glow">
               {isCanceled ? 'Pedido Cancelado' : order.status === 'concluido' ? 'Pedido Entregue!' : 'Acompanhe seu Pedido'}
             </h2>
@@ -779,19 +793,28 @@ export default function Checkout() {
             )}
 
             {/* Quick Actions */}
-            <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
+            <div className="w-full flex flex-col gap-3 mt-6">
               <button 
-                onClick={handleSendWhatsApp}
-                className="w-full bg-emerald-500 text-background py-4 rounded-2xl font-black uppercase tracking-widest text-xs shadow-lg hover:scale-[1.02] transition-all flex items-center justify-center gap-2 cursor-pointer hover:bg-emerald-400"
+                onClick={() => printOrderReceipt(order, orderItems)}
+                className="w-full bg-surface hover:bg-surface-hover text-text-main border border-surface-border py-4 rounded-2xl font-black uppercase tracking-widest text-xs shadow-lg hover:scale-[1.01] transition-all flex items-center justify-center gap-2 cursor-pointer"
               >
-                Enviar via WhatsApp
+                📄 Imprimir Comprovante (PDF)
               </button>
-              <Link 
-                to="/" 
-                className="w-full glass py-4 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-2 hover:bg-surface-hover hover:scale-[1.02] transition-all"
-              >
-                Ir para o Menu
-              </Link>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full">
+                <button 
+                  onClick={handleSendWhatsApp}
+                  className="w-full bg-emerald-500 text-background py-4 rounded-2xl font-black uppercase tracking-widest text-xs shadow-lg hover:scale-[1.01] transition-all flex items-center justify-center gap-2 cursor-pointer hover:bg-emerald-400 font-bold"
+                >
+                  Enviar via WhatsApp
+                </button>
+                <Link 
+                  to="/" 
+                  className="w-full glass py-4 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-2 hover:bg-surface-hover hover:scale-[1.01] transition-all"
+                >
+                  Ir para o Menu
+                </Link>
+              </div>
             </div>
           </div>
 

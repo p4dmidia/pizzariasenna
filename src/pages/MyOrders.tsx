@@ -32,6 +32,7 @@ import AppLogo from '../components/AppLogo';
 import CartDrawer from '../components/CartDrawer';
 import NotificationBell from '../components/NotificationBell';
 import UserHeader from '../components/UserHeader';
+import { printOrderReceipt } from '../lib/printReceipt';
 
 export default function MyOrders() {
   const { user, profile, loading: authLoading, signOut } = useAuth();
@@ -39,6 +40,7 @@ export default function MyOrders() {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [orders, setOrders] = useState<any[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(true);
+  const [supportWhatsapp, setSupportWhatsapp] = useState('');
   const { addToCart, cartCount } = useCart();
   const navigate = useNavigate();
 
@@ -51,6 +53,22 @@ export default function MyOrders() {
   const [existingReviews, setExistingReviews] = useState<Record<number, boolean>>({});
 
   useEffect(() => {
+    async function loadSupportWhatsapp() {
+      try {
+        const { data } = await supabase
+          .from('system_settings')
+          .select('value')
+          .eq('key', 'support_whatsapp')
+          .maybeSingle();
+        if (data?.value) {
+          setSupportWhatsapp(data.value);
+        }
+      } catch {}
+    }
+    loadSupportWhatsapp();
+  }, []);
+
+  useEffect(() => {
     if (profile?.id) {
       fetchOrders();
     }
@@ -59,26 +77,41 @@ export default function MyOrders() {
   const fetchOrders = async () => {
     try {
       setLoadingOrders(true);
-      const { data: ordersData, error } = await supabase
-        .from('orders')
-        .select(`
-          *,
-          order_items (
-            quantity,
-            price,
-            product_id,
-            customizations,
-            products (name, main_image_url)
-          )
-        `)
-        .eq('user_id', profile?.id)
-        .order('id', { ascending: false });
+      let list: any[] = [];
+      try {
+        const { data: ordersData, error } = await supabase
+          .from('orders')
+          .select(`
+            *,
+            order_items (
+              quantity,
+              price,
+              product_id,
+              customizations,
+              products (name, main_image_url)
+            )
+          `)
+          .eq('user_id', profile?.id)
+          .order('id', { ascending: false });
+        if (!error && ordersData) list = ordersData;
+      } catch (e) {
+        console.warn('Erro ao carregar do Supabase:', e);
+      }
 
-      if (error) throw error;
-      setOrders(ordersData || []);
+      // Mesclar com mock-orders locais caso existam
+      const mockOrders = JSON.parse(localStorage.getItem('supabase.mock-orders') || '[]');
+      const userMockOrders = mockOrders.filter((o: any) => o.user_id === profile?.id);
+      const mergedMap = new Map();
+      [...list, ...userMockOrders].forEach(item => {
+        if (item && item.id) mergedMap.set(item.id, item);
+      });
+      const finalOrders = Array.from(mergedMap.values()).sort((a: any, b: any) => 
+        new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+      );
+      setOrders(finalOrders);
 
-      if (ordersData && ordersData.length > 0) {
-        const orderIds = ordersData.map(o => o.id);
+      if (finalOrders.length > 0) {
+        const orderIds = finalOrders.map(o => o.id);
         const { data: reviewsData } = await supabase
           .from('order_reviews')
           .select('order_id')
@@ -307,26 +340,59 @@ export default function MyOrders() {
                         <span className="text-lg font-black text-secondary">R$ {Number(order.total_amount).toFixed(2)}</span>
                       </div>
                       
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2 flex-wrap">
                         {isActive && (
                           <button 
                             onClick={() => navigate(`/checkout?status=success&order_id=${order.id}`)}
-                            className="px-5 py-2.5 bg-primary/10 hover:bg-primary/20 text-primary rounded-xl font-bold text-xs uppercase tracking-wider border border-primary/20 transition-all flex items-center gap-1.5"
+                            className="px-4 py-2 bg-primary/10 hover:bg-primary/20 text-primary rounded-xl font-bold text-xs uppercase tracking-wider border border-primary/20 transition-all flex items-center gap-1.5 cursor-pointer"
                           >
                             Rastrear <ArrowRight size={14} />
                           </button>
                         )}
 
+                        <button 
+                          onClick={() => {
+                            let items: any[] = [];
+                            if (order.order_items && order.order_items.length > 0) {
+                              items = order.order_items.map((i: any) => ({
+                                id: i.product_id,
+                                name: i.products?.name || 'Pizza',
+                                price: Number(i.price),
+                                quantity: i.quantity,
+                                ...i.customizations
+                              }));
+                            } else {
+                              const saved = localStorage.getItem(`order_items_${order.id}`);
+                              if (saved) items = JSON.parse(saved);
+                            }
+                            printOrderReceipt(order, items);
+                          }}
+                          className="px-4 py-2 bg-surface hover:bg-surface-hover text-text-main rounded-xl font-bold text-xs uppercase tracking-wider border border-surface-border transition-all flex items-center gap-1.5 cursor-pointer"
+                        >
+                          📄 Comprovante
+                        </button>
+
+                        <button 
+                          onClick={() => {
+                            const text = encodeURIComponent(`Olá! Preciso de ajuda sobre o meu pedido #${order.id} (R$ ${Number(order.total_amount).toFixed(2)}).`);
+                            const whatsappNumber = supportWhatsapp || '5531999999999';
+                            window.open(`https://wa.me/${whatsappNumber}?text=${text}`, '_blank');
+                          }}
+                          className="px-4 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 rounded-xl font-bold text-xs uppercase tracking-wider border border-emerald-500/20 transition-all flex items-center gap-1.5 cursor-pointer"
+                        >
+                          💬 Ajuda WhatsApp
+                        </button>
+
                         {order.status === 'concluido' && (
                           <>
                             {existingReviews[order.id] ? (
-                              <span className="px-5 py-2.5 bg-emerald-500/10 text-emerald-400 rounded-xl font-bold text-xs uppercase tracking-wider border border-emerald-500/20 flex items-center gap-1.5">
+                              <span className="px-4 py-2 bg-emerald-500/10 text-emerald-400 rounded-xl font-bold text-xs uppercase tracking-wider border border-emerald-500/20 flex items-center gap-1.5">
                                 Avaliado <CheckCircle2 size={14} />
                               </span>
                             ) : (
                               <button 
                                 onClick={() => handleOpenReviewModal(order.id)}
-                                className="px-5 py-2.5 bg-secondary/10 hover:bg-secondary/20 text-secondary rounded-xl font-bold text-xs uppercase tracking-wider border border-secondary/20 transition-all flex items-center gap-1.5"
+                                className="px-4 py-2 bg-secondary/10 hover:bg-secondary/20 text-secondary rounded-xl font-bold text-xs uppercase tracking-wider border border-secondary/20 transition-all flex items-center gap-1.5 cursor-pointer"
                               >
                                 Avaliar <Star size={14} />
                               </button>
@@ -336,9 +402,9 @@ export default function MyOrders() {
 
                         <button 
                           onClick={() => handleReorder(order)}
-                          className="px-5 py-2.5 bg-surface hover:bg-surface-hover text-text-muted hover:text-white rounded-xl font-bold text-xs uppercase tracking-wider border border-surface-border transition-all"
+                          className="px-4 py-2 bg-primary/10 hover:bg-primary/20 text-primary rounded-xl font-bold text-xs uppercase tracking-wider border border-primary/20 transition-all cursor-pointer font-black"
                         >
-                          Repetir Pedido
+                          🔄 Repetir Pedido
                         </button>
                       </div>
                     </div>
