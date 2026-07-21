@@ -10,7 +10,8 @@ import {
   ArrowRight,
   MoreVertical,
   Loader2,
-  Bell
+  Bell,
+  AlertTriangle
 } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import AdminLayout from '../../components/AdminLayout';
@@ -138,6 +139,7 @@ export default function AdminOrders() {
   const [orders, setOrders] = useState<any[]>([]);
   const [updatingId, setUpdatingId] = useState<number | null>(null);
   const [newOrderAlert, setNewOrderAlert] = useState<any | null>(null);
+  const [orderToReject, setOrderToReject] = useState<any | null>(null);
   const ringerRef = useRef<{ stop: () => void } | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const [activeMenuOrderId, setActiveMenuOrderId] = useState<number | null>(null);
@@ -210,63 +212,52 @@ export default function AdminOrders() {
 
     window.addEventListener('click', unlockAudio);
     window.addEventListener('keydown', unlockAudio);
+    window.addEventListener('storage', fetchOrders);
 
-    // Inscrição em tempo real para novos pedidos
+    // Auto-polling a cada 3s para sincronização em tempo real sem atualizar a página
+    const pollInterval = setInterval(fetchOrders, 3000);
+
+    // Inscrição em tempo real para novos pedidos no Supabase
     const channel = supabase
       .channel('public:orders')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload) => {
         fetchOrders();
         if (payload.eventType === 'INSERT') {
-          // Play ringtone loop
-          if (ringerRef.current) {
-            ringerRef.current.stop();
-          }
-          ringerRef.current = startPhoneRinger(audioCtxRef.current);
-
-          // Fetch full details of the newly inserted order (including user profile)
-          const fetchNewOrderDetails = async () => {
-            try {
-              const { data, error } = await supabase
-                .from('orders')
-                .select(`
-                  *,
-                  user_profiles (full_name, address, number, complement, neighborhood, city)
-                `)
-                .eq('id', payload.new.id)
-                .single();
-              if (error) throw error;
-              if (data) {
-                setNewOrderAlert(data);
-              }
-            } catch (e) {
-              console.error("Error fetching new order details:", e);
-              setNewOrderAlert(payload.new);
-            }
-          };
-          fetchNewOrderDetails();
-
+          setNewOrderAlert(payload.new);
           toast.success('Novo pedido recebido!', {
             duration: 6000,
             icon: '🔔'
           });
         }
       })
-      .subscribe((status) => {
-        console.log("Supabase Realtime Status (AdminOrders):", status);
-        if (status === 'CHANNEL_ERROR') {
-          console.error("Erro na inscrição do Realtime. Certifique-se de que a replicação do Realtime está ativada para a tabela 'orders' no Supabase Dashboard.");
-        }
-      });
+      .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
+      clearInterval(pollInterval);
+      window.removeEventListener('storage', fetchOrders);
       if (ringerRef.current) {
         ringerRef.current.stop();
+        ringerRef.current = null;
       }
       window.removeEventListener('click', unlockAudio);
       window.removeEventListener('keydown', unlockAudio);
     };
   }, []);
+
+  const checkAndManageRinger = (allOrders: any[]) => {
+    const hasPending = allOrders.some((o: any) => o.status === 'pendente');
+    if (hasPending) {
+      if (!ringerRef.current) {
+        ringerRef.current = startPhoneRinger(audioCtxRef.current);
+      }
+    } else {
+      if (ringerRef.current) {
+        ringerRef.current.stop();
+        ringerRef.current = null;
+      }
+    }
+  };
 
   const fetchOrders = async () => {
     try {
@@ -292,15 +283,28 @@ export default function AdminOrders() {
         new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
       );
       setOrders(finalOrders);
+      checkAndManageRinger(finalOrders);
     } catch (error: any) {
       const mockOrders = JSON.parse(localStorage.getItem('supabase.mock-orders') || '[]');
       setOrders(mockOrders);
+      checkAndManageRinger(mockOrders);
     } finally {
       setLoading(false);
     }
   };
 
   const updateOrderStatus = async (orderId: number, nextStatus: string) => {
+    if (nextStatus === 'cancelado') {
+      const target = orders.find(o => o.id === orderId);
+      if (target) {
+        setOrderToReject(target);
+        return;
+      }
+    }
+    await executeStatusUpdate(orderId, nextStatus);
+  };
+
+  const executeStatusUpdate = async (orderId: number, nextStatus: string) => {
     try {
       setUpdatingId(orderId);
       try {
@@ -349,45 +353,18 @@ export default function AdminOrders() {
   };
 
   const handleAcceptOrder = async (orderId: number) => {
-    try {
-      if (ringerRef.current) {
-        ringerRef.current.stop();
-        ringerRef.current = null;
-      }
-      setNewOrderAlert(null);
-      
-      const { error } = await supabase
-        .from('orders')
-        .update({ status: 'preparando', updated_at: new Date().toISOString() })
-        .eq('id', orderId);
-
-      if (error) throw error;
-      toast.success(`Pedido #${orderId} aceito! Enviado para a cozinha.`);
-      fetchOrders();
-    } catch (error: any) {
-      toast.error('Erro ao aceitar pedido: ' + error.message);
-    }
+    setNewOrderAlert(null);
+    await executeStatusUpdate(orderId, 'preparando');
   };
 
-  const handleRejectOrder = async (orderId: number) => {
-    try {
-      if (ringerRef.current) {
-        ringerRef.current.stop();
-        ringerRef.current = null;
-      }
-      setNewOrderAlert(null);
+  const handleRejectClick = (order: any) => {
+    setOrderToReject(order);
+  };
 
-      const { error } = await supabase
-        .from('orders')
-        .update({ status: 'cancelado', updated_at: new Date().toISOString() })
-        .eq('id', orderId);
-
-      if (error) throw error;
-      toast.error(`Pedido #${orderId} recusado.`);
-      fetchOrders();
-    } catch (error: any) {
-      toast.error('Erro ao recusar pedido: ' + error.message);
-    }
+  const handleConfirmRejectOrder = async (orderId: number) => {
+    setOrderToReject(null);
+    setNewOrderAlert(null);
+    await executeStatusUpdate(orderId, 'cancelado');
   };
 
   const filteredOrders = orders.filter(order => {
@@ -655,16 +632,57 @@ export default function AdminOrders() {
 
               <div className="grid grid-cols-2 gap-4">
                 <button
-                  onClick={() => handleRejectOrder(newOrderAlert.id)}
-                  className="py-4 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-2xl text-xs font-black uppercase tracking-widest border border-red-500/20 hover:border-red-500/30 transition-all"
+                  onClick={() => handleRejectClick(newOrderAlert)}
+                  className="py-4 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-2xl text-xs font-black uppercase tracking-widest border border-red-500/20 hover:border-red-500/30 transition-all cursor-pointer"
                 >
                   Recusar
                 </button>
                 <button
                   onClick={() => handleAcceptOrder(newOrderAlert.id)}
-                  className="py-4 bg-primary text-background hover:bg-primary/95 rounded-2xl text-xs font-black uppercase tracking-widest transition-all shadow-lg shadow-primary/20 hover:shadow-primary/30"
+                  className="py-4 bg-primary text-background hover:bg-primary/95 rounded-2xl text-xs font-black uppercase tracking-widest transition-all shadow-lg shadow-primary/20 hover:shadow-primary/30 cursor-pointer"
                 >
                   Aceitar
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal de Confirmação de Rejeição / Cancelamento */}
+      <AnimatePresence>
+        {orderToReject && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              transition={{ type: 'spring', duration: 0.4 }}
+              className="w-full max-w-md bg-surface border border-surface-border rounded-3xl p-8 shadow-2xl relative text-center"
+            >
+              <div className="inline-flex items-center justify-center w-16 h-16 bg-red-500/10 text-red-500 rounded-full mb-4">
+                <AlertTriangle size={32} />
+              </div>
+
+              <h2 className="text-xl font-black text-text-main">Cancelar Pedido?</h2>
+              <p className="text-xs text-text-muted font-bold mt-2 leading-relaxed">
+                Tem certeza de que deseja rejeitar e cancelar o pedido <strong className="text-white">#{orderToReject.id}</strong>? O cliente será notificado em tempo real.
+              </p>
+
+              <div className="grid grid-cols-2 gap-4 mt-8">
+                <button
+                  type="button"
+                  onClick={() => setOrderToReject(null)}
+                  className="py-3.5 bg-white/5 hover:bg-white/10 text-text-main rounded-2xl text-xs font-black uppercase tracking-widest border border-white/10 transition-all cursor-pointer"
+                >
+                  Voltar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleConfirmRejectOrder(orderToReject.id)}
+                  className="py-3.5 bg-red-500 hover:bg-red-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg shadow-red-500/20 transition-all cursor-pointer"
+                >
+                  Sim, Cancelar
                 </button>
               </div>
             </motion.div>

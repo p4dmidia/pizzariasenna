@@ -346,6 +346,46 @@ export default function Checkout() {
 
       processPaymentResponse();
 
+      const syncOrderStatus = async () => {
+        try {
+          const { data } = await supabase.from('orders').select('*').eq('id', orderId).maybeSingle();
+          if (data) {
+            setOrder((prev: any) => {
+              if (prev && prev.status !== data.status) {
+                const statusLabels: Record<string, string> = {
+                  'pendente': 'Aguardando aceite do estabelecimento',
+                  'preparando': 'Em produção (preparando sua pizza)',
+                  'entrega': 'Saiu para entrega',
+                  'concluido': 'Entregue',
+                  'cancelado': 'Pedido cancelado pelo estabelecimento'
+                };
+                toast.success(`Pedido #${orderId}: ${statusLabels[data.status] || data.status}`, { icon: '🍕', duration: 6000 });
+              }
+              return data;
+            });
+            return;
+          }
+        } catch {}
+
+        const mockOrders = JSON.parse(localStorage.getItem('supabase.mock-orders') || '[]');
+        const localFound = mockOrders.find((o: any) => String(o.id) === String(orderId));
+        if (localFound) {
+          setOrder((prev: any) => {
+            if (prev && prev.status !== localFound.status) {
+              const statusLabels: Record<string, string> = {
+                'pendente': 'Aguardando aceite do estabelecimento',
+                'preparando': 'Em produção (preparando sua pizza)',
+                'entrega': 'Saiu para entrega',
+                'concluido': 'Entregue',
+                'cancelado': 'Pedido cancelado pelo estabelecimento'
+              };
+              toast.success(`Pedido #${orderId}: ${statusLabels[localFound.status] || localFound.status}`, { icon: '🍕', duration: 6000 });
+            }
+            return localFound;
+          });
+        }
+      };
+
       const channel = supabase
         .channel(`order-tracking:${orderId}`)
         .on('postgres_changes', { 
@@ -362,7 +402,7 @@ export default function Checkout() {
             'preparando': 'Em produção (preparando sua pizza)',
             'entrega': 'Saiu para entrega',
             'concluido': 'Entregue',
-            'cancelado': 'Cancelado'
+            'cancelado': 'Pedido cancelado pelo estabelecimento'
           };
           
           const newLabel = statusLabels[updatedOrder.status] || updatedOrder.status;
@@ -371,15 +411,15 @@ export default function Checkout() {
             duration: 6000
           });
         })
-        .subscribe((status) => {
-          console.log("Supabase Realtime Status (Checkout):", status);
-          if (status === 'CHANNEL_ERROR') {
-            console.error("Erro na inscrição do Realtime do Checkout. Verifique se a replicação Realtime está ativada no Supabase.");
-          }
-        });
+        .subscribe();
+
+      window.addEventListener('storage', syncOrderStatus);
+      const pollTimer = setInterval(syncOrderStatus, 2000);
 
       return () => {
         supabase.removeChannel(channel);
+        window.removeEventListener('storage', syncOrderStatus);
+        clearInterval(pollTimer);
       };
     }
   }, [searchParams, setSearchParams, clearCart]);
