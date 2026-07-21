@@ -17,6 +17,32 @@ const EXTRAS_OPTIONS = [
   { id: 4, name: 'Cebola Roxa Extra', price: 2.00 }
 ];
 
+export const getPizzaSizes = (product: any) => {
+  if (!product) return [];
+  const productName = (product.name || '').toLowerCase();
+  
+  // Default size definitions
+  const allSizes = [
+    { id: 'media', label: 'Pizza 20cm', detail: '6 Fatias', factor: 26 / 53 },
+    { id: 'grande', label: 'Pizza 25cm', detail: '8 Fatias', factor: 1.0 },
+    { id: 'familia', label: 'Pizza 30cm', detail: '10 Fatias', factor: 58 / 53 },
+    { id: 'gigante', label: 'Pizza 35cm', detail: '12 Fatias', factor: 61 / 53 }
+  ];
+
+  if (product.available_sizes) {
+    const dbSizes = product.available_sizes.split(',').map((s: string) => s.trim().toLowerCase());
+    return allSizes.filter(s => dbSizes.includes(s.id));
+  }
+
+  if (productName.includes('frango com catupiry') || productName.includes('4 queijos') || productName.includes('quatro queijos')) {
+    return [
+      { id: 'media', label: 'Pizza 20cm', detail: '6 Fatias', factor: 26 / 53 }
+    ];
+  }
+  
+  return allSizes;
+};
+
 export default function ProductCustomizerModal({
   isOpen,
   onClose,
@@ -41,9 +67,9 @@ export default function ProductCustomizerModal({
   // Resetar estados quando o produto mudar ou abrir o modal
   useEffect(() => {
     if (product) {
-      const nameLower = (product.name || '').toLowerCase();
-      const isRestricted = nameLower.includes('frango com catupiry') || nameLower.includes('4 queijos') || nameLower.includes('quatro queijos');
-      setSize(isRestricted ? 'media' : 'grande');
+      const sizes = getPizzaSizes(product);
+      const defaultSize = sizes.some(s => s.id === 'grande') ? 'grande' : (sizes[0]?.id || 'media');
+      setSize(defaultSize as any);
       setBorder('none');
       setIsHalfAndHalf(false);
       setSecondFlavor(null);
@@ -117,23 +143,7 @@ export default function ProductCustomizerModal({
   };
 
   const getAvailableSizes = () => {
-    const productName = (product.name || '').toLowerCase();
-    
-    // Default size definitions
-    const allSizes = [
-      { id: 'media', label: 'Pizza 20cm', detail: '6 Fatias', factor: 26 / 53 },
-      { id: 'grande', label: 'Pizza 25cm', detail: '8 Fatias', factor: 1.0 },
-      { id: 'familia', label: 'Pizza 30cm', detail: '10 Fatias', factor: 58 / 53 },
-      { id: 'gigante', label: 'Pizza 35cm', detail: '12 Fatias', factor: 61 / 53 }
-    ];
-
-    if (productName.includes('frango com catupiry') || productName.includes('4 queijos') || productName.includes('quatro queijos')) {
-      return [
-        { id: 'media', label: 'Pizza 20cm', detail: '6 Fatias', factor: 26 / 53 }
-      ];
-    }
-    
-    return allSizes;
+    return getPizzaSizes(product);
   };
 
   const basePizzaPrice = Number(product.price);
@@ -193,7 +203,7 @@ export default function ProductCustomizerModal({
             <div className="flex-1 overflow-y-auto p-8 space-y-8 select-none">
               
               {/* Opção Meio a Meio */}
-              {size !== 'media' && (
+              {size !== 'media' && product.allow_half_and_half !== false && (
                 <section className="space-y-4">
                   <div className="flex items-center justify-between">
                     <h3 className="text-sm font-black uppercase tracking-widest text-text-muted">Dividir Sabor? (Meio a Meio)</h3>

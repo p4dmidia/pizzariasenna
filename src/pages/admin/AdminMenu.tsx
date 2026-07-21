@@ -37,6 +37,13 @@ interface Product {
   main_image_url: string;
   is_active: boolean;
   stock_quantity: number;
+  promo_price?: number | null;
+  is_featured?: boolean;
+  allow_customizations?: boolean;
+  serves_description?: string | null;
+  prep_time?: number | null;
+  available_sizes?: string | null;
+  allow_half_and_half?: boolean;
 }
 
 interface Category {
@@ -81,6 +88,26 @@ export default function AdminMenu() {
   const [newCategoryIcon, setNewCategoryIcon] = useState('Pizza');
   const [savingCategory, setSavingCategory] = useState(false);
   const [deletingCategoryId, setDeletingCategoryId] = useState<number | null>(null);
+
+  const getSizesList = (val?: string | null) => {
+    if (!val) return ['media', 'grande', 'familia', 'gigante'];
+    return val.split(',').map(s => s.trim());
+  };
+
+  const toggleSizeSelection = (sizeId: string) => {
+    const currentVal = editingProduct?.available_sizes;
+    const list = getSizesList(currentVal);
+    let newList;
+    if (list.includes(sizeId)) {
+      newList = list.filter(s => s !== sizeId);
+    } else {
+      newList = [...list, sizeId];
+    }
+    setEditingProduct({
+      ...editingProduct!,
+      available_sizes: newList.join(',')
+    });
+  };
 
   const generateSlug = (name: string) => {
     return name
@@ -262,6 +289,8 @@ export default function AdminMenu() {
         allow_customizations: editingProduct.allow_customizations !== false,
         serves_description: editingProduct.serves_description || null,
         prep_time: editingProduct.prep_time ? Number(editingProduct.prep_time) : null,
+        available_sizes: editingProduct.available_sizes || null,
+        allow_half_and_half: editingProduct.allow_half_and_half !== false,
         updated_at: new Date().toISOString()
       };
 
@@ -692,6 +721,62 @@ export default function AdminMenu() {
                             <div className={`absolute top-1.5 w-5 h-5 rounded-full bg-white transition-all ${editingProduct?.allow_customizations !== false ? 'left-7' : 'left-1.5'}`} />
                          </button>
                       </div>
+
+                      {editingProduct?.category_id === 1 && (
+                        <div className="space-y-4 pt-4 border-t border-white/5">
+                          <h4 className="text-[10px] font-black uppercase tracking-widest text-text-muted ml-1">Configurações de Pizza</h4>
+                          
+                          {/* Tamanhos Disponíveis */}
+                          <div className="space-y-2">
+                             <label className="text-[10px] font-black uppercase text-text-muted ml-1">Tamanhos Disponíveis</label>
+                             <div className="grid grid-cols-2 gap-3">
+                               {[
+                                 { id: 'media', label: 'Pizza 20cm (Média)' },
+                                 { id: 'grande', label: 'Pizza 25cm (Grande)' },
+                                 { id: 'familia', label: 'Pizza 30cm (Família)' },
+                                 { id: 'gigante', label: 'Pizza 35cm (Gigante)' }
+                               ].map((sz) => {
+                                 const list = getSizesList(editingProduct?.available_sizes);
+                                 const isChecked = list.includes(sz.id);
+                                 return (
+                                   <button
+                                     key={sz.id}
+                                     type="button"
+                                     onClick={() => toggleSizeSelection(sz.id)}
+                                     className={`flex items-center gap-2.5 p-3.5 rounded-xl border text-left transition-all ${
+                                       isChecked 
+                                         ? 'border-primary bg-primary/5 text-text-main shadow-md' 
+                                         : 'border-surface-border bg-background text-text-muted hover:bg-surface-hover'
+                                     }`}
+                                   >
+                                     <div className={`w-4 h-4 rounded flex items-center justify-center border transition-all ${
+                                       isChecked ? 'border-primary bg-primary text-background' : 'border-surface-border bg-transparent'
+                                     }`}>
+                                       {isChecked && <span className="text-[9px] font-black">✓</span>}
+                                     </div>
+                                     <span className="text-xs font-black">{sz.label}</span>
+                                   </button>
+                                 );
+                               })}
+                             </div>
+                          </div>
+
+                          {/* Permitir Meio a Meio */}
+                          <div className="flex items-center justify-between p-4 rounded-2xl bg-surface-hover border border-white/5">
+                             <div>
+                                <p className="text-sm font-black text-text-main">Aceita Meio-a-Meio?</p>
+                                <p className="text-[10px] text-text-muted font-bold uppercase tracking-widest">Permitir dividir com outro sabor</p>
+                             </div>
+                             <button 
+                              type="button"
+                              onClick={() => setEditingProduct({ ...editingProduct!, allow_half_and_half: editingProduct?.allow_half_and_half === false ? true : false })}
+                              className={`w-14 h-8 rounded-full relative transition-all ${editingProduct?.allow_half_and_half !== false ? 'bg-primary shadow-[0_0_15px_rgba(0,229,255,0.4)]' : 'bg-surface border border-surface-border'}`}
+                             >
+                                <div className={`absolute top-1.5 w-5 h-5 rounded-full bg-white transition-all ${editingProduct?.allow_half_and_half !== false ? 'left-7' : 'left-1.5'}`} />
+                             </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
