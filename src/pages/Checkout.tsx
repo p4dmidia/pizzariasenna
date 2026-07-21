@@ -190,7 +190,16 @@ export default function Checkout() {
           });
 
           if (openSetting) {
-            setStoreOpen(openSetting.value === 'true');
+            const sMap: any = {};
+            data.forEach(s => sMap[s.key] = s.value);
+            const isOpenNow = isStoreCurrentlyOpen({
+              operating_mode: sMap['operating_mode'] || 'auto',
+              opening_time: sMap['opening_time'] || '18:00',
+              closing_time: sMap['closing_time'] || '23:30',
+              operating_days: sMap['operating_days'] || '[0,1,2,3,4,5,6]',
+              store_open: sMap['store_open'] === 'true'
+            });
+            setStoreOpen(isOpenNow);
           }
         }
       } catch (err) {
@@ -893,6 +902,12 @@ export default function Checkout() {
       </header>
 
       <main className="max-w-6xl mx-auto px-6 mt-12 grid grid-cols-1 lg:grid-cols-12 gap-12">
+        {!storeOpen && (
+          <div className="lg:col-span-12 p-4 bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-bold uppercase tracking-wider rounded-2xl text-center flex items-center justify-center gap-2">
+            <span>🔒</span> A pizzaria está fechada no momento. Novos pedidos não podem ser finalizados.
+          </div>
+        )}
+        
         {/* Left Column: Forms */}
         <div className="lg:col-span-7 space-y-8">
           
@@ -1182,13 +1197,13 @@ export default function Checkout() {
                     <span>- R$ {discountAmount.toFixed(2)}</span>
                   </div>
                 )}
-                 <div className="flex justify-between text-xs font-bold text-text-muted uppercase tracking-widest">
-                   <span>Taxa de Entrega {deliveryDistance !== null && `(${deliveryDistance.toFixed(1)} km)`}</span>
-                   <span className="flex items-center gap-2">
-                     {calculatingFee && <Loader2 size={12} className="animate-spin text-primary" />}
-                     R$ {deliveryFee.toFixed(2)}
-                   </span>
-                 </div>
+                <div className="flex justify-between text-xs font-bold text-text-muted uppercase tracking-widest">
+                  <span>Taxa de Entrega {deliveryDistance !== null && `(${deliveryDistance.toFixed(1)} km)`}</span>
+                  <span className="flex items-center gap-2">
+                    {calculatingFee && <Loader2 size={12} className="animate-spin text-primary" />}
+                    R$ {(calculatedDeliveryFee !== null ? calculatedDeliveryFee : deliverySettings.baseFee).toFixed(2)}
+                  </span>
+                </div>
                 <div className="flex justify-between text-2xl font-black pt-4 border-t border-white/5 italic">
                   <span>TOTAL</span>
                   <span className="text-primary text-glow">R$ {total.toFixed(2)}</span>
@@ -1196,7 +1211,12 @@ export default function Checkout() {
               </div>
 
               <div className="mt-8 space-y-4">
-                 {!profile ? (
+                 {!storeOpen ? (
+                    <div className="flex items-center gap-2 p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 font-bold">
+                       <span className="text-base">🔒</span>
+                       <span className="text-[10px] font-black uppercase tracking-widest leading-relaxed">Pizzaria Fechada. Pedidos Desativados.</span>
+                    </div>
+                 ) : !profile ? (
                     <div className="flex items-center gap-2 p-3 bg-red-500/5 border border-red-500/20 rounded-xl text-red-500">
                        <ShieldCheck size={16} />
                        <span className="text-[10px] font-black uppercase tracking-widest">Faça Login ou adicione um endereço para Finalizar</span>
@@ -1229,7 +1249,7 @@ export default function Checkout() {
                  )}
 
                  <button 
-                  disabled={!profile || !profile.address || !isAddressSelected || !paymentMethod || isProcessing || cartItems.length === 0}
+                  disabled={!storeOpen || !profile || !profile.address || !isAddressSelected || !paymentMethod || isProcessing || cartItems.length === 0}
                   onClick={handleFinish}
                   className="w-full bg-primary disabled:opacity-50 disabled:cursor-not-allowed text-background py-5 rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl glow-primary hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3"
                  >
