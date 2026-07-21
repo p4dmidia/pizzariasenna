@@ -538,7 +538,10 @@ export default function Checkout() {
           }
         }));
 
-        await supabase.from('order_items').insert(orderItemsPayload);
+        const { error: itemErr } = await supabase.from('order_items').insert(orderItemsPayload);
+        if (itemErr) {
+          console.warn('Tabela order_items não disponível no Supabase (itens mantidos no cache local):', itemErr);
+        }
       } catch (e) {
         console.warn('Tabela order_items não disponível no Supabase (itens mantidos no cache local):', e);
       }
