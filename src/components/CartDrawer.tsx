@@ -86,7 +86,7 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
                {cartItems.length > 0 ? (
                  cartItems.map((item) => (
-                   <div key={item.id} className="flex gap-4 group">
+                   <div key={item.uniqueKey} className="flex gap-4 group">
                       <div className="w-20 h-20 rounded-2xl overflow-hidden bg-background border border-surface-border flex-shrink-0">
                          <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
                       </div>
@@ -97,7 +97,7 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
                                <p className="text-[10px] text-text-muted font-bold uppercase tracking-widest">R$ {item.price.toFixed(2)} / un</p>
                             </div>
                             <button 
-                              onClick={() => removeFromCart(item.id)}
+                              onClick={() => removeFromCart(item.uniqueKey)}
                               className="text-text-muted hover:text-red-400 transition-colors"
                             >
                                <Trash2 size={16} />
@@ -107,14 +107,14 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
                          <div className="flex justify-between items-end">
                             <div className="flex items-center bg-background rounded-lg border border-surface-border p-1">
                                <button 
-                                 onClick={() => updateQuantity(item.id, -1)}
+                                 onClick={() => updateQuantity(item.uniqueKey, -1)}
                                  className="p-1 hover:text-primary transition-colors"
                                >
                                   <Minus size={14} />
                                 </button>
                                <span className="px-3 text-xs font-black">{item.quantity}</span>
                                <button 
-                                 onClick={() => updateQuantity(item.id, 1)}
+                                 onClick={() => updateQuantity(item.uniqueKey, 1)}
                                  className="p-1 hover:text-primary transition-colors"
                                >
                                   <Plus size={14} />
