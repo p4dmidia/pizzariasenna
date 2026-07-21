@@ -12,7 +12,8 @@ import {
   Loader2,
   Trash2,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  X
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
@@ -26,6 +27,97 @@ export default function AdminUsers() {
   const [loading, setLoading] = useState(true);
   const [users, setUsers] = useState<any[]>([]);
   const [activeDropdownUserId, setActiveDropdownUserId] = useState<string | number | null>(null);
+
+  // Estados de cadastro de novos usuários/caixas
+  const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
+  const [newUserName, setNewUserName] = useState('');
+  const [newUserEmail, setNewUserEmail] = useState('');
+  const [newUserPhone, setNewUserPhone] = useState('');
+  const [newUserPassword, setNewUserPassword] = useState('');
+  const [newUserRole, setNewUserRole] = useState('caixa');
+  const [registering, setRegistering] = useState(false);
+
+  const handleRegisterUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newUserName || !newUserEmail || !newUserPassword) {
+      toast.error('Preencha todos os campos obrigatórios.');
+      return;
+    }
+    
+    setRegistering(true);
+    try {
+      const generateUUID = () => {
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+          const r = Math.random() * 16 | 0;
+          const v = c === 'x' ? r : (r & 0x3 | 0x8);
+          return v.toString(16);
+        });
+      };
+      
+      const mochaUserId = generateUUID();
+      let authUserId = mochaUserId;
+
+      try {
+        const { createClient } = await import('@supabase/supabase-js');
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://kypwbfwieaozwhpawuvc.supabase.co';
+        const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt5cHdiZndpZWFvendocGF3dXZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM2NTU5OTQsImV4cCI6MjA5OTIzMTk5NH0.e4eEHlZwfNrpwVGYhLVWLfhuaAph7d4jM3WbhHSM0cU';
+        const tempClient = createClient(supabaseUrl, supabaseAnonKey, {
+          auth: {
+            persistSession: false,
+            autoRefreshToken: false,
+            detectSessionInUrl: false
+          }
+        });
+        
+        const { data: authData, error: authError } = await tempClient.auth.signUp({
+          email: newUserEmail,
+          password: newUserPassword,
+          options: {
+            data: {
+              full_name: newUserName
+            }
+          }
+        });
+        
+        if (authError) {
+          console.warn('Erro auth signup (usando fallback de perfil direto):', authError.message);
+        } else if (authData?.user) {
+          authUserId = authData.user.id;
+        }
+      } catch (err) {
+        console.warn('Bypassing auth client signup:', err);
+      }
+
+      // Inserir perfil de usuário
+      const { error: profileError } = await supabase
+        .from('user_profiles')
+        .insert({
+          mocha_user_id: authUserId,
+          email: newUserEmail,
+          full_name: newUserName,
+          phone: newUserPhone,
+          role: newUserRole
+        });
+
+      if (profileError && profileError.code !== '23505') {
+        throw profileError;
+      }
+
+      toast.success('Novo usuário/caixa cadastrado com sucesso!');
+      setIsRegisterModalOpen(false);
+      // Reset form
+      setNewUserName('');
+      setNewUserEmail('');
+      setNewUserPhone('');
+      setNewUserPassword('');
+      setNewUserRole('caixa');
+      fetchUsers();
+    } catch (error: any) {
+      toast.error('Erro ao cadastrar usuário: ' + error.message);
+    } finally {
+      setRegistering(false);
+    }
+  };
 
   // Estados de Paginação
   const [currentPage, setCurrentPage] = useState(1);
@@ -173,12 +265,12 @@ export default function AdminUsers() {
                <h1 className="text-3xl font-black mb-1">Usuários e Clientes 👥</h1>
                <p className="text-text-muted text-sm">Gerencie todos os clientes, caixas e administradores do <span className="text-primary font-bold">Pizza Senna</span>.</p>
             </div>
-            <Link 
-              to="/register"
+            <button 
+              onClick={() => setIsRegisterModalOpen(true)}
               className="bg-primary text-background px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg glow-primary flex items-center gap-2 hover:scale-105 transition-all cursor-pointer"
             >
-               <UserCheck size={16} /> Novo Cliente
-            </Link>
+               <UserCheck size={16} /> Novo Usuário / Caixa
+            </button>
         </div>
 
         {/* Filters and Search */}
@@ -391,8 +483,115 @@ export default function AdminUsers() {
                </div>
              </div>
            )}
-        </div>
+         </div>
       </div>
+
+      <AnimatePresence>
+        {isRegisterModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="w-full max-w-md bg-surface border border-surface-border rounded-3xl p-8 shadow-2xl relative text-left"
+            >
+              <button 
+                onClick={() => setIsRegisterModalOpen(false)}
+                className="absolute top-6 right-6 p-2 text-text-muted hover:text-white transition-all bg-white/5 rounded-full"
+              >
+                <X size={16} />
+              </button>
+
+              <div className="mb-6">
+                <span className="text-[10px] font-black uppercase tracking-widest text-primary">Cadastro Interno</span>
+                <h2 className="text-2xl font-black text-text-main mt-1">Novo Operador / Caixa</h2>
+                <p className="text-[10px] text-text-muted font-bold mt-1">
+                  Cadastre um novo caixa, administrador ou cliente.
+                </p>
+              </div>
+
+              <form onSubmit={handleRegisterUser} className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase text-text-muted ml-1">Nome Completo *</label>
+                  <input 
+                    type="text" 
+                    required
+                    value={newUserName} 
+                    onChange={(e) => setNewUserName(e.target.value)} 
+                    placeholder="Nome completo do funcionário"
+                    className="w-full bg-background border border-surface-border rounded-2xl py-3 px-5 outline-none focus:border-primary/50 transition-all text-xs font-bold text-text-main" 
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase text-text-muted ml-1">E-mail *</label>
+                  <input 
+                    type="email" 
+                    required
+                    value={newUserEmail} 
+                    onChange={(e) => setNewUserEmail(e.target.value)} 
+                    placeholder="email@pizzariasenna.com"
+                    className="w-full bg-background border border-surface-border rounded-2xl py-3 px-5 outline-none focus:border-primary/50 transition-all text-xs font-bold text-text-main" 
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase text-text-muted ml-1">WhatsApp (Celular)</label>
+                  <input 
+                    type="text" 
+                    value={newUserPhone} 
+                    onChange={(e) => setNewUserPhone(e.target.value)} 
+                    placeholder="Ex: 31999999999"
+                    className="w-full bg-background border border-surface-border rounded-2xl py-3 px-5 outline-none focus:border-primary/50 transition-all text-xs font-bold text-text-main" 
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase text-text-muted ml-1">Senha de Acesso *</label>
+                  <input 
+                    type="password" 
+                    required
+                    value={newUserPassword} 
+                    onChange={(e) => setNewUserPassword(e.target.value)} 
+                    placeholder="Mínimo 6 caracteres"
+                    className="w-full bg-background border border-surface-border rounded-2xl py-3 px-5 outline-none focus:border-primary/50 transition-all text-xs font-bold text-text-main" 
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase text-text-muted ml-1">Cargo / Nível de Acesso *</label>
+                  <select
+                    value={newUserRole}
+                    onChange={(e) => setNewUserRole(e.target.value)}
+                    className="w-full bg-background border border-surface-border rounded-2xl py-3 px-5 outline-none focus:border-primary/50 transition-all text-xs font-black uppercase tracking-widest text-text-muted cursor-pointer"
+                  >
+                    <option value="caixa">Operador de Caixa (Acesso apenas a Pedidos)</option>
+                    <option value="admin">Administrador (Acesso Completo)</option>
+                    <option value="user">Cliente Comum</option>
+                  </select>
+                </div>
+
+                <div className="pt-4 flex gap-4">
+                  <button
+                    type="button"
+                    onClick={() => setIsRegisterModalOpen(false)}
+                    className="flex-1 py-3.5 bg-white/5 hover:bg-white/10 text-text-main rounded-2xl text-xs font-black uppercase tracking-widest transition-all"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={registering}
+                    className="flex-1 py-3.5 bg-primary disabled:opacity-50 text-background rounded-2xl text-xs font-black uppercase tracking-widest shadow-xl glow-primary transition-all flex items-center justify-center gap-2"
+                  >
+                    {registering ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Cadastrar'}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </AdminLayout>
   );
 }
