@@ -11,19 +11,21 @@ import {
   MoreVertical,
   Loader2,
   Bell,
-  AlertTriangle
+  AlertTriangle,
+  Printer
 } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import AdminLayout from '../../components/AdminLayout';
 import { supabase } from '../../lib/supabase';
 import { toast } from 'react-hot-toast';
+import { printOrderReceipt } from '../../lib/printReceipt';
 
 const STATUS_CONFIG: any = {
   pendente: { label: 'Pendente', icon: Clock, color: 'text-amber-500', bg: 'bg-amber-500/10', next: 'preparando' },
   preparando: { label: 'Preparando', icon: Package, color: 'text-primary', bg: 'bg-primary/10', next: 'entrega' },
   entrega: { label: 'Em Entrega', icon: Truck, color: 'text-secondary', bg: 'bg-secondary/10', next: 'concluido' },
   concluido: { label: 'Concluído', icon: CheckCircle2, color: 'text-emerald-500', bg: 'bg-emerald-500/10', next: null },
-  cancelado: { label: 'Cancelado', icon: X, color: 'text-red-500', bg: 'bg-red-500/10', next: null },
+  cancelado: { label: 'Cancelado', icon: Clock, color: 'text-red-500', bg: 'bg-red-500/10', next: null },
 };
 
 const TAB_LABELS: Record<string, string> = {
@@ -34,8 +36,6 @@ const TAB_LABELS: Record<string, string> = {
   entrega: 'Em Entrega',
   concluido: 'Concluído'
 };
-
-import { X } from 'lucide-react';
 
 const startPhoneRinger = (existingCtx?: AudioContext | null) => {
   try {
@@ -148,6 +148,9 @@ export default function AdminOrders() {
 
   const [selectedOrderItems, setSelectedOrderItems] = useState<any[]>([]);
   const [loadingItems, setLoadingItems] = useState(false);
+  const [userRole, setUserRole] = useState<string | null>(null);
+  const [storeOpen, setStoreOpen] = useState<boolean>(true);
+  const [togglingStore, setTogglingStore] = useState(false);
 
   useEffect(() => {
     if (selectedOrderDetails) {
@@ -196,6 +199,68 @@ export default function AdminOrders() {
       default: return 'border-surface-border text-text-main bg-surface/50';
     }
   };
+
+  const toggleStoreStatus = async () => {
+    try {
+      setTogglingStore(true);
+      const nextState = !storeOpen;
+      const updates = [
+        { key: 'store_open', value: nextState ? 'true' : 'false' },
+        { key: 'operating_mode', value: nextState ? 'manual_open' : 'manual_closed' }
+      ];
+      
+      const { error } = await supabase.from('system_settings').upsert(updates, { onConflict: 'key' });
+      if (error) throw error;
+      
+      setStoreOpen(nextState);
+      toast.success(nextState ? 'Loja ABERTA com sucesso! 🟢' : 'Loja FECHADA com sucesso! 🔴');
+    } catch (err: any) {
+      toast.error('Erro ao alterar status da loja: ' + err.message);
+    } finally {
+      setTogglingStore(false);
+    }
+  };
+
+  useEffect(() => {
+    const fetchUserRoleAndStoreStatus = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        let userId = session?.user?.id || null;
+        if (!userId) {
+          const mockSessionStr = localStorage.getItem('supabase.auth.mock-session');
+          if (mockSessionStr) {
+            try {
+              const mockSession = JSON.parse(mockSessionStr);
+              userId = mockSession.user?.id || null;
+            } catch {}
+          }
+        }
+        if (userId) {
+          const { data: profile } = await supabase
+            .from('user_profiles')
+            .select('role')
+            .eq('mocha_user_id', userId)
+            .single();
+          if (profile?.role) setUserRole(profile.role);
+        } else if (localStorage.getItem('admin_auth') === 'true') {
+          setUserRole('admin');
+        }
+
+        const { data: settings } = await supabase
+          .from('system_settings')
+          .select('key, value');
+        if (settings) {
+          const openSetting = settings.find(s => s.key === 'store_open');
+          if (openSetting) {
+            setStoreOpen(openSetting.value === 'true');
+          }
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    };
+    fetchUserRoleAndStoreStatus();
+  }, []);
 
   useEffect(() => {
     fetchOrders();
@@ -305,6 +370,19 @@ export default function AdminOrders() {
       );
       setOrders(finalOrders);
       checkAndManageRinger(finalOrders);
+
+      // Fetch store_open setting to keep toggle updated
+      try {
+        const { data: settings } = await supabase
+          .from('system_settings')
+          .select('key, value');
+        if (settings) {
+          const openSetting = settings.find(s => s.key === 'store_open');
+          if (openSetting) {
+            setStoreOpen(openSetting.value === 'true');
+          }
+        }
+      } catch {}
     } catch (error: any) {
       const mockOrders = JSON.parse(localStorage.getItem('supabase.mock-orders') || '[]');
       setOrders(mockOrders);
@@ -448,6 +526,26 @@ export default function AdminOrders() {
                 >
                   <Bell size={12} className="animate-pulse" /> Testar Som 🔊
                 </button>
+
+                {(userRole === 'caixa' || userRole === 'admin') && (
+                  <button
+                    onClick={toggleStoreStatus}
+                    disabled={togglingStore}
+                    className={`px-3 py-1.5 border text-[10px] font-black uppercase rounded-xl transition-all cursor-pointer flex items-center gap-1.5 ${
+                      storeOpen
+                        ? 'bg-emerald-500/10 hover:bg-emerald-500/20 border-emerald-500/30 text-emerald-400 animate-pulse'
+                        : 'bg-red-500/10 hover:bg-red-500/20 border-red-500/30 text-red-400'
+                    }`}
+                    title={storeOpen ? 'Clique para fechar a loja' : 'Clique para abrir a loja'}
+                  >
+                    {togglingStore ? (
+                      <Loader2 size={12} className="animate-spin" />
+                    ) : (
+                      <span className={`w-2 h-2 rounded-full ${storeOpen ? 'bg-emerald-400' : 'bg-red-400'}`} />
+                    )}
+                    {storeOpen ? 'Loja Aberta' : 'Loja Fechada'}
+                  </button>
+                )}
               </div>
               <p className="text-text-muted text-sm">Gerencie o fluxo de pedidos do <span className="text-primary font-bold">Pizza Senna</span>.</p>
            </div>
@@ -499,8 +597,9 @@ export default function AdminOrders() {
                  <tbody className="divide-y divide-surface-border">
                     {filteredOrders.map((order) => {
                        const config = STATUS_CONFIG[order.status] || STATUS_CONFIG.pendente;
-                       const StatusIcon = config.icon;
-                       const time = new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                       const dateObj = new Date(order.created_at);
+                       const dateFormatted = dateObj.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+                       const time = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                        const { name: clientName, address: clientAddress } = getOrderClientDetails(order);
                        
                        return (
@@ -513,7 +612,7 @@ export default function AdminOrders() {
                           >
                              <td className="px-8 py-5">
                                 <span className="text-sm font-black text-primary">#{order.id}</span>
-                                <p className="text-[10px] text-text-muted font-bold mt-1">{time}</p>
+                                <p className="text-[10px] text-text-muted font-bold mt-1">{dateFormatted} - {time}</p>
                              </td>
                              <td className="px-8 py-5">
                                 <p className="text-sm font-black">{clientName}</p>
@@ -553,13 +652,36 @@ export default function AdminOrders() {
                                </div>
                              </td>
                              <td className="px-8 py-5 text-right">
-                                <div className="flex items-center justify-end relative">
+                                <div className="flex items-center justify-end relative gap-2">
                                    <button 
-                                     onClick={() => setActiveMenuOrderId(activeMenuOrderId === order.id ? null : order.id)}
-                                     className="p-2 text-text-muted hover:text-white transition-all rounded-lg hover:bg-white/5 relative z-20"
-                                   >
-                                      <MoreVertical size={18} />
-                                   </button>
+                                      onClick={() => {
+                                        let items: any[] = [];
+                                        if (order.order_items && order.order_items.length > 0) {
+                                          items = order.order_items.map((i: any) => ({
+                                            id: i.product_id,
+                                            name: i.products?.name || 'Pizza',
+                                            price: Number(i.price),
+                                            quantity: i.quantity,
+                                            ...i.customizations
+                                          }));
+                                        } else {
+                                          const saved = localStorage.getItem(`order_items_${order.id}`);
+                                          if (saved) items = JSON.parse(saved);
+                                        }
+                                        printOrderReceipt(order, items);
+                                      }}
+                                      className="p-2 text-text-muted hover:text-primary transition-all rounded-lg hover:bg-white/5"
+                                      title="Imprimir Pedido"
+                                    >
+                                       <Printer size={18} />
+                                    </button>
+
+                                    <button 
+                                      onClick={() => setActiveMenuOrderId(activeMenuOrderId === order.id ? null : order.id)}
+                                      className="p-2 text-text-muted hover:text-white transition-all rounded-lg hover:bg-white/5 relative z-20"
+                                    >
+                                       <MoreVertical size={18} />
+                                    </button>
                                    
                                    <AnimatePresence>
                                      {activeMenuOrderId === order.id && (

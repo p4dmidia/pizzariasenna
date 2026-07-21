@@ -63,6 +63,7 @@ import AdminUsers from './pages/admin/AdminUsers';
 import AdminMenu from './pages/admin/AdminMenu';
 import AdminSettings from './pages/admin/AdminSettings';
 import AdminLogin from './pages/admin/AdminLogin';
+import AdminFinance from './pages/admin/AdminFinance';
 
 const ALL_CATEGORY = { id: 'todos', name: 'Todos', icon: Utensils };
 
@@ -852,6 +853,7 @@ export default function App() {
               <Route path="/admin/users" element={<AdminUsers />} />
               <Route path="/admin/menu" element={<AdminMenu />} />
               <Route path="/admin/settings" element={<AdminSettings />} />
+              <Route path="/admin/finance" element={<AdminFinance />} />
 
               <Route path="/profile" element={<MyAccount />} />
               <Route path="/favorites" element={<Favorites />} />

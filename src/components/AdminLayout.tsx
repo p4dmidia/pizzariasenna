@@ -10,7 +10,8 @@ import {
   LogOut,
   Menu,
   X,
-  Loader2
+  Loader2,
+  BarChart3
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
@@ -21,6 +22,7 @@ import NotificationBell from './NotificationBell';
 const ADMIN_LINKS = [
   { icon: LayoutDashboard, label: 'Dashboard', to: '/admin' },
   { icon: ShoppingCart, label: 'Pedidos', to: '/admin/orders' },
+  { icon: BarChart3, label: 'Financeiro', to: '/admin/finance' },
   { icon: Users, label: 'Usuários', to: '/admin/users' },
   { icon: Pizza, label: 'Cardápio', to: '/admin/menu' },
   { icon: Settings, label: 'Configurações', to: '/admin/settings' },
