@@ -246,12 +246,17 @@ export default function AdminOrders() {
   }, []);
 
   const checkAndManageRinger = (allOrders: any[]) => {
-    const hasPending = allOrders.some((o: any) => o.status === 'pendente');
-    if (hasPending) {
+    const pendingOrders = allOrders.filter((o: any) => o.status === 'pendente');
+    if (pendingOrders.length > 0) {
+      // Definir o pedido pendente mais recente para o balão flutuante de ação rápida
+      const newestPending = pendingOrders[0];
+      setNewOrderAlert(newestPending);
+      
       if (!ringerRef.current) {
         ringerRef.current = startPhoneRinger(audioCtxRef.current);
       }
     } else {
+      setNewOrderAlert(null);
       if (ringerRef.current) {
         ringerRef.current.stop();
         ringerRef.current = null;
@@ -568,80 +573,71 @@ export default function AdminOrders() {
 
       <AnimatePresence>
         {newOrderAlert && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
+          <div className="fixed bottom-6 right-6 z-50 w-full max-w-md p-2">
             <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              transition={{ type: 'spring', duration: 0.5 }}
-              className="w-full max-w-lg bg-surface border border-surface-border rounded-3xl p-8 shadow-2xl relative overflow-hidden"
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              transition={{ type: 'spring', duration: 0.4 }}
+              className="bg-[#18181b] border-2 border-amber-500/60 rounded-3xl p-6 shadow-2xl shadow-amber-500/20 relative overflow-hidden text-left"
             >
-              {/* Pulsing Glow */}
-              <div className="absolute -top-24 -left-24 w-48 h-48 bg-primary/20 rounded-full blur-3xl animate-pulse" />
-              <div className="absolute -bottom-24 -right-24 w-48 h-48 bg-secondary/20 rounded-full blur-3xl animate-pulse" />
-
-              <div className="text-center mb-6">
-                <div className="inline-flex items-center justify-center w-16 h-16 bg-primary/10 text-primary rounded-full mb-4 animate-bounce">
-                  <Bell size={32} className="animate-pulse" />
+              <div className="flex items-center justify-between mb-4 border-b border-white/10 pb-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-amber-500/20 text-amber-500 rounded-2xl flex items-center justify-center animate-bounce">
+                    <Bell size={20} className="animate-pulse" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-amber-500">Novo Pedido Recebido</span>
+                    <h3 className="text-lg font-black text-white">Pedido #{newOrderAlert.id}</h3>
+                  </div>
                 </div>
-                <h2 className="text-2xl font-black uppercase tracking-wider text-text-main">Novo Pedido Recebido!</h2>
-                <p className="text-primary font-bold text-lg mt-1">#{newOrderAlert.id}</p>
+                <span className="bg-amber-500/10 text-amber-500 border border-amber-500/30 text-[10px] font-black uppercase px-2.5 py-1 rounded-full animate-pulse">
+                  Aguardando Aceite
+                </span>
               </div>
 
-              <div className="space-y-4 bg-white/5 p-6 rounded-2xl border border-white/5 mb-8">
+              <div className="space-y-2 bg-black/40 p-4 rounded-2xl border border-white/5 mb-5 text-xs">
                 {(() => {
                   const { name: alertName, address: alertAddress } = getOrderClientDetails(newOrderAlert);
                   return (
                     <>
-                      <div className="grid grid-cols-3 gap-2">
-                        <span className="text-[10px] font-black uppercase tracking-widest text-text-muted">Cliente:</span>
-                        <span className="col-span-2 text-sm font-black text-text-main">{alertName}</span>
+                      <div className="flex justify-between items-center">
+                        <span className="text-text-muted font-bold">Cliente:</span>
+                        <span className="font-black text-white">{alertName}</span>
                       </div>
-                      
-                      <div className="grid grid-cols-3 gap-2">
-                        <span className="text-[10px] font-black uppercase tracking-widest text-text-muted">Endereço:</span>
-                        <div className="col-span-2 space-y-1">
-                          <span className="text-xs font-bold text-text-muted leading-relaxed">
-                            {alertAddress}
-                          </span>
-                          {alertAddress.includes('(Obs:') && (
-                            <div className="bg-amber-500/10 text-amber-500 text-[10px] font-black uppercase tracking-widest p-2 rounded-lg border border-amber-500/20 mt-1">
-                              Obs: {alertAddress.substring(alertAddress.indexOf('(Obs:') + 5).replace(/\)$/, '').trim()}
-                            </div>
-                          )}
-                        </div>
+                      <div className="flex justify-between items-start">
+                        <span className="text-text-muted font-bold">Endereço:</span>
+                        <span className="font-bold text-white text-right max-w-[220px] truncate">{alertAddress}</span>
                       </div>
                     </>
                   );
                 })()}
-
-                <div className="grid grid-cols-3 gap-2">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-text-muted">Pagamento:</span>
-                  <span className="col-span-2 text-xs font-black text-secondary uppercase tracking-wider">
-                    {PAYMENT_METHODS_LABELS[newOrderAlert.payment_method] || newOrderAlert.payment_method || 'Não especificado'}
+                <div className="flex justify-between items-center">
+                  <span className="text-text-muted font-bold">Pagamento:</span>
+                  <span className="font-black text-secondary uppercase">
+                    {PAYMENT_METHODS_LABELS[newOrderAlert.payment_method] || newOrderAlert.payment_method || 'Entrega'}
                   </span>
                 </div>
-
-                <div className="grid grid-cols-3 gap-2 pt-2 border-t border-white/5">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-text-muted">Valor Total:</span>
-                  <span className="col-span-2 text-lg font-black text-primary">
-                    R$ {Number(newOrderAlert.total_amount).toFixed(2)}
-                  </span>
+                <div className="flex justify-between items-center pt-2 border-t border-white/10 text-sm">
+                  <span className="text-text-muted font-bold">Total:</span>
+                  <span className="font-black text-primary text-base">R$ {Number(newOrderAlert.total_amount).toFixed(2)}</span>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3">
                 <button
+                  type="button"
                   onClick={() => handleRejectClick(newOrderAlert)}
-                  className="py-4 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-2xl text-xs font-black uppercase tracking-widest border border-red-500/20 hover:border-red-500/30 transition-all cursor-pointer"
+                  className="py-3.5 bg-red-500/15 hover:bg-red-500/30 text-red-400 rounded-2xl text-xs font-black uppercase tracking-widest border border-red-500/30 transition-all cursor-pointer"
                 >
                   Recusar
                 </button>
                 <button
+                  type="button"
                   onClick={() => handleAcceptOrder(newOrderAlert.id)}
-                  className="py-4 bg-primary text-background hover:bg-primary/95 rounded-2xl text-xs font-black uppercase tracking-widest transition-all shadow-lg shadow-primary/20 hover:shadow-primary/30 cursor-pointer"
+                  className="py-3.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg shadow-emerald-500/20 transition-all cursor-pointer"
                 >
-                  Aceitar
+                  Aceitar Pedido
                 </button>
               </div>
             </motion.div>
