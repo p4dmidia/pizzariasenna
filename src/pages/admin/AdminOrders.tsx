@@ -140,6 +140,7 @@ export default function AdminOrders() {
   const [updatingId, setUpdatingId] = useState<number | null>(null);
   const [newOrderAlert, setNewOrderAlert] = useState<any | null>(null);
   const [orderToReject, setOrderToReject] = useState<any | null>(null);
+  const [isAudioUnlocked, setIsAudioUnlocked] = useState(false);
   const ringerRef = useRef<{ stop: () => void } | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const [activeMenuOrderId, setActiveMenuOrderId] = useState<number | null>(null);
@@ -199,19 +200,32 @@ export default function AdminOrders() {
   useEffect(() => {
     fetchOrders();
 
-    // Iniciar/desbloquear o AudioContext no primeiro gesto do usuário na página
     const unlockAudio = () => {
-      const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
-      if (AudioContext && !audioCtxRef.current) {
-        audioCtxRef.current = new AudioContext();
-      }
-      if (audioCtxRef.current && audioCtxRef.current.state === 'suspended') {
-        audioCtxRef.current.resume().catch(console.error);
+      try {
+        const AudioCtxClass = window.AudioContext || (window as any).webkitAudioContext;
+        if (AudioCtxClass && !audioCtxRef.current) {
+          audioCtxRef.current = new AudioCtxClass();
+        }
+        if (audioCtxRef.current) {
+          if (audioCtxRef.current.state === 'suspended') {
+            audioCtxRef.current.resume().then(() => {
+              setIsAudioUnlocked(true);
+            }).catch(() => {});
+          } else {
+            setIsAudioUnlocked(true);
+          }
+        }
+      } catch (e) {
+        console.error(e);
       }
     };
 
+    unlockAudio();
+
     window.addEventListener('click', unlockAudio);
     window.addEventListener('keydown', unlockAudio);
+    window.addEventListener('mousemove', unlockAudio);
+    window.addEventListener('touchstart', unlockAudio);
     window.addEventListener('storage', fetchOrders);
 
     // Auto-polling a cada 3s para sincronização em tempo real sem atualizar a página
@@ -242,6 +256,8 @@ export default function AdminOrders() {
       }
       window.removeEventListener('click', unlockAudio);
       window.removeEventListener('keydown', unlockAudio);
+      window.removeEventListener('mousemove', unlockAudio);
+      window.removeEventListener('touchstart', unlockAudio);
     };
   }, []);
 
@@ -406,7 +422,33 @@ export default function AdminOrders() {
       <div className="space-y-8">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
            <div>
-              <h1 className="text-3xl font-black mb-1">Pedidos 🍕</h1>
+              <div className="flex items-center gap-2">
+                <h1 className="text-3xl font-black mb-1">Pedidos 🍕</h1>
+                <button
+                  onClick={() => {
+                    const AudioCtxClass = window.AudioContext || (window as any).webkitAudioContext;
+                    if (!audioCtxRef.current) audioCtxRef.current = new AudioCtxClass();
+                    if (audioCtxRef.current.state === 'suspended') audioCtxRef.current.resume();
+                    setIsAudioUnlocked(true);
+                    try {
+                      const osc = audioCtxRef.current.createOscillator();
+                      const gain = audioCtxRef.current.createGain();
+                      osc.type = 'sine';
+                      osc.frequency.setValueAtTime(523.25, audioCtxRef.current.currentTime);
+                      gain.gain.setValueAtTime(0.3, audioCtxRef.current.currentTime);
+                      gain.gain.exponentialRampToValueAtTime(0.001, audioCtxRef.current.currentTime + 0.3);
+                      osc.connect(gain);
+                      gain.connect(audioCtxRef.current.destination);
+                      osc.start();
+                      osc.stop(audioCtxRef.current.currentTime + 0.3);
+                    } catch {}
+                    toast.success('Som de chamada ativado com sucesso!', { icon: '🔊' });
+                  }}
+                  className="px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-[10px] font-black uppercase text-amber-500 rounded-xl transition-all cursor-pointer flex items-center gap-1.5"
+                >
+                  <Bell size={12} className="animate-pulse" /> Testar Som 🔊
+                </button>
+              </div>
               <p className="text-text-muted text-sm">Gerencie o fluxo de pedidos do <span className="text-primary font-bold">Pizza Senna</span>.</p>
            </div>
            <div className="flex bg-surface rounded-2xl p-1 border border-surface-border overflow-x-auto hide-scrollbar">
