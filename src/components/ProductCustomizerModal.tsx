@@ -249,40 +249,6 @@ export default function ProductCustomizerModal({
                 </div>
               </section>
 
-              {/* Borda Recheada */}
-              <section className="space-y-3">
-                <h3 className="text-sm font-black uppercase tracking-widest text-text-muted">Escolha a Borda</h3>
-                <div className="space-y-2">
-                  {[
-                    { id: 'none', label: 'Sem Borda Recheada', price: 0 },
-                    { id: 'catupiry', label: 'Borda com Catupiry Original', price: 5.00 },
-                    { id: 'cheddar', label: 'Borda com Cheddar Cremoso', price: 6.00 }
-                  ].map((b) => (
-                    <button
-                      key={b.id}
-                      onClick={() => setBorder(b.id as any)}
-                      className={`w-full p-4 rounded-2xl border flex items-center justify-between transition-all ${
-                        border === b.id 
-                          ? 'border-primary bg-primary/5 text-gray-900 font-bold' 
-                          : 'border-surface-border bg-background hover:bg-surface-hover text-text-muted'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${
-                          border === b.id ? 'border-primary bg-primary text-white' : 'border-surface-border'
-                        }`}>
-                          {border === b.id && <Check size={12} strokeWidth={3} className="text-white" />}
-                        </div>
-                        <span className="text-sm font-bold text-gray-900">{b.label}</span>
-                      </div>
-                      {b.price > 0 && (
-                        <span className="text-xs font-black text-secondary">+ R$ {b.price.toFixed(2)}</span>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              </section>
-
               {/* Adicionais Extras */}
               <section className="space-y-3">
                 <h3 className="text-sm font-black uppercase tracking-widest text-text-muted">Ingredientes Adicionais (Opcional)</h3>
