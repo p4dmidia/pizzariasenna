@@ -566,6 +566,23 @@ function DeliveryApp() {
             )}
           </div>
         </div>
+
+        {/* Footer */}
+        <footer className="w-full bg-primary py-6 px-4 text-center mt-12 mb-24 md:mb-6 rounded-3xl text-white font-bold text-xs select-none shadow-xl border border-white/10 flex flex-col sm:flex-row items-center justify-center gap-1.5 sm:gap-2">
+          <span>© 2026 Pizzaria Senna. Todos os direitos reservados.</span>
+          <span className="hidden sm:inline">|</span>
+          <span>
+            Desenvolvido por{' '}
+            <a 
+              href="https://www.p4dmidia.com.br/" 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="underline hover:text-white/80 transition-colors font-black"
+            >
+              P4D Mídia
+            </a>
+          </span>
+        </footer>
       </main>
 
       {/* Floating Bag Bar (Sacola - Mobile & Desktop Centralizada) */}
