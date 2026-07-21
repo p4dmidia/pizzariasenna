@@ -88,19 +88,37 @@ export default function AdminUsers() {
         console.warn('Bypassing auth client signup:', err);
       }
 
-      // Inserir perfil de usuário
-      const { error: profileError } = await supabase
+      // Verificar se o perfil já existe no banco (por ex. se foi criado automaticamente via trigger)
+      const { data: existingProfile } = await supabase
         .from('user_profiles')
-        .insert({
-          mocha_user_id: authUserId,
-          email: newUserEmail,
-          full_name: newUserName,
-          phone: newUserPhone,
-          role: newUserRole
-        });
+        .select('id')
+        .eq('email', newUserEmail)
+        .maybeSingle();
 
-      if (profileError && profileError.code !== '23505') {
-        throw profileError;
+      if (existingProfile) {
+        const { error: updateError } = await supabase
+          .from('user_profiles')
+          .update({
+            mocha_user_id: authUserId,
+            full_name: newUserName,
+            phone: newUserPhone,
+            role: newUserRole
+          })
+          .eq('id', existingProfile.id);
+
+        if (updateError) throw updateError;
+      } else {
+        const { error: insertError } = await supabase
+          .from('user_profiles')
+          .insert({
+            mocha_user_id: authUserId,
+            email: newUserEmail,
+            full_name: newUserName,
+            phone: newUserPhone,
+            role: newUserRole
+          });
+
+        if (insertError) throw insertError;
       }
 
       toast.success('Novo usuário/caixa cadastrado com sucesso!');
