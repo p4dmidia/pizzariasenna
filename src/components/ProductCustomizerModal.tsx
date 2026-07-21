@@ -41,7 +41,9 @@ export default function ProductCustomizerModal({
   // Resetar estados quando o produto mudar ou abrir o modal
   useEffect(() => {
     if (product) {
-      setSize('grande');
+      const nameLower = (product.name || '').toLowerCase();
+      const isRestricted = nameLower.includes('frango com catupiry') || nameLower.includes('4 queijos') || nameLower.includes('quatro queijos');
+      setSize(isRestricted ? 'media' : 'grande');
       setBorder('none');
       setIsHalfAndHalf(false);
       setSecondFlavor(null);
@@ -114,6 +116,26 @@ export default function ProductCustomizerModal({
     onClose();
   };
 
+  const getAvailableSizes = () => {
+    const productName = (product.name || '').toLowerCase();
+    
+    // Default size definitions
+    const allSizes = [
+      { id: 'media', label: 'Pizza 20cm', detail: '6 Fatias', factor: 26 / 53 },
+      { id: 'grande', label: 'Pizza 25cm', detail: '8 Fatias', factor: 1.0 },
+      { id: 'familia', label: 'Pizza 30cm', detail: '10 Fatias', factor: 58 / 53 },
+      { id: 'gigante', label: 'Pizza 35cm', detail: '12 Fatias', factor: 61 / 53 }
+    ];
+
+    if (productName.includes('frango com catupiry') || productName.includes('4 queijos') || productName.includes('quatro queijos')) {
+      return [
+        { id: 'media', label: 'Pizza 20cm', detail: '6 Fatias', factor: 26 / 53 }
+      ];
+    }
+    
+    return allSizes;
+  };
+
   const basePizzaPrice = Number(product.price);
 
   return (
@@ -171,63 +193,71 @@ export default function ProductCustomizerModal({
             <div className="flex-1 overflow-y-auto p-8 space-y-8 select-none">
               
               {/* Opção Meio a Meio */}
-              <section className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-black uppercase tracking-widest text-text-muted">Dividir Sabor? (Meio a Meio)</h3>
-                  <button 
-                    onClick={() => {
-                      setIsHalfAndHalf(!isHalfAndHalf);
-                      if (isHalfAndHalf) setSecondFlavor(null);
-                    }}
-                    className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border transition-all ${
-                      isHalfAndHalf 
-                        ? 'bg-primary text-background border-primary shadow-lg glow-primary' 
-                        : 'bg-background hover:bg-surface-hover text-text-muted border-surface-border'
-                    }`}
-                  >
-                    {isHalfAndHalf ? 'Ativado' : 'Desativado'}
-                  </button>
-                </div>
-                
-                {isHalfAndHalf && (
-                  <motion.div 
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
-                    className="p-4 rounded-3xl bg-background border border-surface-border space-y-3"
-                  >
-                    <label className="text-[10px] font-black uppercase text-text-muted">Selecione a Outra Metade:</label>
-                    <select 
-                      onChange={(e) => {
-                        const flavorId = parseInt(e.target.value, 10);
-                        const flavor = pizzaFlavors.find(p => p.id === flavorId);
-                        setSecondFlavor(flavor || null);
+              {size !== 'media' && (
+                <section className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-black uppercase tracking-widest text-text-muted">Dividir Sabor? (Meio a Meio)</h3>
+                    <button 
+                      onClick={() => {
+                        setIsHalfAndHalf(!isHalfAndHalf);
+                        if (isHalfAndHalf) setSecondFlavor(null);
                       }}
-                      value={secondFlavor?.id || ''}
-                      className="w-full bg-white border border-surface-border rounded-xl py-3 px-4 outline-none text-sm font-bold text-gray-900 shadow-sm"
+                      className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border transition-all ${
+                        isHalfAndHalf 
+                          ? 'bg-primary text-background border-primary shadow-lg glow-primary' 
+                          : 'bg-background hover:bg-surface-hover text-text-muted border-surface-border'
+                      }`}
                     >
-                      <option value="">-- Escolha um Sabor --</option>
-                      {pizzaFlavors.filter(p => p.id !== product.id).map(p => (
-                        <option key={p.id} value={p.id}>{p.name} (R$ {Number(p.price).toFixed(2)})</option>
-                      ))}
-                    </select>
-                    <p className="text-[10px] text-text-muted">
-                      * O valor base da pizza meio-a-meio será o preço do sabor mais caro.
-                    </p>
-                  </motion.div>
-                )}
-              </section>
+                      {isHalfAndHalf ? 'Ativado' : 'Desativado'}
+                    </button>
+                  </div>
+                  
+                  {isHalfAndHalf && (
+                    <motion.div 
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      className="p-4 rounded-3xl bg-background border border-surface-border space-y-3"
+                    >
+                      <label className="text-[10px] font-black uppercase text-text-muted">Selecione a Outra Metade:</label>
+                      <select 
+                        onChange={(e) => {
+                          const flavorId = parseInt(e.target.value, 10);
+                          const flavor = pizzaFlavors.find(p => p.id === flavorId);
+                          setSecondFlavor(flavor || null);
+                        }}
+                        value={secondFlavor?.id || ''}
+                        className="w-full bg-white border border-surface-border rounded-xl py-3 px-4 outline-none text-sm font-bold text-gray-900 shadow-sm"
+                      >
+                        <option value="">-- Escolha um Sabor --</option>
+                        {pizzaFlavors
+                          .filter(p => p.id !== product.id)
+                          .filter(p => {
+                            const name = (p.name || '').toLowerCase();
+                            const isRestricted = name.includes('frango com catupiry') || name.includes('4 queijos') || name.includes('quatro queijos');
+                            // Excluir sabores restritos de 20cm se o tamanho atual não for 20cm (media)
+                            if (size !== 'media' && isRestricted) {
+                              return false;
+                            }
+                            return true;
+                          })
+                          .map(p => (
+                            <option key={p.id} value={p.id}>{p.name} (R$ {Number(p.price).toFixed(2)})</option>
+                          ))
+                        }
+                      </select>
+                      <p className="text-[10px] text-text-muted">
+                        * O valor base da pizza meio-a-meio será o preço do sabor mais caro.
+                      </p>
+                    </motion.div>
+                  )}
+                </section>
+              )}
 
               {/* Tamanho da Pizza */}
               <section className="space-y-3">
                 <h3 className="text-sm font-black uppercase tracking-widest text-text-muted">Escolha o Tamanho</h3>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                  {[
-                    { id: 'pequena', label: 'Pequena', detail: '16 cm • 4 Fatias', factor: 19 / 53 },
-                    { id: 'media', label: 'Média', detail: '20 cm • 6 Fatias', factor: 26 / 53 },
-                    { id: 'grande', label: 'Grande', detail: '25 cm • 8 Fatias', factor: 1.0 },
-                    { id: 'familia', label: 'Família', detail: '30 cm • 10 Fatias', factor: 58 / 53 },
-                    { id: 'gigante', label: 'Gigante', detail: '35 cm • 12 Fatias', factor: 61 / 53 }
-                  ].map((s) => {
+                  {getAvailableSizes().map((s) => {
                     const sizePrice = basePizzaPrice * s.factor;
 
                     return (
