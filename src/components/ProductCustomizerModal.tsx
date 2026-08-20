@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Plus, Minus, Check, Star, ShoppingBag } from 'lucide-react';
+import { toast } from 'react-hot-toast';
+import { getPizzaSizePrice } from '../utils/pizzaCalculator';
 
 interface ProductCustomizerModalProps {
   isOpen: boolean;
@@ -19,7 +21,6 @@ const EXTRAS_OPTIONS = [
 
 export const getPizzaSizes = (product: any) => {
   if (!product) return [];
-  const productName = (product.name || '').toLowerCase();
   
   // Default size definitions
   const allSizes = [
@@ -33,14 +34,34 @@ export const getPizzaSizes = (product: any) => {
     const dbSizes = product.available_sizes.split(',').map((s: string) => s.trim().toLowerCase());
     return allSizes.filter(s => dbSizes.includes(s.id));
   }
-
-  if (productName.includes('frango com catupiry') || productName.includes('4 queijos') || productName.includes('quatro queijos')) {
-    return [
-      { id: 'media', label: 'Pizza 20cm', detail: '6 Fatias', factor: 26 / 53 }
-    ];
-  }
   
   return allSizes;
+};
+
+export const detectComboPizzaSize = (productName: string): string => {
+  const name = productName.toLowerCase();
+  if (name.includes('35cm')) return 'gigante';
+  if (name.includes('30cm')) return 'familia';
+  if (name.includes('25cm')) return 'grande';
+  return 'grande';
+};
+
+export const getComboDrinksList = (product: any): string[] => {
+  if (!product) return [];
+  const name = (product.name || '').toLowerCase();
+  const desc = (product.description || '').toLowerCase();
+  
+  if (desc.includes('coca-cola ou guaraná') || name.includes('coca-cola ou guaraná')) {
+    return ['Coca-Cola 2L', 'Guaraná Antarctica 2L'];
+  }
+  if (desc.includes('mate couro 2l') || name.includes('mate couro 2l')) {
+    return ['Mate Couro 2L'];
+  }
+  if (desc.includes('kuat') || desc.includes('sukita') || desc.includes('pepsi') || desc.includes('mate couro')) {
+    return ['Kuat 2L', 'Sukita 2L', 'Mate Couro 2L', 'Pepsi 2L'];
+  }
+  
+  return ['Coca-Cola 2L', 'Guaraná Antarctica 2L', 'Fanta Laranja 2L', 'Pepsi 2L', 'Mate Couro 2L'];
 };
 
 export default function ProductCustomizerModal({
@@ -64,6 +85,10 @@ export default function ProductCustomizerModal({
   const [observation, setObservation] = useState('');
   const [quantity, setQuantity] = useState(1);
 
+  // Combo selections state
+  const [selectedComboFlavor, setSelectedComboFlavor] = useState<any>(null);
+  const [selectedComboDrink, setSelectedComboDrink] = useState<string>('');
+
   // Resetar estados quando o produto mudar ou abrir o modal
   useEffect(() => {
     if (product) {
@@ -76,6 +101,26 @@ export default function ProductCustomizerModal({
       setSelectedExtras([]);
       setObservation('');
       setQuantity(1);
+
+      if (product.category_id === 3) {
+        const comboSize = detectComboPizzaSize(product.name);
+        const flavors = pizzaFlavors.filter(flavor => {
+          if (flavor.category_id !== 1) return false;
+          const sizes = flavor.available_sizes
+            ? flavor.available_sizes.split(',').map((s: string) => s.trim().toLowerCase())
+            : ['media', 'grande', 'familia', 'gigante'];
+          if (!sizes.includes(comboSize)) return false;
+          if (flavor.combo_sizes) {
+            const comboSizes = flavor.combo_sizes.split(',').map((s: string) => s.trim().toLowerCase());
+            return comboSizes.includes(comboSize);
+          }
+          return true;
+        });
+        setSelectedComboFlavor(flavors[0] || null);
+
+        const drinks = getComboDrinksList(product);
+        setSelectedComboDrink(drinks[0] || '');
+      }
     }
   }, [product, isOpen]);
 
@@ -83,25 +128,19 @@ export default function ProductCustomizerModal({
 
   // Cálculo de Preço Dinâmico
   const getCalculatedPrice = () => {
-    let basePrice = product.promo_price ? Number(product.promo_price) : Number(product.price);
+    if (product.category_id === 3) {
+      const basePrice = product.promo_price ? Number(product.promo_price) : Number(product.price);
+      return basePrice * quantity;
+    }
+
+    const p1Price = getPizzaSizePrice(product, size);
+    let basePrice = p1Price.promo_price !== null ? p1Price.promo_price : p1Price.price;
     
     // Se meio a meio, usar o preço da metade mais cara (considerando preços promocionais)
     if (isHalfAndHalf && secondFlavor) {
-      const secondFlavorPrice = secondFlavor.promo_price ? Number(secondFlavor.promo_price) : Number(secondFlavor.price);
+      const p2Price = getPizzaSizePrice(secondFlavor, size);
+      const secondFlavorPrice = p2Price.promo_price !== null ? p2Price.promo_price : p2Price.price;
       basePrice = Math.max(basePrice, secondFlavorPrice);
-    }
-    
-    // Ajustar pelo tamanho
-    if (size === 'pequena') {
-      basePrice = basePrice * (19 / 53);
-    } else if (size === 'media') {
-      basePrice = basePrice * (26 / 53);
-    } else if (size === 'grande') {
-      basePrice = basePrice * 1.0;
-    } else if (size === 'familia') {
-      basePrice = basePrice * (58 / 53);
-    } else if (size === 'gigante') {
-      basePrice = basePrice * (61 / 53);
     }
     
     // Borda
@@ -125,20 +164,34 @@ export default function ProductCustomizerModal({
   };
 
   const handleAdd = () => {
-    const payload = {
-      size,
-      border,
-      halfAndHalf: isHalfAndHalf && secondFlavor ? {
-        secondFlavorId: secondFlavor.id,
-        secondFlavorName: secondFlavor.name,
-        secondFlavorPrice: Number(secondFlavor.price),
-        secondFlavorPromoPrice: secondFlavor.promo_price ? Number(secondFlavor.promo_price) : null
-      } : null,
-      extras: selectedExtras,
-      observation: observation.trim(),
-      quantity
-    };
-    onConfirm(payload);
+    if (product.category_id === 3) {
+      if (!selectedComboFlavor || !selectedComboDrink) {
+        toast.error('Por favor, selecione o sabor da pizza e a bebida!');
+        return;
+      }
+      onConfirm({
+        combo_pizza_flavor: selectedComboFlavor,
+        combo_drink: selectedComboDrink,
+        observation: observation.trim(),
+        quantity
+      });
+    } else {
+      const payload = {
+        size,
+        border,
+        halfAndHalf: isHalfAndHalf && secondFlavor ? {
+          secondFlavorId: secondFlavor.id,
+          secondFlavorName: secondFlavor.name,
+          secondFlavorPrice: Number(secondFlavor.price),
+          secondFlavorPromoPrice: secondFlavor.promo_price ? Number(secondFlavor.promo_price) : null,
+          secondFlavorSizePrices: secondFlavor.size_prices || null
+        } : null,
+        extras: selectedExtras,
+        observation: observation.trim(),
+        quantity
+      };
+      onConfirm(payload);
+    }
     onClose();
   };
 
@@ -202,123 +255,214 @@ export default function ProductCustomizerModal({
             {/* Conteúdo com Scroll */}
             <div className="flex-1 overflow-y-auto p-8 space-y-8 select-none">
               
-              {/* Opção Meio a Meio */}
-              {size !== 'media' && product.allow_half_and_half !== false && (
-                <section className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-black uppercase tracking-widest text-text-muted">Dividir Sabor? (Meio a Meio)</h3>
-                    <button 
-                      onClick={() => {
-                        setIsHalfAndHalf(!isHalfAndHalf);
-                        if (isHalfAndHalf) setSecondFlavor(null);
-                      }}
-                      className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border transition-all ${
-                        isHalfAndHalf 
-                          ? 'bg-primary text-background border-primary shadow-lg glow-primary' 
-                          : 'bg-background hover:bg-surface-hover text-text-muted border-surface-border'
-                      }`}
-                    >
-                      {isHalfAndHalf ? 'Ativado' : 'Desativado'}
-                    </button>
-                  </div>
-                  
-                  {isHalfAndHalf && (
-                    <motion.div 
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      className="p-4 rounded-3xl bg-background border border-surface-border space-y-3"
-                    >
-                      <label className="text-[10px] font-black uppercase text-text-muted">Selecione a Outra Metade:</label>
-                      <select 
-                        onChange={(e) => {
-                          const flavorId = parseInt(e.target.value, 10);
-                          const flavor = pizzaFlavors.find(p => p.id === flavorId);
-                          setSecondFlavor(flavor || null);
-                        }}
-                        value={secondFlavor?.id || ''}
-                        className="w-full bg-white border border-surface-border rounded-xl py-3 px-4 outline-none text-sm font-bold text-gray-900 shadow-sm"
-                      >
-                        <option value="">-- Escolha um Sabor --</option>
-                        {pizzaFlavors
-                          .filter(p => p.id !== product.id)
-                          .filter(p => {
-                            const name = (p.name || '').toLowerCase();
-                            const isRestricted = name.includes('frango com catupiry') || name.includes('4 queijos') || name.includes('quatro queijos');
-                            // Excluir sabores restritos de 20cm se o tamanho atual não for 20cm (media)
-                            if (size !== 'media' && isRestricted) {
-                              return false;
-                            }
-                            return true;
-                          })
-                          .map(p => (
-                            <option key={p.id} value={p.id}>{p.name} (R$ {Number(p.price).toFixed(2)})</option>
-                          ))
+              {product.category_id === 3 ? (
+                <>
+                  {/* Escolha do Sabor da Pizza */}
+                  <section className="space-y-3">
+                    <h3 className="text-sm font-black uppercase tracking-widest text-text-muted">Sabor da Pizza</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {(() => {
+                        const comboSize = detectComboPizzaSize(product.name);
+                        const allowedFlavors = pizzaFlavors.filter(flavor => {
+                          if (flavor.category_id !== 1) return false;
+                          const sizes = flavor.available_sizes
+                            ? flavor.available_sizes.split(',').map((s: string) => s.trim().toLowerCase())
+                            : ['media', 'grande', 'familia', 'gigante'];
+                          if (!sizes.includes(comboSize)) return false;
+                          if (flavor.combo_sizes) {
+                            const comboSizes = flavor.combo_sizes.split(',').map((s: string) => s.trim().toLowerCase());
+                            return comboSizes.includes(comboSize);
+                          }
+                          return true;
+                        });
+
+                        if (allowedFlavors.length === 0) {
+                          return <p className="text-xs text-text-muted italic ml-1">Nenhum sabor disponível para este tamanho de combo no momento.</p>;
                         }
-                      </select>
-                      <p className="text-[10px] text-text-muted">
-                        * O valor base da pizza meio-a-meio será o preço do sabor mais caro.
-                      </p>
-                    </motion.div>
+
+                        return allowedFlavors.map(flavor => {
+                          const isSelected = selectedComboFlavor?.id === flavor.id;
+                          return (
+                            <button
+                              key={flavor.id}
+                              type="button"
+                              onClick={() => setSelectedComboFlavor(flavor)}
+                              className={`p-4 rounded-2xl border-2 text-left transition-all flex flex-col gap-1 ${
+                                isSelected 
+                                  ? 'border-primary bg-primary/5 shadow-lg scale-102 text-text-main font-bold' 
+                                  : 'border-surface-border bg-background hover:bg-surface-hover text-text-muted'
+                              }`}
+                            >
+                              <span className="text-sm font-black text-text-main flex items-center justify-between">
+                                {flavor.name}
+                                {isSelected && <span className="text-primary text-[10px] font-black">✓</span>}
+                              </span>
+                              <span className="text-[10px] text-text-muted line-clamp-2">{flavor.description}</span>
+                            </button>
+                          );
+                        });
+                      })()}
+                    </div>
+                  </section>
+
+                  {/* Escolha a Bebida */}
+                  <section className="space-y-3">
+                    <h3 className="text-sm font-black uppercase tracking-widest text-text-muted">Escolha a Bebida</h3>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                      {getComboDrinksList(product).map(drink => {
+                        const isSelected = selectedComboDrink === drink;
+                        return (
+                          <button
+                            key={drink}
+                            type="button"
+                            onClick={() => setSelectedComboDrink(drink)}
+                            className={`p-3.5 rounded-2xl border-2 text-center transition-all flex flex-col items-center justify-center gap-1 font-bold text-xs ${
+                              isSelected 
+                                ? 'border-primary bg-primary/5 shadow-lg scale-105 text-text-main' 
+                                : 'border-surface-border bg-background hover:bg-surface-hover text-text-muted'
+                            }`}
+                          >
+                            <span>{drink}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </section>
+                </>
+              ) : (
+                <>
+                  {/* Opção Meio a Meio */}
+                  {size !== 'media' && product.allow_half_and_half !== false && (
+                    <section className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-sm font-black uppercase tracking-widest text-text-muted">Dividir Sabor? (Meio a Meio)</h3>
+                        <button 
+                          type="button"
+                          onClick={() => {
+                            setIsHalfAndHalf(!isHalfAndHalf);
+                            if (isHalfAndHalf) setSecondFlavor(null);
+                          }}
+                          className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border transition-all ${
+                            isHalfAndHalf 
+                              ? 'bg-primary text-background border-primary shadow-lg glow-primary' 
+                              : 'bg-background hover:bg-surface-hover text-text-muted border-surface-border'
+                          }`}
+                        >
+                          {isHalfAndHalf ? 'Ativado' : 'Desativado'}
+                        </button>
+                      </div>
+                      
+                      {isHalfAndHalf && (
+                        <motion.div 
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          className="p-4 rounded-3xl bg-background border border-surface-border space-y-3"
+                        >
+                          <label className="text-[10px] font-black uppercase text-text-muted">Selecione a Outra Metade:</label>
+                          <select 
+                            onChange={(e) => {
+                              const flavorId = parseInt(e.target.value, 10);
+                              const flavor = pizzaFlavors.find(p => p.id === flavorId);
+                              setSecondFlavor(flavor || null);
+                            }}
+                            value={secondFlavor?.id || ''}
+                            className="w-full bg-white border border-surface-border rounded-xl py-3 px-4 outline-none text-sm font-bold text-gray-900 shadow-sm"
+                          >
+                            <option value="">-- Escolha um Sabor --</option>
+                            {pizzaFlavors
+                              .filter(p => p.id !== product.id)
+                              .filter(p => {
+                                const name = (p.name || '').toLowerCase();
+                                const isRestricted = name.includes('frango com catupiry') || name.includes('4 queijos') || name.includes('quatro queijos');
+                                // Excluir sabores restritos de 20cm se o tamanho atual não for 20cm (media)
+                                if (size !== 'media' && isRestricted) {
+                                  return false;
+                                }
+                                return true;
+                              })
+                              .map(p => (
+                                <option key={p.id} value={p.id}>{p.name} (R$ {Number(p.price).toFixed(2)})</option>
+                              ))
+                            }
+                          </select>
+                          <p className="text-[10px] text-text-muted">
+                            * O valor base da pizza meio-a-meio será o preço do sabor mais caro.
+                          </p>
+                        </motion.div>
+                      )}
+                    </section>
                   )}
-                </section>
+
+                  {/* Tamanho da Pizza */}
+                  <section className="space-y-3">
+                    <h3 className="text-sm font-black uppercase tracking-widest text-text-muted">Escolha o Tamanho</h3>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                      {getAvailableSizes().map((s) => {
+                        const sPriceData = getPizzaSizePrice(product, s.id);
+                        const sizePrice = sPriceData.promo_price !== null ? sPriceData.promo_price : sPriceData.price;
+                        const hasPromo = sPriceData.promo_price !== null;
+
+                        return (
+                          <button
+                            key={s.id}
+                            onClick={() => setSize(s.id as any)}
+                            className={`p-3.5 rounded-2xl border-2 text-center transition-all flex flex-col items-center justify-center gap-1 ${
+                              size === s.id 
+                                ? 'border-primary bg-primary/5 shadow-lg scale-105 text-text-main' 
+                                : 'border-surface-border bg-background hover:bg-surface-hover text-text-muted'
+                            }`}
+                          >
+                            <span className="text-xs font-black text-text-main">{s.label}</span>
+                            <span className="text-[9px] font-bold uppercase tracking-wider opacity-70">{s.detail}</span>
+                            <div className="flex flex-col items-center mt-1">
+                              {hasPromo ? (
+                                <>
+                                  <span className="text-[9px] text-text-muted line-through font-bold">R$ {sPriceData.price.toFixed(2)}</span>
+                                  <span className="text-xs font-black text-secondary">R$ {sPriceData.promo_price!.toFixed(2)}</span>
+                                </>
+                              ) : (
+                                <span className="text-xs font-black text-secondary">R$ {sizePrice.toFixed(2)}</span>
+                              )}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </section>
+
+                  {/* Adicionais Extras */}
+                  <section className="space-y-3">
+                    <h3 className="text-sm font-black uppercase tracking-widest text-text-muted">Ingredientes Adicionais (Opcional)</h3>
+                    <div className="space-y-2">
+                      {EXTRAS_OPTIONS.map((extra) => {
+                        const isSelected = selectedExtras.some(e => e.id === extra.id);
+                        return (
+                          <button
+                            key={extra.id}
+                            type="button"
+                            onClick={() => handleToggleExtra(extra)}
+                            className={`w-full p-4 rounded-2xl border flex items-center justify-between transition-all ${
+                              isSelected 
+                                ? 'border-primary bg-primary/5 text-gray-900 font-bold' 
+                                : 'border-surface-border bg-background hover:bg-surface-hover text-text-muted'
+                            }`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className={`w-5 h-5 rounded-lg border flex items-center justify-center ${
+                                isSelected ? 'border-primary bg-primary text-white' : 'border-surface-border'
+                              }`}>
+                                {isSelected && <Check size={12} strokeWidth={3} className="text-white" />}
+                              </div>
+                              <span className="text-sm font-bold text-gray-900">{extra.name}</span>
+                            </div>
+                            <span className="text-xs font-black text-secondary">+ R$ {extra.price.toFixed(2)}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </section>
+                </>
               )}
-
-              {/* Tamanho da Pizza */}
-              <section className="space-y-3">
-                <h3 className="text-sm font-black uppercase tracking-widest text-text-muted">Escolha o Tamanho</h3>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                  {getAvailableSizes().map((s) => {
-                    const sizePrice = basePizzaPrice * s.factor;
-
-                    return (
-                      <button
-                        key={s.id}
-                        onClick={() => setSize(s.id as any)}
-                        className={`p-3.5 rounded-2xl border-2 text-center transition-all flex flex-col items-center justify-center gap-1 ${
-                          size === s.id 
-                            ? 'border-primary bg-primary/5 shadow-lg scale-105 text-text-main' 
-                            : 'border-surface-border bg-background hover:bg-surface-hover text-text-muted'
-                        }`}
-                      >
-                        <span className="text-xs font-black text-text-main">{s.label}</span>
-                        <span className="text-[9px] font-bold uppercase tracking-wider opacity-70">{s.detail}</span>
-                        <span className="text-xs font-black text-secondary mt-1">R$ {sizePrice.toFixed(2)}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </section>
-
-              {/* Adicionais Extras */}
-              <section className="space-y-3">
-                <h3 className="text-sm font-black uppercase tracking-widest text-text-muted">Ingredientes Adicionais (Opcional)</h3>
-                <div className="space-y-2">
-                  {EXTRAS_OPTIONS.map((extra) => {
-                    const isSelected = selectedExtras.some(e => e.id === extra.id);
-                    return (
-                      <button
-                        key={extra.id}
-                        onClick={() => handleToggleExtra(extra)}
-                        className={`w-full p-4 rounded-2xl border flex items-center justify-between transition-all ${
-                          isSelected 
-                            ? 'border-primary bg-primary/5 text-gray-900 font-bold' 
-                            : 'border-surface-border bg-background hover:bg-surface-hover text-text-muted'
-                        }`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className={`w-5 h-5 rounded-lg border flex items-center justify-center ${
-                            isSelected ? 'border-primary bg-primary text-white' : 'border-surface-border'
-                          }`}>
-                            {isSelected && <Check size={12} strokeWidth={3} className="text-white" />}
-                          </div>
-                          <span className="text-sm font-bold text-gray-900">{extra.name}</span>
-                        </div>
-                        <span className="text-xs font-black text-secondary">+ R$ {extra.price.toFixed(2)}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </section>
 
               {/* Observações */}
               <section className="space-y-2">

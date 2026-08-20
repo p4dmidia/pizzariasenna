@@ -957,6 +957,18 @@ export default function AdminOrders() {
                               </p>
                             )}
 
+                            {cust.combo_pizza_flavor && (
+                              <p className="text-[10px] text-text-muted font-bold">
+                                Sabor da Pizza: <span className="text-text-main">{cust.combo_pizza_flavor.name || cust.combo_pizza_flavor}</span>
+                              </p>
+                            )}
+
+                            {cust.combo_drink && (
+                              <p className="text-[10px] text-text-muted font-bold">
+                                Bebida: <span className="text-text-main">{cust.combo_drink}</span>
+                              </p>
+                            )}
+
                             {extras.length > 0 && (
                               <p className="text-[9px] text-text-muted uppercase tracking-wider font-bold">
                                 Extras: <span className="text-text-main">{extras.map((e: any) => e.name).join(', ')}</span>

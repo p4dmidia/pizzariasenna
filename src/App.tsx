@@ -37,6 +37,7 @@ import CartDrawer from './components/CartDrawer';
 
 import { CartProvider, useCart } from './context/CartContext';
 import { isStoreCurrentlyOpen } from './utils/storeHours';
+import { getPizzaSizePrice, getPizzaDefaultSize } from './utils/pizzaCalculator';
 
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -321,6 +322,7 @@ function DeliveryApp() {
 
   const handleAddProduct = (product: any) => {
     const isCustomizable = product.allow_customizations === true ||
+      product.category_id === 3 ||
       (product.allow_customizations !== false && (product.category === 'pizzas' || product.category_id === 1 || (categories.length > 0 && categories.find(c => c.id === product.category_id)?.slug === 'pizzas')));
 
     if (isCustomizable) {
@@ -650,6 +652,19 @@ function SidebarLink({ icon: Icon, label, active = false, isLink = false, to = "
   return <button className="w-full text-left">{content}</button>;
 }
 
+const getDisplayPrice = (product: any) => {
+  const isPizza = product.category === 'pizzas' || product.category_id === 1;
+  if (!isPizza) {
+    return {
+      price: Number(product.price || 0),
+      promo_price: product.promo_price ? Number(product.promo_price) : null
+    };
+  }
+  
+  const defaultSize = getPizzaDefaultSize(product);
+  return getPizzaSizePrice(product, defaultSize);
+};
+
 function ResponsiveProductItem({ pizza, onAdd }: any) {
   return (
     <>
@@ -666,6 +681,8 @@ function ResponsiveProductItem({ pizza, onAdd }: any) {
 function ProductCard({ pizza, onAdd }: any) {
   const { toggleFavorite, isFavorite } = useFavorites();
   const favorite = isFavorite(pizza.id);
+  const display = getDisplayPrice(pizza);
+  const hasPromo = display.promo_price !== null;
 
   return (
     <motion.div
@@ -677,7 +694,7 @@ function ProductCard({ pizza, onAdd }: any) {
         <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-transparent to-transparent" />
 
         {/* Promo Badge */}
-        {pizza.promo_price && (
+        {hasPromo && (
           <div className="absolute top-3 left-3 bg-emerald-500 text-white font-black text-[9px] uppercase tracking-widest px-3 py-1.5 rounded-xl border border-emerald-500/20 shadow-lg glow-emerald z-20">
             🏷️ Oferta
           </div>
@@ -709,13 +726,13 @@ function ProductCard({ pizza, onAdd }: any) {
         <p className="text-xs text-text-muted line-clamp-2 mb-6 flex-1 font-medium">{pizza.description}</p>
         <div className="flex justify-between items-center mt-auto pt-2">
           <div className="flex flex-col">
-            {pizza.promo_price ? (
+            {hasPromo ? (
               <>
-                <span className="text-[10px] text-text-muted line-through font-bold">R$ {Number(pizza.price).toFixed(2)}</span>
-                <span className="font-display text-2xl font-black text-secondary">R$ {Number(pizza.promo_price).toFixed(2)}</span>
+                <span className="text-[10px] text-text-muted line-through font-bold">R$ {display.price.toFixed(2)}</span>
+                <span className="font-display text-2xl font-black text-secondary">R$ {display.promo_price!.toFixed(2)}</span>
               </>
             ) : (
-              <span className="font-display text-2xl font-black text-secondary">R$ {Number(pizza.price).toFixed(2)}</span>
+              <span className="font-display text-2xl font-black text-secondary">R$ {display.price.toFixed(2)}</span>
             )}
           </div>
           <button
@@ -776,14 +793,18 @@ function ListItem({ pizza, onAdd }: any) {
         
         <div className="flex justify-between items-center mt-auto">
           <div className="flex items-baseline gap-2">
-            {pizza.promo_price ? (
-              <>
-                <span className="text-[10px] text-text-muted line-through font-bold">R$ {Number(pizza.price).toFixed(2)}</span>
-                <span className="text-base font-black text-secondary">R$ {Number(pizza.promo_price).toFixed(2)}</span>
-              </>
-            ) : (
-              <span className="text-base font-black text-secondary">R$ {Number(pizza.price).toFixed(2)}</span>
-            )}
+            {(() => {
+              const display = getDisplayPrice(pizza);
+              if (display.promo_price !== null) {
+                return (
+                  <>
+                    <span className="text-[10px] text-text-muted line-through font-bold">R$ {display.price.toFixed(2)}</span>
+                    <span className="text-base font-black text-secondary">R$ {display.promo_price.toFixed(2)}</span>
+                  </>
+                );
+              }
+              return <span className="text-base font-black text-secondary">R$ {display.price.toFixed(2)}</span>;
+            })()}
           </div>
         </div>
       </div>

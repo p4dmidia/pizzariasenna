@@ -3,6 +3,7 @@ import { toast } from 'react-hot-toast';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 import { calculateFeeForAddressObj } from '../utils/deliveryCalculator';
+import { getPizzaSizePrice } from '../utils/pizzaCalculator';
 
 export interface CartItem {
   id: number;
@@ -84,30 +85,56 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, [cartItems]);
 
   const addToCart = (product: any, customOptions?: any) => {
+    // Tratamento para Combos (categoria 3)
+    if (product.category_id === 3) {
+      const combo_pizza_flavor = customOptions?.combo_pizza_flavor || null;
+      const combo_drink = customOptions?.combo_drink || null;
+      const observation = customOptions?.observation || '';
+      const finalPrice = product.promo_price ? Number(product.promo_price) : Number(product.price);
+      
+      const displayName = combo_pizza_flavor && combo_drink
+        ? `${product.name} (Sabor: ${combo_pizza_flavor.name} • Bebida: ${combo_drink})`
+        : product.name;
+        
+      const uniqueKey = `${product.id}-combo-${combo_pizza_flavor?.id || ''}-${combo_drink || ''}-${observation}`;
+      
+      setCartItems(prev => {
+        const existing = prev.find(item => item.uniqueKey === uniqueKey);
+        if (existing) {
+          return prev.map(item => 
+            item.uniqueKey === uniqueKey ? { ...item, quantity: item.quantity + (customOptions?.quantity || 1) } : item
+          );
+        }
+        return [...prev, { 
+          id: product.id, 
+          uniqueKey,
+          name: displayName, 
+          price: finalPrice, 
+          image: product.image || product.main_image_url,
+          quantity: customOptions?.quantity || 1,
+          combo_pizza_flavor,
+          combo_drink,
+          observation
+        }];
+      });
+      toast.success(`${product.name} adicionado ao carrinho!`);
+      return;
+    }
+
     const size = customOptions?.size || (product.category === 'pizzas' ? 'grande' : undefined);
     const border = customOptions?.border || 'none';
     const halfAndHalf = customOptions?.halfAndHalf || null;
     const extras = customOptions?.extras || [];
     const observation = customOptions?.observation || '';
 
-    // Calcular preço baseado nas opções
-    const baseProductPrice = product.promo_price ? Number(product.promo_price) : Number(product.price);
-    let finalPrice = baseProductPrice;
-    
-    // Se for Pizza, aplicar fatores de tamanho
     const isPizza = product.category === 'pizzas' || product.category_id === 1;
+    let finalPrice = 0;
+
     if (isPizza) {
-      if (size === 'pequena') {
-        finalPrice = baseProductPrice * (19 / 53);
-      } else if (size === 'media') {
-        finalPrice = baseProductPrice * (26 / 53);
-      } else if (size === 'grande') {
-        finalPrice = baseProductPrice * 1.0;
-      } else if (size === 'familia') {
-        finalPrice = baseProductPrice * (58 / 53);
-      } else if (size === 'gigante') {
-        finalPrice = baseProductPrice * (61 / 53);
-      }
+      const p1Price = getPizzaSizePrice(product, size || 'grande');
+      finalPrice = p1Price.promo_price !== null ? p1Price.promo_price : p1Price.price;
+    } else {
+      finalPrice = product.promo_price ? Number(product.promo_price) : Number(product.price);
     }
 
     if (border === 'catupiry') finalPrice += 5.00;
@@ -122,23 +149,20 @@ export function CartProvider({ children }: { children: ReactNode }) {
     if (halfAndHalf) {
       displayName = `Meio/Meio: ${product.name} e ${halfAndHalf.secondFlavorName}`;
       // Usar o preço da metade mais cara
-      const secondFlavorPrice = halfAndHalf.secondFlavorPromoPrice 
-        ? Number(halfAndHalf.secondFlavorPromoPrice) 
-        : (Number(halfAndHalf.secondFlavorPrice) || baseProductPrice);
+      const p1Price = getPizzaSizePrice(product, size || 'grande');
+      const baseFlavor1Price = p1Price.promo_price !== null ? p1Price.promo_price : p1Price.price;
+
+      // Montar objeto mockado do flavor2 contendo seus campos e size_prices passados pelo modal
+      const secondFlavorObj = {
+        price: halfAndHalf.secondFlavorPrice,
+        promo_price: halfAndHalf.secondFlavorPromoPrice,
+        size_prices: halfAndHalf.secondFlavorSizePrices || null
+      };
       
-      let basePrice = Math.max(baseProductPrice, secondFlavorPrice);
+      const p2Price = getPizzaSizePrice(secondFlavorObj, size || 'grande');
+      const baseFlavor2Price = p2Price.promo_price !== null ? p2Price.promo_price : p2Price.price;
       
-      if (size === 'pequena') {
-        basePrice = basePrice * (19 / 53);
-      } else if (size === 'media') {
-        basePrice = basePrice * (26 / 53);
-      } else if (size === 'grande') {
-        basePrice = basePrice * 1.0;
-      } else if (size === 'familia') {
-        basePrice = basePrice * (58 / 53);
-      } else if (size === 'gigante') {
-        basePrice = basePrice * (61 / 53);
-      }
+      let basePrice = Math.max(baseFlavor1Price, baseFlavor2Price);
 
       finalPrice = basePrice;
       if (border === 'catupiry') finalPrice += 5.00;

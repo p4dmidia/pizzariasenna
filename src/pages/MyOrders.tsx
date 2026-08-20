@@ -195,7 +195,9 @@ export default function MyOrders() {
             halfAndHalf: item.halfAndHalf,
             extras: item.extras,
             observation: item.observation,
-            quantity: item.quantity
+            quantity: item.quantity,
+            combo_pizza_flavor: item.combo_pizza_flavor,
+            combo_drink: item.combo_drink
           });
         });
         toast.success('Itens adicionados ao seu carrinho!');

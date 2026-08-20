@@ -44,6 +44,8 @@ interface Product {
   prep_time?: number | null;
   available_sizes?: string | null;
   allow_half_and_half?: boolean;
+  size_prices?: any | null;
+  combo_sizes?: string | null;
 }
 
 interface Category {
@@ -90,7 +92,7 @@ export default function AdminMenu() {
   const [deletingCategoryId, setDeletingCategoryId] = useState<number | null>(null);
 
   const getSizesList = (val?: string | null) => {
-    if (!val) return ['media', 'grande', 'familia', 'gigante'];
+    if (!val) return ['pequena', 'media', 'grande', 'familia', 'gigante'];
     return val.split(',').map(s => s.trim());
   };
 
@@ -106,6 +108,26 @@ export default function AdminMenu() {
     setEditingProduct({
       ...editingProduct!,
       available_sizes: newList.join(',')
+    });
+  };
+
+  const getComboSizesList = (val?: string | null) => {
+    if (!val) return [];
+    return val.split(',').map(s => s.trim());
+  };
+
+  const toggleComboSizeSelection = (sizeId: string) => {
+    const currentVal = editingProduct?.combo_sizes;
+    const list = getComboSizesList(currentVal);
+    let newList;
+    if (list.includes(sizeId)) {
+      newList = list.filter(s => s !== sizeId);
+    } else {
+      newList = [...list, sizeId];
+    }
+    setEditingProduct({
+      ...editingProduct!,
+      combo_sizes: newList.join(',')
     });
   };
 
@@ -276,21 +298,46 @@ export default function AdminMenu() {
 
     try {
       setSaving(true);
+      
+      let mainPrice = Number(editingProduct.price || 0);
+      let mainPromoPrice = editingProduct.promo_price ? Number(editingProduct.promo_price) : null;
+
+      // Se for Pizza (categoria 1), sincroniza o preço principal com o preço do tamanho padrão (grande ou o primeiro disponível)
+      if (Number(editingProduct.category_id) === 1) {
+        const sizesList = editingProduct.available_sizes
+          ? editingProduct.available_sizes.split(',').map((s: string) => s.trim().toLowerCase())
+          : ['pequena', 'media', 'grande', 'familia', 'gigante'];
+        
+        if (sizesList.length > 0) {
+          const defaultSize = sizesList.includes('grande') ? 'grande' : sizesList[0];
+          const sizePrices = editingProduct.size_prices || {};
+          const defaultSizeData = sizePrices[defaultSize];
+          if (defaultSizeData && defaultSizeData.price !== undefined && defaultSizeData.price !== null) {
+            mainPrice = Number(defaultSizeData.price);
+            mainPromoPrice = defaultSizeData.promo_price !== undefined && defaultSizeData.promo_price !== null 
+              ? Number(defaultSizeData.promo_price) 
+              : null;
+          }
+        }
+      }
+
       const data = {
         name: editingProduct.name,
         description: editingProduct.description,
-        price: Number(editingProduct.price),
+        price: mainPrice,
         category_id: Number(editingProduct.category_id),
         main_image_url: editingProduct.main_image_url,
         is_active: editingProduct.is_active ?? true,
         stock_quantity: Number(editingProduct.stock_quantity || 0),
-        promo_price: editingProduct.promo_price ? Number(editingProduct.promo_price) : null,
+        promo_price: mainPromoPrice,
         is_featured: editingProduct.is_featured ?? false,
         allow_customizations: editingProduct.allow_customizations !== false,
         serves_description: editingProduct.serves_description || null,
         prep_time: editingProduct.prep_time ? Number(editingProduct.prep_time) : null,
         available_sizes: editingProduct.available_sizes || null,
         allow_half_and_half: editingProduct.allow_half_and_half !== false,
+        size_prices: editingProduct.size_prices || null,
+        combo_sizes: editingProduct.combo_sizes || null,
         updated_at: new Date().toISOString()
       };
 
@@ -630,12 +677,13 @@ export default function AdminMenu() {
                         <label className="text-[10px] font-black uppercase text-text-muted ml-1">Preço Original (R$)</label>
                         <div className="relative">
                           <input 
-                            type="number" 
+                            type={editingProduct?.category_id === 1 ? "text" : "number"} 
                             step="0.01"
-                            required
-                            value={editingProduct?.price || ''}
+                            required={editingProduct?.category_id !== 1}
+                            disabled={editingProduct?.category_id === 1}
+                            value={editingProduct?.category_id === 1 ? 'Definido por tamanho' : (editingProduct?.price || '')}
                             onChange={(e) => setEditingProduct({ ...editingProduct!, price: Number(e.target.value) })}
-                            className="w-full bg-background border border-surface-border rounded-xl py-3 pl-10 pr-4 outline-none focus:border-primary/50 text-sm font-black text-text-main"
+                            className="w-full bg-background border border-surface-border rounded-xl py-3 pl-10 pr-4 outline-none focus:border-primary/50 text-sm font-black text-text-main disabled:opacity-60"
                           />
                           <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 text-primary" size={16} />
                         </div>
@@ -644,12 +692,13 @@ export default function AdminMenu() {
                         <label className="text-[10px] font-black uppercase text-text-muted ml-1">Preço Promocional (R$)</label>
                         <div className="relative">
                           <input 
-                            type="number" 
+                            type={editingProduct?.category_id === 1 ? "text" : "number"} 
                             step="0.01"
-                            value={editingProduct?.promo_price || ''}
+                            disabled={editingProduct?.category_id === 1}
+                            value={editingProduct?.category_id === 1 ? 'Definido por tamanho' : (editingProduct?.promo_price || '')}
                             onChange={(e) => setEditingProduct({ ...editingProduct!, promo_price: e.target.value ? Number(e.target.value) : null })}
-                            className="w-full bg-background border border-surface-border rounded-xl py-3 pl-10 pr-4 outline-none focus:border-primary/50 text-sm font-black text-text-main"
-                            placeholder="Sem desconto"
+                            className="w-full bg-background border border-surface-border rounded-xl py-3 pl-10 pr-4 outline-none focus:border-primary/50 text-sm font-black text-text-main disabled:opacity-60"
+                            placeholder={editingProduct?.category_id === 1 ? 'Definido por tamanho' : 'Sem desconto'}
                           />
                           <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 text-primary/50" size={16} />
                         </div>
@@ -709,74 +758,180 @@ export default function AdminMenu() {
                       </div>
 
                       <div className="flex items-center justify-between p-4 rounded-2xl bg-surface-hover border border-white/5">
-                         <div>
-                            <p className="text-sm font-black text-text-main">Permitir Personalização</p>
-                            <p className="text-[10px] text-text-muted font-bold uppercase tracking-widest">Habilitar tamanhos e meio-a-meio</p>
-                         </div>
-                         <button 
-                          type="button"
-                          onClick={() => setEditingProduct({ ...editingProduct!, allow_customizations: !editingProduct?.allow_customizations })}
-                          className={`w-14 h-8 rounded-full relative transition-all ${editingProduct?.allow_customizations !== false ? 'bg-primary shadow-[0_0_15px_rgba(0,229,255,0.4)]' : 'bg-surface border border-surface-border'}`}
-                         >
-                            <div className={`absolute top-1.5 w-5 h-5 rounded-full bg-white transition-all ${editingProduct?.allow_customizations !== false ? 'left-7' : 'left-1.5'}`} />
-                         </button>
-                      </div>
+                          <div>
+                             <p className="text-sm font-black text-text-main">Permitir Personalização</p>
+                             <p className="text-[10px] text-text-muted font-bold uppercase tracking-widest">Habilitar tamanhos e meio-a-meio</p>
+                          </div>
+                          <button 
+                           type="button"
+                           onClick={() => setEditingProduct({ ...editingProduct!, allow_customizations: !editingProduct?.allow_customizations })}
+                           className={`w-14 h-8 rounded-full relative transition-all ${editingProduct?.allow_customizations !== false ? 'bg-primary shadow-[0_0_15px_rgba(0,229,255,0.4)]' : 'bg-surface border border-surface-border'}`}
+                          >
+                             <div className={`absolute top-1.5 w-5 h-5 rounded-full bg-white transition-all ${editingProduct?.allow_customizations !== false ? 'left-7' : 'left-1.5'}`} />
+                          </button>
+                       </div>
 
-                      {editingProduct?.category_id === 1 && (
-                        <div className="space-y-4 pt-4 border-t border-white/5">
-                          <h4 className="text-[10px] font-black uppercase tracking-widest text-text-muted ml-1">Configurações de Pizza</h4>
-                          
-                          {/* Tamanhos Disponíveis */}
-                          <div className="space-y-2">
-                             <label className="text-[10px] font-black uppercase text-text-muted ml-1">Tamanhos Disponíveis</label>
-                             <div className="grid grid-cols-2 gap-3">
-                               {[
-                                 { id: 'media', label: 'Pizza 20cm (Média)' },
-                                 { id: 'grande', label: 'Pizza 25cm (Grande)' },
-                                 { id: 'familia', label: 'Pizza 30cm (Família)' },
-                                 { id: 'gigante', label: 'Pizza 35cm (Gigante)' }
-                               ].map((sz) => {
-                                 const list = getSizesList(editingProduct?.available_sizes);
-                                 const isChecked = list.includes(sz.id);
-                                 return (
-                                   <button
-                                     key={sz.id}
-                                     type="button"
-                                     onClick={() => toggleSizeSelection(sz.id)}
-                                     className={`flex items-center gap-2.5 p-3.5 rounded-xl border text-left transition-all ${
-                                       isChecked 
-                                         ? 'border-primary bg-primary/5 text-text-main shadow-md' 
-                                         : 'border-surface-border bg-background text-text-muted hover:bg-surface-hover'
-                                     }`}
-                                   >
-                                     <div className={`w-4 h-4 rounded flex items-center justify-center border transition-all ${
-                                       isChecked ? 'border-primary bg-primary text-background' : 'border-surface-border bg-transparent'
-                                     }`}>
-                                       {isChecked && <span className="text-[9px] font-black">✓</span>}
+                       {editingProduct?.category_id === 1 && (
+                         <div className="space-y-4 pt-4 border-t border-white/5">
+                           <h4 className="text-[10px] font-black uppercase tracking-widest text-text-muted ml-1">Configurações de Pizza</h4>
+                           
+                           {/* Tamanhos Disponíveis */}
+                           <div className="space-y-2">
+                              <label className="text-[10px] font-black uppercase text-text-muted ml-1">Tamanhos Disponíveis</label>
+                              <div className="grid grid-cols-2 gap-3">
+                                {[
+                                  { id: 'pequena', label: 'Pizza 16cm (Pequena)' },
+                                  { id: 'media', label: 'Pizza 20cm (Média)' },
+                                  { id: 'grande', label: 'Pizza 25cm (Grande)' },
+                                  { id: 'familia', label: 'Pizza 30cm (Família)' },
+                                  { id: 'gigante', label: 'Pizza 35cm (Gigante)' }
+                                ].map((sz) => {
+                                  const list = getSizesList(editingProduct?.available_sizes);
+                                  const isChecked = list.includes(sz.id);
+                                  return (
+                                    <button
+                                      key={sz.id}
+                                      type="button"
+                                      onClick={() => toggleSizeSelection(sz.id)}
+                                      className={`flex items-center gap-2.5 p-3.5 rounded-xl border text-left transition-all ${
+                                        isChecked 
+                                          ? 'border-primary bg-primary/5 text-text-main shadow-md' 
+                                          : 'border-surface-border bg-background text-text-muted hover:bg-surface-hover'
+                                      }`}
+                                    >
+                                      <div className={`w-4 h-4 rounded flex items-center justify-center border transition-all ${
+                                        isChecked ? 'border-primary bg-primary text-background' : 'border-surface-border bg-transparent'
+                                      }`}>
+                                        {isChecked && <span className="text-[9px] font-black">✓</span>}
+                                      </div>
+                                      <span className="text-xs font-black">{sz.label}</span>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                           </div>
+
+                           {/* Preços por Tamanho */}
+                           {getSizesList(editingProduct?.available_sizes).length > 0 && (
+                             <div className="space-y-3 p-4 rounded-2xl bg-surface/50 border border-white/5 mt-4">
+                               <h5 className="text-[10px] font-black text-text-muted uppercase tracking-widest ml-1">Preços Específicos por Tamanho</h5>
+                               <div className="space-y-3">
+                                 {getSizesList(editingProduct?.available_sizes).map((szId) => {
+                                   const sizeObj = [
+                                     { id: 'pequena', label: 'Pequena (16cm)' },
+                                     { id: 'media', label: 'Média (20cm)' },
+                                     { id: 'grande', label: 'Grande (25cm)' },
+                                     { id: 'familia', label: 'Família (30cm)' },
+                                     { id: 'gigante', label: 'Gigante (35cm)' }
+                                   ].find(s => s.id === szId);
+                                   if (!sizeObj) return null;
+                                   
+                                   const sizePrices = editingProduct?.size_prices || {};
+                                   const sizeData = sizePrices[szId] || { price: null, promo_price: null };
+                                   
+                                   const handlePriceChange = (field: 'price' | 'promo_price', val: string) => {
+                                     const numVal = val === '' ? null : Number(val);
+                                     const updatedPrices = {
+                                       ...sizePrices,
+                                       [szId]: {
+                                         ...(sizePrices[szId] || { price: null, promo_price: null }),
+                                         [field]: numVal
+                                       }
+                                     };
+                                     setEditingProduct({
+                                       ...editingProduct!,
+                                       size_prices: updatedPrices
+                                     });
+                                   };
+                                   
+                                   return (
+                                     <div key={szId} className="flex flex-col gap-1.5 p-3 rounded-xl bg-background border border-surface-border/50">
+                                       <span className="text-xs font-black text-primary">{sizeObj.label}</span>
+                                       <div className="grid grid-cols-2 gap-2">
+                                         <div>
+                                           <label className="text-[9px] font-black uppercase text-text-muted block mb-1">Preço Original</label>
+                                           <input 
+                                             type="number"
+                                             step="0.01"
+                                             required
+                                             placeholder="Ex: 26.00"
+                                             value={sizeData.price ?? ''}
+                                             onChange={(e) => handlePriceChange('price', e.target.value)}
+                                             className="w-full bg-surface border border-surface-border rounded-lg py-1.5 px-2 outline-none focus:border-primary/50 text-xs font-bold text-text-main"
+                                           />
+                                         </div>
+                                         <div>
+                                           <label className="text-[9px] font-black uppercase text-text-muted block mb-1">Preço Promo</label>
+                                           <input 
+                                             type="number"
+                                             step="0.01"
+                                             placeholder="Sem desconto"
+                                             value={sizeData.promo_price ?? ''}
+                                             onChange={(e) => handlePriceChange('promo_price', e.target.value)}
+                                             className="w-full bg-surface border border-surface-border rounded-lg py-1.5 px-2 outline-none focus:border-primary/50 text-xs font-bold text-text-main"
+                                           />
+                                         </div>
+                                       </div>
                                      </div>
-                                     <span className="text-xs font-black">{sz.label}</span>
-                                   </button>
-                                 );
-                               })}
+                                   );
+                                 })}
+                               </div>
                              </div>
-                          </div>
+                           )}
 
-                          {/* Permitir Meio a Meio */}
-                          <div className="flex items-center justify-between p-4 rounded-2xl bg-surface-hover border border-white/5">
-                             <div>
-                                <p className="text-sm font-black text-text-main">Aceita Meio-a-Meio?</p>
-                                <p className="text-[10px] text-text-muted font-bold uppercase tracking-widest">Permitir dividir com outro sabor</p>
-                             </div>
-                             <button 
-                              type="button"
-                              onClick={() => setEditingProduct({ ...editingProduct!, allow_half_and_half: editingProduct?.allow_half_and_half === false ? true : false })}
-                              className={`w-14 h-8 rounded-full relative transition-all ${editingProduct?.allow_half_and_half !== false ? 'bg-primary shadow-[0_0_15px_rgba(0,229,255,0.4)]' : 'bg-surface border border-surface-border'}`}
-                             >
-                                <div className={`absolute top-1.5 w-5 h-5 rounded-full bg-white transition-all ${editingProduct?.allow_half_and_half !== false ? 'left-7' : 'left-1.5'}`} />
-                             </button>
-                          </div>
-                        </div>
-                      )}
+                           {/* Combos Habilitados */}
+                           <div className="space-y-2 pt-2 border-t border-white/5 mt-4">
+                              <label className="text-[10px] font-black uppercase text-text-muted ml-1">Disponível em Combos de Tamanho</label>
+                              <div className="grid grid-cols-3 gap-3">
+                                {[
+                                  { id: 'grande', label: 'Grande (25cm)' },
+                                  { id: 'familia', label: 'Família (30cm)' },
+                                  { id: 'gigante', label: 'Gigante (35cm)' }
+                                ].map((sz) => {
+                                  const list = getComboSizesList(editingProduct?.combo_sizes);
+                                  const isChecked = list.includes(sz.id);
+                                  return (
+                                    <button
+                                      key={sz.id}
+                                      type="button"
+                                      onClick={() => toggleComboSizeSelection(sz.id)}
+                                      className={`flex items-center gap-2 p-2.5 rounded-xl border text-left transition-all ${
+                                        isChecked 
+                                          ? 'border-primary bg-primary/5 text-text-main shadow-md' 
+                                          : 'border-surface-border bg-background text-text-muted hover:bg-surface-hover'
+                                      }`}
+                                    >
+                                      <div className={`w-3.5 h-3.5 rounded flex items-center justify-center border transition-all ${
+                                        isChecked ? 'border-primary bg-primary text-background' : 'border-surface-border bg-transparent'
+                                      }`}>
+                                        {isChecked && <span className="text-[8px] font-black">✓</span>}
+                                      </div>
+                                      <span className="text-[10px] font-black">{sz.label}</span>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                              <p className="text-[9px] text-text-muted ml-1 mt-1">
+                                * Se nenhum for selecionado, por padrão o sabor estará disponível em todos os combos correspondentes aos tamanhos ativos da pizza.
+                              </p>
+                           </div>
+
+                           {/* Permitir Meio a Meio */}
+                           <div className="flex items-center justify-between p-4 rounded-2xl bg-surface-hover border border-white/5">
+                              <div>
+                                 <p className="text-sm font-black text-text-main">Aceita Meio-a-Meio?</p>
+                                 <p className="text-[10px] text-text-muted font-bold uppercase tracking-widest">Permitir dividir com outro sabor</p>
+                              </div>
+                              <button 
+                               type="button"
+                               onClick={() => setEditingProduct({ ...editingProduct!, allow_half_and_half: editingProduct?.allow_half_and_half === false ? true : false })}
+                               className={`w-14 h-8 rounded-full relative transition-all ${editingProduct?.allow_half_and_half !== false ? 'bg-primary shadow-[0_0_15px_rgba(0,229,255,0.4)]' : 'bg-surface border border-surface-border'}`}
+                              >
+                                 <div className={`absolute top-1.5 w-5 h-5 rounded-full bg-white transition-all ${editingProduct?.allow_half_and_half !== false ? 'left-7' : 'left-1.5'}`} />
+                              </button>
+                           </div>
+                         </div>
+                       )}
                     </div>
                   </div>
                 </div>

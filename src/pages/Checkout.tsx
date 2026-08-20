@@ -586,7 +586,9 @@ export default function Checkout() {
             border: item.border || null,
             halfAndHalf: item.halfAndHalf || null,
             extras: item.extras || null,
-            observation: item.observation || null
+            observation: item.observation || null,
+            combo_pizza_flavor: item.combo_pizza_flavor || null,
+            combo_drink: item.combo_drink || null
           }
         }));
 
