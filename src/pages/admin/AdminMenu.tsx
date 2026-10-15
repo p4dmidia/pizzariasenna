@@ -28,6 +28,13 @@ import AdminLayout from '../../components/AdminLayout';
 import { supabase } from '../../lib/supabase';
 import { toast } from 'react-hot-toast';
 
+export interface ProductVariation {
+  id: string;
+  name: string;
+  price?: number | null;
+  is_active?: boolean;
+}
+
 interface Product {
   id: number;
   name: string;
@@ -46,6 +53,8 @@ interface Product {
   allow_half_and_half?: boolean;
   size_prices?: any | null;
   combo_sizes?: string | null;
+  variations?: ProductVariation[] | null;
+  variation_title?: string | null;
 }
 
 interface Category {
@@ -90,6 +99,61 @@ export default function AdminMenu() {
   const [newCategoryIcon, setNewCategoryIcon] = useState('Pizza');
   const [savingCategory, setSavingCategory] = useState(false);
   const [deletingCategoryId, setDeletingCategoryId] = useState<number | null>(null);
+
+  // Estados para adição rápida de variações / sabores
+  const [newVarName, setNewVarName] = useState('');
+  const [newVarPrice, setNewVarPrice] = useState('');
+
+  const handleAddVariation = (customName?: string) => {
+    const nameToAdd = (customName || newVarName).trim();
+    if (!nameToAdd || !editingProduct) return;
+
+    const currentVariations = Array.isArray(editingProduct.variations) ? editingProduct.variations : [];
+    
+    if (currentVariations.some(v => v.name.toLowerCase() === nameToAdd.toLowerCase())) {
+      toast.error('Este sabor/variação já foi adicionado!');
+      return;
+    }
+
+    const newVar: ProductVariation = {
+      id: `var-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      name: nameToAdd,
+      price: customName ? 0 : (newVarPrice ? Number(newVarPrice) : 0),
+      is_active: true
+    };
+
+    setEditingProduct({
+      ...editingProduct,
+      variations: [...currentVariations, newVar]
+    });
+
+    if (!customName) {
+      setNewVarName('');
+      setNewVarPrice('');
+    }
+  };
+
+  const handleAddPresetVariation = (presetName: string) => {
+    handleAddVariation(presetName);
+  };
+
+  const handleRemoveVariation = (id: string) => {
+    if (!editingProduct) return;
+    const currentVariations = Array.isArray(editingProduct.variations) ? editingProduct.variations : [];
+    setEditingProduct({
+      ...editingProduct,
+      variations: currentVariations.filter(v => v.id !== id)
+    });
+  };
+
+  const handleToggleVariationActive = (id: string) => {
+    if (!editingProduct) return;
+    const currentVariations = Array.isArray(editingProduct.variations) ? editingProduct.variations : [];
+    setEditingProduct({
+      ...editingProduct,
+      variations: currentVariations.map(v => v.id === id ? { ...v, is_active: v.is_active === false ? true : false } : v)
+    });
+  };
 
   const getSizesList = (val?: string | null) => {
     if (!val) return ['pequena', 'media', 'grande', 'familia', 'gigante'];
@@ -208,7 +272,26 @@ export default function AdminMenu() {
       if (productsRes.error) throw productsRes.error;
       if (categoriesRes.error) throw categoriesRes.error;
 
-      setProducts(productsRes.data || []);
+      const mappedProducts = (productsRes.data || []).map((p: any) => {
+        let variations = p.variations;
+        let variation_title = p.variation_title;
+        if (!variations) {
+          const localVars = localStorage.getItem(`product_variations_${p.id}`);
+          if (localVars) {
+            try { variations = JSON.parse(localVars); } catch {}
+          }
+        }
+        if (!variation_title) {
+          variation_title = localStorage.getItem(`product_variation_title_${p.id}`) || null;
+        }
+        return {
+          ...p,
+          variations,
+          variation_title
+        };
+      });
+
+      setProducts(mappedProducts);
       setCategories(categoriesRes.data || []);
     } catch (error: any) {
       toast.error('Erro ao carregar dados: ' + error.message);
@@ -321,7 +404,7 @@ export default function AdminMenu() {
         }
       }
 
-      const data = {
+      const data: any = {
         name: editingProduct.name,
         description: editingProduct.description,
         price: mainPrice,
@@ -338,17 +421,65 @@ export default function AdminMenu() {
         allow_half_and_half: editingProduct.allow_half_and_half !== false,
         size_prices: editingProduct.size_prices || null,
         combo_sizes: editingProduct.combo_sizes || null,
+        variations: editingProduct.variations && editingProduct.variations.length > 0 ? editingProduct.variations : null,
+        variation_title: editingProduct.variation_title || null,
         updated_at: new Date().toISOString()
       };
 
       if (editingProduct.id) {
-        const { error } = await supabase.from('products').update(data).eq('id', editingProduct.id);
-        if (error) throw error;
-        toast.success('Produto atualizado!');
+        if (data.variations) {
+          localStorage.setItem(`product_variations_${editingProduct.id}`, JSON.stringify(data.variations));
+          if (data.variation_title) {
+            localStorage.setItem(`product_variation_title_${editingProduct.id}`, data.variation_title);
+          }
+        } else {
+          localStorage.removeItem(`product_variations_${editingProduct.id}`);
+          localStorage.removeItem(`product_variation_title_${editingProduct.id}`);
+        }
+
+        let updateResult = await supabase.from('products').update(data).eq('id', editingProduct.id);
+        if (updateResult.error && (updateResult.error.message.includes('variations') || updateResult.error.message.includes('variation_title'))) {
+          console.warn('Coluna variations ainda não existe no Supabase. Salvando localmente:', updateResult.error);
+          const { variations, variation_title, ...dataWithoutVars } = data;
+          updateResult = await supabase.from('products').update(dataWithoutVars).eq('id', editingProduct.id);
+          toast((t) => (
+            <span>
+              Produto salvo! Execute o script <b>migration_product_variations.sql</b> no Supabase SQL Editor para persistir variações no banco.
+            </span>
+          ), { duration: 6000, icon: 'ℹ️' });
+        } else if (updateResult.error) {
+          throw updateResult.error;
+        } else {
+          toast.success('Produto atualizado!');
+        }
       } else {
-        const { error } = await supabase.from('products').insert([data]);
-        if (error) throw error;
-        toast.success('Produto criado com sucesso!');
+        let insertResult = await supabase.from('products').insert([data]).select();
+        if (insertResult.error && (insertResult.error.message.includes('variations') || insertResult.error.message.includes('variation_title'))) {
+          console.warn('Coluna variations ainda não existe no Supabase. Inserindo sem elas:', insertResult.error);
+          const { variations, variation_title, ...dataWithoutVars } = data;
+          insertResult = await supabase.from('products').insert([dataWithoutVars]).select();
+          if (insertResult.data?.[0]?.id && data.variations) {
+            localStorage.setItem(`product_variations_${insertResult.data[0].id}`, JSON.stringify(data.variations));
+            if (data.variation_title) {
+              localStorage.setItem(`product_variation_title_${insertResult.data[0].id}`, data.variation_title);
+            }
+          }
+          toast((t) => (
+            <span>
+              Produto criado! Execute o script <b>migration_product_variations.sql</b> no Supabase SQL Editor para persistir variações no banco.
+            </span>
+          ), { duration: 6000, icon: 'ℹ️' });
+        } else if (insertResult.error) {
+          throw insertResult.error;
+        } else {
+          if (insertResult.data?.[0]?.id && data.variations) {
+            localStorage.setItem(`product_variations_${insertResult.data[0].id}`, JSON.stringify(data.variations));
+            if (data.variation_title) {
+              localStorage.setItem(`product_variation_title_${insertResult.data[0].id}`, data.variation_title);
+            }
+          }
+          toast.success('Produto criado com sucesso!');
+        }
       }
 
       setIsModalOpen(false);
@@ -398,14 +529,23 @@ export default function AdminMenu() {
                 Categorias
              </button>
              <button 
-               onClick={() => {
-                 setEditingProduct({});
-                 setIsModalOpen(true);
-               }}
-               className="bg-primary text-background px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg glow-primary flex items-center gap-2 hover:scale-105 transition-all"
-             >
-                <Plus size={16} /> Novo Produto
-             </button>
+                onClick={() => {
+                  setNewVarName('');
+                  setNewVarPrice('');
+                  setEditingProduct({
+                    category_id: typeof activeCategory === 'number' ? activeCategory : undefined,
+                    is_active: true,
+                    allow_customizations: true,
+                    allow_half_and_half: true,
+                    variations: [],
+                    variation_title: ''
+                  });
+                  setIsModalOpen(true);
+                }}
+                className="bg-primary text-background px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg glow-primary flex items-center gap-2 hover:scale-105 transition-all"
+              >
+                 <Plus size={16} /> Novo Produto
+              </button>
            </div>
         </div>
 
@@ -478,6 +618,11 @@ export default function AdminMenu() {
                       🏷️ Promoção
                     </span>
                   )}
+                  {product.variations && product.variations.length > 0 && (
+                    <span className="bg-primary/90 backdrop-blur-md text-background text-[8px] font-black uppercase tracking-widest px-3 py-1 rounded-full border border-primary/20 w-fit">
+                      🥤 {product.variations.length} {product.variations.length === 1 ? 'Sabor' : 'Sabores'}
+                    </span>
+                  )}
                 </div>
                 <div className="absolute top-4 right-4 flex gap-2">
                   <button 
@@ -514,6 +659,8 @@ export default function AdminMenu() {
                 <div className="pt-4 border-t border-surface-border flex gap-2">
                    <button 
                      onClick={() => {
+                       setNewVarName('');
+                       setNewVarPrice('');
                        setEditingProduct(product);
                        setIsModalOpen(true);
                      }}
@@ -932,6 +1079,202 @@ export default function AdminMenu() {
                            </div>
                          </div>
                        )}
+
+                       {/* Seção de Variações & Sabores (ex: Bebidas, Sucos, Sobremesas, etc) */}
+                       <div className="space-y-4 pt-4 border-t border-white/5">
+                         <div className="flex items-center justify-between">
+                           <div>
+                             <div className="flex items-center gap-2">
+                               <h4 className="text-[11px] font-black uppercase tracking-widest text-primary flex items-center gap-1.5">
+                                 <Wine size={14} /> Variações & Sabores do Produto
+                               </h4>
+                               {editingProduct?.variations && editingProduct.variations.length > 0 && (
+                                 <span className="bg-primary/20 text-primary text-[10px] font-black px-2.5 py-0.5 rounded-full border border-primary/30">
+                                   {editingProduct.variations.length} {editingProduct.variations.length === 1 ? 'sabor' : 'sabores'}
+                                 </span>
+                               )}
+                             </div>
+                             <p className="text-[10px] text-text-muted mt-1 leading-relaxed">
+                               Permite ao cliente escolher o sabor ou opção ao pedir (ex: sabores de latas de refrigerante, energéticos como Red Bull, sucos, sorvetes).
+                             </p>
+                           </div>
+                         </div>
+
+                         {/* Título de exibição para o cliente */}
+                         <div className="space-y-1.5 bg-surface-hover/60 p-3.5 rounded-2xl border border-white/5">
+                           <label className="text-[9px] font-black uppercase text-text-muted ml-1 flex items-center justify-between">
+                             <span>Título da Pergunta para o Cliente</span>
+                             <span className="text-[8px] text-text-muted lowercase font-normal">(opcional)</span>
+                           </label>
+                           <input 
+                             type="text"
+                             value={editingProduct?.variation_title || ''}
+                             onChange={(e) => setEditingProduct({ ...editingProduct!, variation_title: e.target.value })}
+                             placeholder="Ex: Escolha o sabor do energético / bebida"
+                             className="w-full bg-background border border-surface-border rounded-xl py-2.5 px-3 text-xs outline-none focus:border-primary/50 text-text-main font-bold"
+                           />
+                         </div>
+
+                         {/* Formulário para adicionar nova variação */}
+                         <div className="p-4 bg-surface-hover/80 border border-primary/20 rounded-2xl space-y-3">
+                           <div className="flex items-center justify-between">
+                             <span className="text-[10px] font-black uppercase tracking-wider text-text-main">
+                               + Adicionar Sabor ou Variação
+                             </span>
+                             <span className="text-[8px] text-text-muted font-bold uppercase">
+                               Pressione Enter ou clique em Adicionar
+                             </span>
+                           </div>
+
+                           <div className="flex flex-col sm:flex-row gap-2">
+                             <div className="flex-[3]">
+                               <input 
+                                 type="text"
+                                 value={newVarName}
+                                 onChange={(e) => setNewVarName(e.target.value)}
+                                 onKeyDown={(e) => {
+                                   if (e.key === 'Enter') {
+                                     e.preventDefault();
+                                     handleAddVariation();
+                                   }
+                                 }}
+                                 placeholder="Nome do sabor (ex: Melancia, Tropical, Zero...)"
+                                 className="w-full bg-background border border-surface-border rounded-xl py-2.5 px-3 text-xs outline-none focus:border-primary/50 text-text-main font-bold"
+                               />
+                             </div>
+                             <div className="flex-[2] relative">
+                               <input 
+                                 type="number"
+                                 step="0.01"
+                                 value={newVarPrice}
+                                 onChange={(e) => setNewVarPrice(e.target.value)}
+                                 onKeyDown={(e) => {
+                                   if (e.key === 'Enter') {
+                                     e.preventDefault();
+                                     handleAddVariation();
+                                   }
+                                 }}
+                                 placeholder="Adicional R$ (opcional)"
+                                 className="w-full bg-background border border-surface-border rounded-xl py-2.5 pl-6 pr-3 text-xs outline-none focus:border-primary/50 text-text-main font-bold"
+                               />
+                               <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-primary font-black text-xs">+</span>
+                             </div>
+                             <button
+                               type="button"
+                               onClick={() => handleAddVariation()}
+                               className="px-4 py-2.5 bg-primary text-background rounded-xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 hover:scale-102 active:scale-98 transition-all shrink-0 cursor-pointer shadow-md"
+                             >
+                               <Plus size={14} /> Adicionar
+                             </button>
+                           </div>
+
+                           {/* Sugestões rápidas de 1 clique para sabores comuns de bebidas */}
+                           <div className="pt-2 border-t border-white/5 space-y-1.5">
+                             <span className="text-[9px] font-black uppercase text-text-muted tracking-wider block">
+                               Sugestões rápidas (1 clique para adicionar):
+                             </span>
+                             <div className="flex flex-wrap gap-1.5">
+                               {[
+                                 'Tradicional / Original',
+                                 'Sugar Free (Zero Açúcar)',
+                                 'Tropical',
+                                 'Melancia',
+                                 'Pitaya',
+                                 'Coco e Açaí',
+                                 'Morango e Pêssego',
+                                 'Laranja',
+                                 'Limão',
+                                 'Uva',
+                                 'Maracujá'
+                               ].map((flavor) => (
+                                 <button
+                                   key={flavor}
+                                   type="button"
+                                   onClick={() => handleAddPresetVariation(flavor)}
+                                   className="text-[9px] font-bold px-2 py-1 rounded-lg bg-background hover:bg-primary/10 border border-surface-border hover:border-primary/40 text-text-muted hover:text-primary transition-all cursor-pointer"
+                                 >
+                                   + {flavor}
+                                 </button>
+                               ))}
+                             </div>
+                           </div>
+                         </div>
+
+                         {/* Lista das variações cadastradas */}
+                         {editingProduct?.variations && editingProduct.variations.length > 0 ? (
+                           <div className="space-y-2">
+                             <div className="flex items-center justify-between ml-1">
+                               <span className="text-[10px] font-black uppercase tracking-wider text-text-muted">
+                                 Sabores / Variações Cadastradas ({editingProduct.variations.length})
+                               </span>
+                               <span className="text-[8px] text-text-muted uppercase font-bold">
+                                 Alterne o status para pausar vendas
+                               </span>
+                             </div>
+                             
+                             <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                               {editingProduct.variations.map((v, index) => (
+                                 <div 
+                                   key={v.id || index}
+                                   className={`flex items-center justify-between p-3 rounded-xl border transition-all ${
+                                     v.is_active !== false 
+                                       ? 'bg-surface/90 border-surface-border' 
+                                       : 'bg-red-500/5 border-dashed border-red-500/30 opacity-75'
+                                   }`}
+                                 >
+                                   <div className="flex items-center gap-2.5 min-w-0">
+                                     <span className="text-[10px] font-black text-text-muted w-4">{index + 1}.</span>
+                                     <div className="min-w-0">
+                                       <p className="text-xs font-black text-text-main truncate">{v.name}</p>
+                                       <div className="flex items-center gap-2 mt-0.5">
+                                         <span className="text-[9px] font-bold text-secondary">
+                                           {Number(v.price) > 0 ? `+ R$ ${Number(v.price).toFixed(2)}` : 'Preço original (sem acréscimo)'}
+                                         </span>
+                                         {v.is_active === false && (
+                                           <span className="text-[8px] font-black uppercase text-red-400 bg-red-500/20 px-1.5 py-0.2 rounded">
+                                             Esgotado
+                                           </span>
+                                         )}
+                                       </div>
+                                     </div>
+                                   </div>
+
+                                   <div className="flex items-center gap-2 shrink-0">
+                                     <button
+                                       type="button"
+                                       onClick={() => handleToggleVariationActive(v.id)}
+                                       className={`text-[9px] font-black uppercase px-2.5 py-1 rounded-lg border transition-all cursor-pointer ${
+                                         v.is_active !== false 
+                                           ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20' 
+                                           : 'bg-red-500/10 text-red-400 border-red-500/30 hover:bg-red-500/20'
+                                       }`}
+                                       title={v.is_active !== false ? 'Clique para marcar como esgotado' : 'Clique para reativar este sabor'}
+                                     >
+                                       {v.is_active !== false ? 'Disponível' : 'Esgotado'}
+                                     </button>
+
+                                     <button
+                                       type="button"
+                                       onClick={() => handleRemoveVariation(v.id)}
+                                       className="p-1.5 text-text-muted hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all cursor-pointer"
+                                       title="Remover sabor"
+                                     >
+                                       <Trash2 size={14} />
+                                     </button>
+                                   </div>
+                                 </div>
+                               ))}
+                             </div>
+                           </div>
+                         ) : (
+                           <div className="text-center py-4 px-3 border border-dashed border-surface-border rounded-2xl bg-surface/30">
+                             <p className="text-xs text-text-muted font-bold">Nenhum sabor cadastrado ainda para este produto.</p>
+                             <p className="text-[9px] text-text-muted/70 mt-1">
+                               Adicione as variações acima para que os clientes escolham o sabor desejado ao comprar.
+                             </p>
+                           </div>
+                         )}
+                       </div>
                     </div>
                   </div>
                 </div>

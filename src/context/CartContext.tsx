@@ -24,7 +24,15 @@ export interface CartItem {
     name: string;
     price: number;
   }>;
+  combo_pizza_flavor?: any;
+  combo_drink?: string;
+  variation?: {
+    id: string;
+    name: string;
+    price?: number;
+  } | null;
   observation?: string;
+  sauces?: string[];
 }
 
 export interface Coupon {
@@ -121,6 +129,38 @@ export function CartProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    // Tratamento para Produtos com Variação (ex: Sabores de Bebidas, Sobremesas, etc)
+    if (customOptions?.variation) {
+      const variation = customOptions.variation;
+      const variationExtra = Number(variation.price) > 0 ? Number(variation.price) : 0;
+      const basePrice = product.promo_price ? Number(product.promo_price) : Number(product.price);
+      const finalPrice = basePrice + variationExtra;
+      const observation = customOptions?.observation || '';
+      const displayName = `${product.name} (${variation.name})`;
+      const uniqueKey = `${product.id}-var-${variation.id}-${observation}`;
+
+      setCartItems(prev => {
+        const existing = prev.find(item => item.uniqueKey === uniqueKey);
+        if (existing) {
+          return prev.map(item => 
+            item.uniqueKey === uniqueKey ? { ...item, quantity: item.quantity + (customOptions?.quantity || 1) } : item
+          );
+        }
+        return [...prev, { 
+          id: product.id, 
+          uniqueKey,
+          name: displayName, 
+          price: finalPrice, 
+          image: product.image || product.main_image_url,
+          quantity: customOptions?.quantity || 1,
+          variation,
+          observation
+        }];
+      });
+      toast.success(`${displayName} adicionado ao carrinho!`);
+      return;
+    }
+
     const size = customOptions?.size || (product.category === 'pizzas' ? 'grande' : undefined);
     const border = customOptions?.border || 'none';
     const halfAndHalf = customOptions?.halfAndHalf || null;
@@ -181,7 +221,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
 
     const extrasKey = extras.map((e: any) => e.id).sort().join('-');
-    const uniqueKey = `${product.id}-${size || ''}-${border}-${halfAndHalf?.secondFlavorId || ''}-${extrasKey}-${observation}`;
+    const sauces: string[] = customOptions?.sauces || [];
+    const saucesKey = (sauces || []).slice().sort().join('|');
+    const uniqueKey = `${product.id}-${size || ''}-${border}-${halfAndHalf?.secondFlavorId || ''}-${extrasKey}-${saucesKey}-${observation}`;
 
     setCartItems(prev => {
       const existing = prev.find(item => item.uniqueKey === uniqueKey);
@@ -201,7 +243,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
         border,
         halfAndHalf,
         extras,
-        observation
+        observation,
+        sauces
       }];
     });
     toast.success(`${product.name} adicionado ao carrinho!`);

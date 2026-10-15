@@ -197,7 +197,9 @@ export default function MyOrders() {
             observation: item.observation,
             quantity: item.quantity,
             combo_pizza_flavor: item.combo_pizza_flavor,
-            combo_drink: item.combo_drink
+            combo_drink: item.combo_drink,
+            variation: item.variation,
+            sauces: item.sauces
           });
         });
         toast.success('Itens adicionados ao seu carrinho!');

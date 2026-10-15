@@ -588,7 +588,9 @@ export default function Checkout() {
             extras: item.extras || null,
             observation: item.observation || null,
             combo_pizza_flavor: item.combo_pizza_flavor || null,
-            combo_drink: item.combo_drink || null
+            combo_drink: item.combo_drink || null,
+            variation: item.variation || null,
+            sauces: item.sauces && item.sauces.length > 0 ? item.sauces : null
           }
         }));
 
@@ -869,10 +871,17 @@ export default function Checkout() {
                    <div className="space-y-4">
                       {orderItems.map((item, idx) => (
                          <div key={idx} className="flex justify-between items-center">
-                            <p className="text-xs font-bold text-text-main">
-                               <span className="text-primary font-black mr-2">{item.quantity}x</span> 
-                               {item.name}
-                            </p>
+                            <div>
+                              <p className="text-xs font-bold text-text-main">
+                                 <span className="text-primary font-black mr-2">{item.quantity}x</span> 
+                                 {item.name}
+                              </p>
+                              {item.sauces && item.sauces.length > 0 && (
+                                <p className="text-[10px] text-text-muted font-bold ml-6 mt-0.5">
+                                  Molhos: {item.sauces.join(', ')}
+                                </p>
+                              )}
+                            </div>
                             <span className="text-xs font-black text-text-muted">
                                R$ {(item.price * item.quantity).toFixed(2)}
                             </span>
@@ -1181,6 +1190,11 @@ export default function Checkout() {
                       <div className="min-w-0">
                         <p className="text-xs font-black truncate">{item.name}</p>
                         <p className="text-[10px] text-text-muted font-bold uppercase tracking-widest">{item.quantity}x R$ {item.price.toFixed(2)}</p>
+                        {item.sauces && item.sauces.length > 0 && (
+                          <p className="text-[9px] text-primary font-bold mt-0.5 truncate">
+                            {item.sauces.join(' • ')}
+                          </p>
+                        )}
                       </div>
                     </div>
                     <span className="text-xs font-black">R$ {(item.price * item.quantity).toFixed(2)}</span>

@@ -12,13 +12,6 @@ interface ProductCustomizerModalProps {
   pizzaFlavors: any[];
 }
 
-const EXTRAS_OPTIONS = [
-  { id: 1, name: 'Queijo Mussarela Extra', price: 4.50 },
-  { id: 2, name: 'Bacon Crocante Extra', price: 5.50 },
-  { id: 3, name: 'Tomate Cereja Extra', price: 3.00 },
-  { id: 4, name: 'Cebola Roxa Extra', price: 2.00 }
-];
-
 export const getPizzaSizes = (product: any) => {
   if (!product) return [];
   
@@ -64,6 +57,30 @@ export const getComboDrinksList = (product: any): string[] => {
   return ['Coca-Cola 2L', 'Guaraná Antarctica 2L', 'Fanta Laranja 2L', 'Pepsi 2L', 'Mate Couro 2L'];
 };
 
+export const SAUCE_CONFIG = [
+  {
+    id: 'especial' as const,
+    name: 'Molho Especial',
+    icon: '✨',
+    sacheLabel: 'Sachê de molho especial',
+    pizzaLabel: 'Molho especial por cima da pizza'
+  },
+  {
+    id: 'ketchup' as const,
+    name: 'Katchup',
+    icon: '🥫',
+    sacheLabel: 'Sachê de Katchup',
+    pizzaLabel: 'Katchup por cima da pizza'
+  },
+  {
+    id: 'maionese' as const,
+    name: 'Maionese',
+    icon: '🍶',
+    sacheLabel: 'Sachê de maionese',
+    pizzaLabel: 'Maionese por cima da pizza'
+  }
+];
+
 export default function ProductCustomizerModal({
   isOpen,
   onClose,
@@ -78,9 +95,6 @@ export default function ProductCustomizerModal({
   const [isHalfAndHalf, setIsHalfAndHalf] = useState(false);
   const [secondFlavor, setSecondFlavor] = useState<any | null>(null);
   
-  // Extras
-  const [selectedExtras, setSelectedExtras] = useState<any[]>([]);
-  
   // Observação e Qtd
   const [observation, setObservation] = useState('');
   const [quantity, setQuantity] = useState(1);
@@ -88,6 +102,24 @@ export default function ProductCustomizerModal({
   // Combo selections state
   const [selectedComboFlavor, setSelectedComboFlavor] = useState<any>(null);
   const [selectedComboDrink, setSelectedComboDrink] = useState<string>('');
+
+  // Variações / Sabores (Bebidas, Sobremesas, etc)
+  const [selectedVariation, setSelectedVariation] = useState<any>(null);
+
+  // Molhos da Pizza (Opcional - até 3 molhos: sachê ou por cima da pizza)
+  const [selectedSauces, setSelectedSauces] = useState<{
+    especial: 'sache' | 'pizza' | null;
+    ketchup: 'sache' | 'pizza' | null;
+    maionese: 'sache' | 'pizza' | null;
+  }>({
+    especial: null,
+    ketchup: null,
+    maionese: null
+  });
+
+  const isPizza = (product?.category === 'pizzas' || product?.category_id === 1);
+  const isCombo = product?.category_id === 3;
+  const hasVariations = product?.variations && Array.isArray(product.variations) && product.variations.length > 0;
 
   // Resetar estados quando o produto mudar ou abrir o modal
   useEffect(() => {
@@ -98,9 +130,20 @@ export default function ProductCustomizerModal({
       setBorder('none');
       setIsHalfAndHalf(false);
       setSecondFlavor(null);
-      setSelectedExtras([]);
       setObservation('');
       setQuantity(1);
+      setSelectedSauces({
+        especial: null,
+        ketchup: null,
+        maionese: null
+      });
+
+      if (product.variations && Array.isArray(product.variations) && product.variations.length > 0) {
+        const firstActive = product.variations.find((v: any) => v.is_active !== false) || product.variations[0];
+        setSelectedVariation(firstActive || null);
+      } else {
+        setSelectedVariation(null);
+      }
 
       if (product.category_id === 3) {
         const comboSize = detectComboPizzaSize(product.name);
@@ -128,9 +171,15 @@ export default function ProductCustomizerModal({
 
   // Cálculo de Preço Dinâmico
   const getCalculatedPrice = () => {
-    if (product.category_id === 3) {
+    if (isCombo) {
       const basePrice = product.promo_price ? Number(product.promo_price) : Number(product.price);
       return basePrice * quantity;
+    }
+
+    if (hasVariations && !isPizza) {
+      const basePrice = product.promo_price ? Number(product.promo_price) : Number(product.price);
+      const extraPrice = selectedVariation && Number(selectedVariation.price) > 0 ? Number(selectedVariation.price) : 0;
+      return (basePrice + extraPrice) * quantity;
     }
 
     const p1Price = getPizzaSizePrice(product, size);
@@ -147,24 +196,11 @@ export default function ProductCustomizerModal({
     if (border === 'catupiry') basePrice += 5.00;
     if (border === 'cheddar') basePrice += 6.00;
     
-    // Adicionais
-    const extrasTotal = selectedExtras.reduce((acc, curr) => acc + curr.price, 0);
-    
-    return (basePrice + extrasTotal) * quantity;
-  };
-
-  const handleToggleExtra = (extra: any) => {
-    setSelectedExtras(prev => {
-      const exists = prev.find(item => item.id === extra.id);
-      if (exists) {
-        return prev.filter(item => item.id !== extra.id);
-      }
-      return [...prev, extra];
-    });
+    return basePrice * quantity;
   };
 
   const handleAdd = () => {
-    if (product.category_id === 3) {
+    if (isCombo) {
       if (!selectedComboFlavor || !selectedComboDrink) {
         toast.error('Por favor, selecione o sabor da pizza e a bebida!');
         return;
@@ -175,10 +211,21 @@ export default function ProductCustomizerModal({
         observation: observation.trim(),
         quantity
       });
+    } else if (hasVariations && !isPizza) {
+      if (!selectedVariation) {
+        toast.error('Por favor, selecione uma opção/sabor!');
+        return;
+      }
+      onConfirm({
+        variation: selectedVariation,
+        observation: observation.trim(),
+        quantity
+      });
     } else {
       const payload = {
         size,
         border,
+        variation: selectedVariation || null,
         halfAndHalf: isHalfAndHalf && secondFlavor ? {
           secondFlavorId: secondFlavor.id,
           secondFlavorName: secondFlavor.name,
@@ -186,14 +233,35 @@ export default function ProductCustomizerModal({
           secondFlavorPromoPrice: secondFlavor.promo_price ? Number(secondFlavor.promo_price) : null,
           secondFlavorSizePrices: secondFlavor.size_prices || null
         } : null,
-        extras: selectedExtras,
-        observation: observation.trim(),
+        extras: [],
+        observation: isPizza ? '' : observation.trim(),
+        sauces: isPizza ? getSelectedSaucesList() : [],
         quantity
       };
       onConfirm(payload);
     }
     onClose();
   };
+
+  const handleToggleSauce = (type: 'especial' | 'ketchup' | 'maionese', format: 'sache' | 'pizza') => {
+    setSelectedSauces(prev => ({
+      ...prev,
+      [type]: prev[type] === format ? null : format
+    }));
+  };
+
+  const getSelectedSaucesList = (): string[] => {
+    const list: string[] = [];
+    if (selectedSauces.especial === 'sache') list.push('Sachê de molho especial');
+    if (selectedSauces.especial === 'pizza') list.push('Molho especial por cima da pizza');
+    if (selectedSauces.ketchup === 'sache') list.push('Sachê de Katchup');
+    if (selectedSauces.ketchup === 'pizza') list.push('Katchup por cima da pizza');
+    if (selectedSauces.maionese === 'sache') list.push('Sachê de maionese');
+    if (selectedSauces.maionese === 'pizza') list.push('Maionese por cima da pizza');
+    return list;
+  };
+
+  const selectedSaucesCount = Object.values(selectedSauces).filter(Boolean).length;
 
   const getAvailableSizes = () => {
     return getPizzaSizes(product);
@@ -329,6 +397,67 @@ export default function ProductCustomizerModal({
                     </div>
                   </section>
                 </>
+              ) : hasVariations && !isPizza ? (
+                /* Escolha da Variação / Sabor da Bebida ou Sobremesa */
+                <div className="space-y-6">
+                  <section className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-black uppercase tracking-widest text-text-muted flex items-center gap-2">
+                        <span>🥤</span> {product.variation_title || 'Escolha o Sabor'}
+                      </h3>
+                      <span className="text-[10px] font-black text-primary uppercase tracking-wider bg-primary/10 border border-primary/20 px-2.5 py-0.5 rounded-full">
+                        Obrigatório
+                      </span>
+                    </div>
+                    <p className="text-xs text-text-muted font-medium">Selecione uma das opções disponíveis para o seu pedido:</p>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                      {product.variations.map((v: any) => {
+                        const isSelected = selectedVariation?.id === v.id;
+                        const isOutOfStock = v.is_active === false;
+                        const extra = Number(v.price) > 0 ? Number(v.price) : 0;
+
+                        return (
+                          <button
+                            key={v.id}
+                            type="button"
+                            disabled={isOutOfStock}
+                            onClick={() => setSelectedVariation(v)}
+                            className={`p-4 rounded-2xl border-2 text-left transition-all flex items-center justify-between gap-3 ${
+                              isOutOfStock
+                                ? 'border-surface-border bg-surface/30 opacity-40 cursor-not-allowed'
+                                : isSelected
+                                  ? 'border-primary bg-primary/10 shadow-lg shadow-primary/10 scale-[1.02] text-text-main font-bold'
+                                  : 'border-surface-border bg-background hover:bg-surface-hover text-text-muted hover:text-text-main'
+                            }`}
+                          >
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all ${
+                                isSelected ? 'border-primary bg-primary' : 'border-surface-border bg-transparent'
+                              }`}>
+                                {isSelected && <div className="w-2 h-2 rounded-full bg-background" />}
+                              </div>
+                              <div className="min-w-0">
+                                <span className={`text-sm font-black block truncate ${isSelected ? 'text-primary' : 'text-text-main'}`}>
+                                  {v.name}
+                                </span>
+                                {isOutOfStock && (
+                                  <span className="text-[9px] font-black uppercase text-red-400">Esgotado</span>
+                                )}
+                              </div>
+                            </div>
+
+                            {extra > 0 && (
+                              <span className="text-xs font-black text-secondary shrink-0">
+                                + R$ {extra.toFixed(2)}
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </section>
+                </div>
               ) : (
                 <>
                   {/* Opção Meio a Meio */}
@@ -430,52 +559,116 @@ export default function ProductCustomizerModal({
                     </div>
                   </section>
 
-                  {/* Adicionais Extras */}
-                  <section className="space-y-3">
-                    <h3 className="text-sm font-black uppercase tracking-widest text-text-muted">Ingredientes Adicionais (Opcional)</h3>
-                    <div className="space-y-2">
-                      {EXTRAS_OPTIONS.map((extra) => {
-                        const isSelected = selectedExtras.some(e => e.id === extra.id);
+                  {/* Escolha dos Molhos (Apenas se for Pizza) */}
+                  <section className="space-y-3 pt-2">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-black uppercase tracking-widest text-text-muted flex items-center gap-2">
+                        <span>🥫</span> Escolha os Molhos
+                      </h3>
+                      <span className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full border transition-all ${
+                        selectedSaucesCount > 0 
+                          ? 'bg-primary/10 text-primary border-primary/20' 
+                          : 'bg-surface text-text-muted border-surface-border'
+                      }`}>
+                        {selectedSaucesCount > 0 ? `${selectedSaucesCount} de 3 selecionados` : 'Opcional • Até 3'}
+                      </span>
+                    </div>
+
+                    <p className="text-xs text-text-muted leading-relaxed">
+                      Você pode escolher até <strong>3 molhos</strong> (Molho Especial, Katchup e Maionese). Para cada tipo, escolha se deseja <strong>no sachê</strong> ou <strong>por cima da pizza</strong>:
+                    </p>
+
+                    <div className="space-y-3 pt-1">
+                      {SAUCE_CONFIG.map((sauce) => {
+                        const currentFormat = selectedSauces[sauce.id];
                         return (
-                          <button
-                            key={extra.id}
-                            type="button"
-                            onClick={() => handleToggleExtra(extra)}
-                            className={`w-full p-4 rounded-2xl border flex items-center justify-between transition-all ${
-                              isSelected 
-                                ? 'border-primary bg-primary/5 text-gray-900 font-bold' 
-                                : 'border-surface-border bg-background hover:bg-surface-hover text-text-muted'
+                          <div 
+                            key={sauce.id} 
+                            className={`p-3.5 rounded-2xl border transition-all ${
+                              currentFormat
+                                ? 'border-primary/40 bg-primary/[0.04]'
+                                : 'border-surface-border bg-background hover:border-surface-border/80'
                             }`}
                           >
-                            <div className="flex items-center gap-3">
-                              <div className={`w-5 h-5 rounded-lg border flex items-center justify-center ${
-                                isSelected ? 'border-primary bg-primary text-white' : 'border-surface-border'
-                              }`}>
-                                {isSelected && <Check size={12} strokeWidth={3} className="text-white" />}
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                              <div className="flex items-center gap-3">
+                                <span className="text-xl shrink-0">{sauce.icon}</span>
+                                <div>
+                                  <span className="text-sm font-black text-text-main block">{sauce.name}</span>
+                                  <span className="text-[10px] text-text-muted font-bold block">
+                                    {currentFormat === 'sache' && (
+                                      <span className="text-primary font-black">✓ {sauce.sacheLabel}</span>
+                                    )}
+                                    {currentFormat === 'pizza' && (
+                                      <span className="text-secondary font-black">✓ {sauce.pizzaLabel}</span>
+                                    )}
+                                    {!currentFormat && 'Nenhum selecionado'}
+                                  </span>
+                                </div>
                               </div>
-                              <span className="text-sm font-bold text-gray-900">{extra.name}</span>
+
+                              {/* Opções: Sachê ou Por Cima */}
+                              <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleSauce(sauce.id, 'sache')}
+                                  className={`px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 border cursor-pointer ${
+                                    currentFormat === 'sache'
+                                      ? 'bg-primary text-background border-primary shadow-md font-black scale-102'
+                                      : 'bg-surface hover:bg-surface-hover text-text-muted hover:text-text-main border-surface-border'
+                                  }`}
+                                >
+                                  <span>📦</span>
+                                  <span>Sachê</span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleSauce(sauce.id, 'pizza')}
+                                  className={`px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 border cursor-pointer ${
+                                    currentFormat === 'pizza'
+                                      ? 'bg-secondary text-background border-secondary shadow-md font-black scale-102'
+                                      : 'bg-surface hover:bg-surface-hover text-text-muted hover:text-text-main border-surface-border'
+                                  }`}
+                                >
+                                  <span>🍕</span>
+                                  <span>Por cima</span>
+                                </button>
+                              </div>
                             </div>
-                            <span className="text-xs font-black text-secondary">+ R$ {extra.price.toFixed(2)}</span>
-                          </button>
+                          </div>
                         );
                       })}
                     </div>
                   </section>
+
                 </>
               )}
 
-              {/* Observações */}
-              <section className="space-y-2">
-                <label className="text-xs font-black uppercase tracking-widest text-text-muted ml-1">Observações do Item</label>
-                <textarea 
-                  value={observation}
-                  onChange={(e) => setObservation(e.target.value)}
-                  placeholder="Ex: sem cebola, bem assada, cortar em 12 fatias..."
-                  maxLength={150}
-                  rows={2}
-                  className="w-full bg-background border border-surface-border rounded-2xl py-3.5 px-6 outline-none focus:border-primary/50 transition-all text-sm font-bold text-text-main resize-none"
-                />
-              </section>
+              {/* Observações ou Aviso Pizza Pré-Assada */}
+              {isPizza ? (
+                <div className="p-4 rounded-2xl bg-surface border border-surface-border flex items-center gap-3.5 shadow-sm">
+                  <span className="text-2xl">🍕</span>
+                  <div className="text-xs">
+                    <p className="font-black text-primary uppercase tracking-wider text-[11px]">Pizza Artesanal Pré-Assada</p>
+                    <p className="text-text-muted mt-0.5 leading-relaxed">
+                      Nossas pizzas são receitas padronizadas e pré-assadas. Não é possível alterar, adicionar ou retirar ingredientes da receita.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <section className="space-y-2">
+                  <label className="text-xs font-black uppercase tracking-widest text-text-muted ml-1">Observações do Item</label>
+                  <textarea 
+                    value={observation}
+                    onChange={(e) => setObservation(e.target.value)}
+                    placeholder="Ex: bem gelada, trazer copos descartáveis..."
+                    maxLength={150}
+                    rows={2}
+                    className="w-full bg-background border border-surface-border rounded-2xl py-3.5 px-6 outline-none focus:border-primary/50 transition-all text-sm font-bold text-text-main resize-none"
+                  />
+                </section>
+              )}
             </div>
 
             {/* Footer Fixo */}

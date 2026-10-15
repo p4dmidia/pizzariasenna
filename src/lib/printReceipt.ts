@@ -22,6 +22,16 @@ export const printOrderReceipt = (order: any, orderItems: any[]) => {
 
   const itemsHtml = orderItems.map((item: any) => {
     const details = [];
+    if (item.variation) {
+      const varName = typeof item.variation === 'string' ? item.variation : item.variation.name;
+      details.push(`Sabor/Opção: ${varName}`);
+    }
+    if (item.combo_pizza_flavor) {
+      details.push(`Sabor: ${item.combo_pizza_flavor.name || item.combo_pizza_flavor}`);
+    }
+    if (item.combo_drink) {
+      details.push(`Bebida: ${item.combo_drink}`);
+    }
     if (item.size) details.push(`Tamanho: ${item.size}`);
     if (item.border) details.push(`Borda: ${item.border}`);
     if (item.halfAndHalf) {
@@ -32,6 +42,10 @@ export const printOrderReceipt = (order: any, orderItems: any[]) => {
     if (item.extras && item.extras.length > 0) {
       const extrasText = item.extras.map((e: any) => typeof e === 'string' ? e : e.name).join(', ');
       details.push(`Adicionais: ${extrasText}`);
+    }
+    if (item.sauces && item.sauces.length > 0) {
+      const saucesText = Array.isArray(item.sauces) ? item.sauces.join(', ') : item.sauces;
+      details.push(`Molhos: ${saucesText}`);
     }
     if (item.observation) details.push(`Obs: ${item.observation}`);
 

@@ -12,7 +12,8 @@ import {
   Loader2,
   Bell,
   AlertTriangle,
-  Printer
+  Printer,
+  X
 } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import AdminLayout from '../../components/AdminLayout';
@@ -926,8 +927,8 @@ export default function AdminOrders() {
                   ) : selectedOrderItems.length > 0 ? (
                     <div className="space-y-3 max-h-48 overflow-y-auto pr-1">
                       {selectedOrderItems.map((item) => {
-                        const name = item.products?.name || 'Item do Cardápio';
-                        const cust = item.customizations || {};
+                        const name = item.name || item.products?.name || 'Item do Cardápio';
+                        const cust = item.customizations || item || {};
                         const extras = cust.extras || [];
                         const halfAndHalf = cust.halfAndHalf;
                         
@@ -966,6 +967,18 @@ export default function AdminOrders() {
                             {cust.combo_drink && (
                               <p className="text-[10px] text-text-muted font-bold">
                                 Bebida: <span className="text-text-main">{cust.combo_drink}</span>
+                              </p>
+                            )}
+
+                            {cust.variation && (
+                              <p className="text-[10px] text-text-muted font-bold">
+                                Sabor / Opção: <span className="text-primary font-black">{typeof cust.variation === 'string' ? cust.variation : cust.variation.name}</span>
+                              </p>
+                            )}
+
+                            {cust.sauces && Array.isArray(cust.sauces) && cust.sauces.length > 0 && (
+                              <p className="text-[10px] text-text-muted font-bold">
+                                Molhos: <span className="text-primary font-black">{cust.sauces.join(' • ')}</span>
                               </p>
                             )}
 

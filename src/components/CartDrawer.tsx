@@ -95,6 +95,15 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
                             <div>
                                <h4 className="text-sm font-black mb-1 group-hover:text-primary transition-colors">{item.name}</h4>
                                <p className="text-[10px] text-text-muted font-bold uppercase tracking-widest">R$ {item.price.toFixed(2)} / un</p>
+                               {item.sauces && item.sauces.length > 0 && (
+                                 <div className="flex flex-wrap gap-1 mt-1.5">
+                                   {item.sauces.map((sauce: string, sIdx: number) => (
+                                     <span key={sIdx} className="text-[9px] bg-primary/10 text-primary border border-primary/20 px-1.5 py-0.5 rounded font-bold">
+                                       {sauce}
+                                     </span>
+                                   ))}
+                                 </div>
+                               )}
                             </div>
                             <button 
                               onClick={() => removeFromCart(item.uniqueKey)}

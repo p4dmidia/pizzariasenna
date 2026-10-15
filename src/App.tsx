@@ -158,7 +158,25 @@ function DeliveryApp() {
         }
 
         if (productsRes.data && productsRes.data.length > 0) {
-          setProducts(productsRes.data);
+          const mapped = productsRes.data.map((p: any) => {
+            let variations = p.variations;
+            let variation_title = p.variation_title;
+            if (!variations) {
+              const localVars = localStorage.getItem(`product_variations_${p.id}`);
+              if (localVars) {
+                try { variations = JSON.parse(localVars); } catch {}
+              }
+            }
+            if (!variation_title) {
+              variation_title = localStorage.getItem(`product_variation_title_${p.id}`) || null;
+            }
+            return {
+              ...p,
+              variations,
+              variation_title
+            };
+          });
+          setProducts(mapped);
         } else {
           setProducts([]);
         }
@@ -321,7 +339,9 @@ function DeliveryApp() {
     .filter(catSection => catSection.products.length > 0);
 
   const handleAddProduct = (product: any) => {
-    const isCustomizable = product.allow_customizations === true ||
+    const hasVariations = product.variations && Array.isArray(product.variations) && product.variations.length > 0;
+    const isCustomizable = hasVariations ||
+      product.allow_customizations === true ||
       product.category_id === 3 ||
       (product.allow_customizations !== false && (product.category === 'pizzas' || product.category_id === 1 || (categories.length > 0 && categories.find(c => c.id === product.category_id)?.slug === 'pizzas')));
 
@@ -716,10 +736,15 @@ function ProductCard({ pizza, onAdd }: any) {
       <div className="p-5 sm:p-6 flex-1 flex flex-col">
         <h4 className="text-xl font-black mb-1 group-hover:text-primary transition-colors text-text-main">{pizza.name}</h4>
 
-        {(pizza.serves_description || pizza.prep_time) && (
-          <div className="flex items-center gap-3 text-[10px] text-text-muted font-black uppercase tracking-wider mb-2">
+        {(pizza.serves_description || pizza.prep_time || (pizza.variations && pizza.variations.length > 0)) && (
+          <div className="flex flex-wrap items-center gap-2 text-[10px] text-text-muted font-black uppercase tracking-wider mb-2">
             {pizza.serves_description && <span>👥 {pizza.serves_description}</span>}
             {pizza.prep_time && <span>⏱️ {pizza.prep_time} MIN</span>}
+            {pizza.variations && pizza.variations.length > 0 && (
+              <span className="text-primary bg-primary/10 px-2 py-0.5 rounded-full border border-primary/20">
+                🥤 {pizza.variations.length} {pizza.variations.length === 1 ? 'Sabor' : 'Sabores'}
+              </span>
+            )}
           </div>
         )}
 
@@ -782,10 +807,15 @@ function ListItem({ pizza, onAdd }: any) {
       <div className={`flex-1 min-w-0 flex flex-col justify-center pr-6 ${pizza.soldOut ? 'opacity-30' : ''}`}>
         <h5 className="text-sm sm:text-base font-black mb-0.5 group-hover:text-primary transition-colors text-text-main truncate">{pizza.name}</h5>
 
-        {(pizza.serves_description || pizza.prep_time) && (
-          <div className="flex items-center gap-2 text-[9px] text-text-muted font-black uppercase tracking-wider mb-1 leading-tight">
+        {(pizza.serves_description || pizza.prep_time || (pizza.variations && pizza.variations.length > 0)) && (
+          <div className="flex flex-wrap items-center gap-2 text-[9px] text-text-muted font-black uppercase tracking-wider mb-1 leading-tight">
             {pizza.serves_description && <span>👥 {pizza.serves_description}</span>}
             {pizza.prep_time && <span>⏱️ {pizza.prep_time} MIN</span>}
+            {pizza.variations && pizza.variations.length > 0 && (
+              <span className="text-primary bg-primary/10 px-1.5 py-0.5 rounded-md border border-primary/20">
+                🥤 {pizza.variations.length} {pizza.variations.length === 1 ? 'Sabor' : 'Sabores'}
+              </span>
+            )}
           </div>
         )}
 
